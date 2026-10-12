@@ -1,30 +1,71 @@
 // Modo editor: solo se carga al abrir la página con ?editar al final del link.
-// Los cambios se guardan como borrador en ESTE navegador. Para publicarlos hay que
-// descargar canciones.js y reemplazar el archivo en GitHub.
+// Cada cambio se guarda en el servidor (/api/canciones) y lo ven todos al instante.
+// El servidor exige la contraseña ADMIN_PASSWORD; sin ella nadie puede modificar nada.
 (() => {
   'use strict';
 
   const app = window.RepertorioApp;
   const { el, norm } = app;
   const $ = id => document.getElementById(id);
-  const CAMPOS = ['titulo', 'artista', 'tono', 'ritmo', 'nota'];
+  const CAMPOS = ['titulo', 'artista', 'tono', 'nota'];
   const TONOS = ['C', 'C#', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
     .flatMap(t => [t, t + 'm']);
+  const CLAVE = 'repertorio-clave'; // se recuerda solo mientras la pestaña siga abierta
   let editando = -1;
 
   const lista = () => app.data.canciones;
+  const estado = texto => { $('estado').textContent = texto; };
+  const leerClave = () => { try { return sessionStorage.getItem(CLAVE) || ''; } catch (e) { return ''; } };
+  const recordarClave = v => { try { sessionStorage.setItem(CLAVE, v); } catch (e) { /* nada */ } };
+
   // input.list es de solo lectura en el DOM: el vínculo con el datalist se hace por atributo.
   const conLista = (input, id) => { input.setAttribute('list', id); return input; };
   const campo = (k, etiqueta, extra) => el('label', {}, etiqueta + ': ', extra || el('input', { id: 'f-' + k, size: 16 }));
 
-  function guardarBorrador() {
-    try { localStorage.setItem(app.DRAFT, JSON.stringify(app.data)); } catch (e) { /* almacenamiento bloqueado */ }
-    $('estado').textContent = 'Cambios guardados en este navegador. Falta descargar canciones.js y subirlo para que los vea la gente.';
-    app.render();
+  // Partes: una por línea, "Nombre: acordes". Ej: "Precoro: Am C D"
+  const partesATexto = ps => (ps || []).map(p => (p.nombre ? p.nombre + ': ' : '') + p.prog).join('\n');
+  const textoAPartes = t => t.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    const i = l.indexOf(':');
+    return i < 0 ? { nombre: '', prog: l } : { nombre: l.slice(0, i).trim(), prog: l.slice(i + 1).trim() };
+  });
+  const limpia = c => ({ ...Object.fromEntries(CAMPOS.map(k => [k, c[k] || ''])), partes: c.partes || [] });
+  const paquete = () => {
+    const d = app.data;
+    return {
+      nombre: d.nombre || '', intro: d.intro || '', whatsapp: d.whatsapp || '',
+      actualizado: new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }),
+      canciones: d.canciones.map(limpia)
+    };
+  };
+
+  // Envía TODO el repertorio al servidor. Si falla, el siguiente cambio vuelve a intentarlo.
+  async function guardar() {
+    const clave = $('clave').value.trim() || leerClave();
+    if (!clave) { estado('Escribe tu contraseña arriba para poder guardar.'); $('clave').focus(); return false; }
+    estado('Guardando…');
+    try {
+      const r = await fetch('/api/canciones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clave, data: paquete() })
+      });
+      const j = await r.json().catch(() => ({}));
+      if (r.status === 401) { recordarClave(''); estado('Contraseña incorrecta. No se guardó.'); return false; }
+      if (!r.ok) { estado('No se guardó: ' + (j.error || 'error ' + r.status)); return false; }
+      recordarClave(clave);
+      app.data.actualizado = paquete().actualizado;
+      estado('Guardado. Ya lo ve todo el mundo.');
+      return true;
+    } catch (e) {
+      estado('No se guardó: sin conexión con el servidor. Prueba de nuevo.');
+      return false;
+    }
   }
+  const cambio = () => { app.render(); return guardar(); };
 
   function limpiarForm() {
     CAMPOS.forEach(k => { $('f-' + k).value = ''; });
+    $('f-partes').value = '';
     editando = -1;
     $('btn-guardar').textContent = 'Agregar';
     $('btn-cancelar').hidden = true;
@@ -32,17 +73,18 @@
 
   function guardarCancion(e) {
     e.preventDefault();
-    const c = Object.fromEntries(CAMPOS.map(k => [k, $('f-' + k).value.trim()]));
+    const c = { ...Object.fromEntries(CAMPOS.map(k => [k, $('f-' + k).value.trim()])), partes: textoAPartes($('f-partes').value) };
     if (!c.titulo) { $('f-titulo').focus(); return; }
     const repetida = lista().some((x, i) => i !== editando && norm(x.titulo) === norm(c.titulo) && norm(x.artista) === norm(c.artista));
     if (repetida && !confirm('Ya existe una canción igual. ¿Agregarla de todos modos?')) return;
     if (editando >= 0) lista()[editando] = c; else lista().push(c);
     limpiarForm();
-    guardarBorrador();
+    cambio();
   }
 
   function editar(i) {
     CAMPOS.forEach(k => { $('f-' + k).value = lista()[i][k] || ''; });
+    $('f-partes').value = partesATexto(lista()[i].partes);
     editando = i;
     $('btn-guardar').textContent = 'Guardar cambios';
     $('btn-cancelar').hidden = false;
@@ -53,89 +95,68 @@
     if (!confirm(`¿Borrar "${lista()[i].titulo}"?`)) return;
     lista().splice(i, 1);
     limpiarForm();
-    guardarBorrador();
+    cambio();
   }
 
-  // Cada línea: Título ; Artista ; Tono ; Ritmo   (también acepta tabulador o " - ")
+  // Cada línea: Título ; Artista ; Tono   (también acepta tabulador o " - ")
   function agregarVarias() {
     const nuevas = $('masivo').value.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
-      const [titulo, artista, tono, ritmo] = l.split(/\s*[;\t]\s*|\s+-\s+/).map(s => s.trim());
-      return { titulo, artista: artista || '', tono: tono || '', ritmo: ritmo || '', nota: '' };
+      const [titulo, artista, tono] = l.split(/\s*[;\t]\s*|\s+-\s+/).map(s => s.trim());
+      return { titulo, artista: artista || '', tono: tono || '', nota: '', partes: [] };
     });
     if (!nuevas.length) return;
     lista().push(...nuevas);
     $('masivo').value = '';
-    guardarBorrador();
-    $('estado').textContent = `${nuevas.length} canciones agregadas. ` + $('estado').textContent;
+    cambio();
   }
 
-  function serializar() {
-    const d = app.data;
-    d.actualizado = new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' });
-    const cab = ['nombre', 'intro', 'whatsapp', 'actualizado'].map(k => `  ${k}: ${JSON.stringify(d[k] || '')},`);
-    return '// Repertorio. Se edita desde el link con ?editar o pidiéndole los cambios a Claude.\n'
-      + 'window.REPERTORIO = {\n' + cab.join('\n') + '\n  canciones: [\n'
-      + d.canciones.map(c => '    ' + JSON.stringify(Object.fromEntries(CAMPOS.map(k => [k, c[k] || ''])))).join(',\n')
-      + '\n  ]\n};\n';
-  }
-
-  function descargar() {
-    const url = URL.createObjectURL(new Blob([serializar()], { type: 'text/javascript' }));
-    el('a', { href: url, download: 'canciones.js' }).click();
+  function descargarCopia() {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(paquete(), null, 2)], { type: 'application/json' }));
+    el('a', { href: url, download: 'repertorio-copia.json' }).click();
     URL.revokeObjectURL(url);
-    guardarBorrador();
-  }
-
-  async function copiar() {
-    try { await navigator.clipboard.writeText(serializar()); $('estado').textContent = 'Copiado. Pégalo en canciones.js en GitHub.'; }
-    catch (e) { $('estado').textContent = 'No se pudo copiar. Usa "Descargar canciones.js".'; }
-  }
-
-  function descartar() {
-    if (!confirm('¿Descartar todos tus cambios y volver a la versión publicada?')) return;
-    try { localStorage.removeItem(app.DRAFT); } catch (e) { /* nada */ }
-    location.reload();
   }
 
   function vaciar() {
     if (!confirm('¿Borrar TODAS las canciones de la lista?')) return;
     app.data.canciones = [];
     limpiarForm();
-    guardarBorrador();
+    cambio();
   }
 
+  // Nombre, texto y WhatsApp: se guardan al salir de cada casilla.
   function datosPagina(k, etiqueta, size) {
     return el('label', {}, etiqueta + ': ', el('input', {
       size, value: app.data[k] || '',
-      oninput: e => { app.data[k] = e.target.value; guardarBorrador(); }
+      onchange: e => { app.data[k] = e.target.value.trim(); cambio(); }
     }), ' ');
   }
 
   function montar() {
     $('editor').replaceChildren(el('div', { className: 'editor' },
-      el('p', {}, el('b', {}, 'Modo editor. '), 'Solo tú ves esto; la gente que abra el link normal no puede cambiar nada.'),
+      el('p', {}, el('b', {}, 'Modo editor. '), 'Cada cambio se guarda al instante y lo ve todo el mundo. Solo funciona con tu contraseña.'),
+      el('p', {}, el('label', {}, 'Contraseña: ', el('input', { id: 'clave', type: 'password', size: 22, value: leerClave(), autocomplete: 'current-password' }))),
       el('form', { onsubmit: guardarCancion },
         el('fieldset', {}, el('legend', {}, 'Agregar o editar una canción'),
           campo('titulo', 'Canción'), campo('artista', 'Artista'),
           campo('tono', 'Tono', conLista(el('input', { id: 'f-tono', size: 5 }), 'tonos')),
-          campo('ritmo', 'Ritmo', el('select', { id: 'f-ritmo' }, ...['', 'Lento', 'Medio', 'Rápido'].map(v => el('option', { value: v }, v)))),
           campo('nota', 'Nota (opcional, ej: capo 2)'),
+          el('p', {}, el('label', {}, 'Partes y acordes (opcional): ', el('br'),
+            el('textarea', { id: 'f-partes', rows: 6, cols: 44, placeholder: 'Intro: G D Em C\nVerso: G D Em C\nPrecoro: Am C D\nCoro: G D C' })),
+            el('br'), el('small', {}, 'Una parte por línea, así: Nombre: acordes. Puedes poner también grados (I V vi IV) o la nota que quieras.')),
           el('datalist', { id: 'tonos' }, ...TONOS.map(t => el('option', { value: t }))),
           el('button', { id: 'btn-guardar', type: 'submit' }, 'Agregar'), ' ',
           el('button', { id: 'btn-cancelar', type: 'button', hidden: true, onclick: limpiarForm }, 'Cancelar'))),
       el('details', {}, el('summary', {}, 'Agregar varias de una vez'),
-        el('p', {}, 'Una canción por línea: ', el('code', {}, 'Título ; Artista ; Tono ; Ritmo')),
-        el('textarea', { id: 'masivo', rows: 5, cols: 50, placeholder: 'Océanos ; Hillsong ; D ; Lento' }),
+        el('p', {}, 'Una canción por línea: ', el('code', {}, 'Título ; Artista ; Tono')),
+        el('textarea', { id: 'masivo', rows: 5, cols: 50, placeholder: 'Océanos ; Hillsong ; D' }),
         el('br'), el('button', { type: 'button', onclick: agregarVarias }, 'Agregar todas')),
       el('details', {}, el('summary', {}, 'Nombre, texto y WhatsApp de la página'),
         el('p', {}, datosPagina('nombre', 'Nombre', 30), datosPagina('intro', 'Texto', 40), datosPagina('whatsapp', 'WhatsApp (ej: 18095551234)', 14))),
       el('p', {},
-        el('button', { type: 'button', onclick: descargar }, 'Descargar canciones.js'), ' ',
-        el('button', { type: 'button', onclick: copiar }, 'Copiar texto'), ' ',
-        el('button', { type: 'button', onclick: descartar }, 'Descartar mis cambios'), ' ',
+        el('button', { type: 'button', onclick: guardar }, 'Guardar ahora'), ' ',
+        el('button', { type: 'button', onclick: descargarCopia }, 'Descargar copia de seguridad'), ' ',
         el('button', { type: 'button', onclick: vaciar }, 'Vaciar lista')),
-      el('p', { id: 'estado' }, ''),
-      el('p', {}, 'Para publicar: en GitHub abre canciones.js, pulsa el lápiz, reemplaza todo con el texto nuevo y pulsa Commit. Vercel actualiza solo en un minuto.')));
+      el('p', { id: 'estado', 'aria-live': 'polite' }, '')));
   }
 
   app.acciones = i => el('td', {},
