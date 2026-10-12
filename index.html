@@ -1,59 +1,60 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-tema="papel">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Repertorio</title>
 <style>
-  :root { --ink: #1b1b1f; --muted: #6b6f76; --line: #e3e5e8; --accent: #2b59c3; }
+  :root { --accent: #2b59c3; --serif: Georgia, "Times New Roman", serif; --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  :root[data-tema=papel] { --bg: #faf6ee; --ink: #2a2620; --muted: #7a7266; --line: #e4dccb; --fila: #f1eadb; --pl: 84%; --pt: #2a2620; --tit: var(--serif); }
+  :root[data-tema=escenario] { --bg: #1c1c1e; --ink: #f1e9d8; --muted: #a39d90; --line: #38383b; --fila: #27272a; --pl: 30%; --pt: #f1e9d8; --tit: var(--sans); }
   * { box-sizing: border-box; }
-  body { font: 17px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; max-width: 44rem; margin: 0 auto; padding: 2rem 1rem 4rem; color: var(--ink); background: #fff; }
-  h1 { font-size: 1.9rem; line-height: 1.2; letter-spacing: -.01em; margin: 0 0 .4rem; }
-  #intro { color: var(--muted); margin: 0 0 1.5rem; }
-  input, select, textarea { font: inherit; color: var(--ink); padding: .5rem .7rem; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
-  button { font: inherit; font-size: .95rem; padding: .45rem .8rem; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); cursor: pointer; }
-  button:hover { border-color: #b9bec6; }
-  button[type=submit] { background: var(--accent); border-color: var(--accent); color: #fff; }
-  :is(input, select, textarea, button, a):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  label { display: inline-block; margin: .2rem .8rem .2rem 0; color: var(--muted); font-size: .9rem; }
-  table { border-collapse: collapse; width: 100%; }
-  th, td { padding: .7rem .5rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
-  th { font-size: .85rem; color: var(--muted); border-bottom: 2px solid var(--line); }
-  th button { font-weight: 600; font-size: inherit; padding: 0; border: 0; background: none; color: inherit; }
-  th button:hover { color: var(--accent); }
-  tbody tr:hover { background: #f6f8fc; }
-  td:first-child { font-weight: 600; }
-  td a { margin-left: .6rem; font-size: .9rem; font-weight: 400; color: var(--accent); }
-  .scroll { overflow-x: auto; }
-  .nota { display: block; font-size: .85rem; font-weight: 400; color: var(--muted); }
-  #cuenta, #pie { color: var(--muted); font-size: .9rem; }
+  body { font: 17px/1.4 var(--sans); max-width: 44rem; margin: 0 auto; padding: 1.2rem 1rem 4rem; color: var(--ink); background: var(--bg); }
+  html { background: var(--bg); }
+  header { display: flex; justify-content: space-between; align-items: flex-start; gap: .8rem; }
+  h1 { font: 700 1.8rem/1.2 var(--tit); margin: 0 0 .3rem; }
+  #intro { color: var(--muted); margin: 0 0 1rem; }
+  input, select, textarea, button { font: inherit; color: var(--ink); }
+  input, select, textarea { font-size: 16px; padding: .55rem .7rem; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); }
+  button { min-height: 44px; padding: .4rem .9rem; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); cursor: pointer; }
+  :is(input, select, textarea, button):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #barra { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: .5rem 0 .6rem; border-bottom: 1px solid var(--line); }
+  .busca { display: flex; align-items: center; gap: .6rem; }
+  .busca input { flex: 1; min-width: 0; min-height: 48px; }
+  .badge { flex: none; padding: .25rem .6rem; border: 1px solid var(--line); border-radius: 4px; font-size: .85rem; color: var(--muted); white-space: nowrap; }
+  .pastillas { display: flex; gap: .45rem; overflow-x: auto; padding: .6rem 0 .2rem; -webkit-overflow-scrolling: touch; }
+  .pastillas button { flex: none; min-width: 48px; padding: .3rem .7rem; font-weight: 700; }
+  .pastillas button[aria-pressed=true] { border: 2px solid var(--ink); }
+  .tono { display: inline-flex; align-items: center; justify-content: center; min-width: 2.6rem; padding: .35rem .6rem; border-radius: 4px; font-weight: 700; color: var(--pt); background: hsl(var(--h, 0) var(--s, 0%) var(--pl)); }
+  .tono small { font-size: .65em; font-weight: 600; margin-left: 1px; }
+  .fila { display: flex; align-items: center; gap: .6rem; padding: .3rem 0; border-bottom: 1px solid var(--line); }
+  .abrir { flex: 1; min-width: 0; display: block; text-align: left; border: 0; background: none; padding: .55rem 0; min-height: 56px; }
+  .t { display: block; font: 700 1.2rem/1.25 var(--tit); }
+  .a { display: block; font-size: .9rem; color: var(--muted); }
+  .detalle { display: grid; grid-template-columns: max-content 1fr; gap: .3rem 1rem; margin: 0; padding: .7rem .8rem; background: var(--fila); border-bottom: 1px solid var(--line); }
+  .detalle dt { color: var(--muted); font-size: .9rem; }
+  .detalle dd { margin: 0; font-family: ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; }
+  .vacio { padding: 1.5rem 0; color: var(--muted); }
+  #pie { color: var(--muted); font-size: .9rem; }
   hr { border: 0; border-top: 1px solid var(--line); margin: 2rem 0 1rem; }
-  .editor { background: #fff8d6; border: 1px solid #eadb8f; border-radius: 10px; padding: .8rem 1rem; margin: 1rem 0 1.5rem; font-size: 16px; }
+  .editor { border-left: 5px solid #d9a400; padding: .4rem 0 .4rem .9rem; margin: 1rem 0 1.2rem; font-size: 16px; }
+  .editor label { display: inline-block; margin: .2rem .8rem .2rem 0; color: var(--muted); }
   .editor input, .editor select, .editor textarea { max-width: 100%; }
-  .editor fieldset { margin: .8rem 0; border: 1px solid #eadb8f; border-radius: 8px; }
-  .abrir { font: inherit; font-weight: 600; padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
-  .abrir:hover { color: var(--accent); }
-  tr.detalle td { background: #f6f8fc; }
-  dl { display: grid; grid-template-columns: max-content 1fr; gap: .25rem 1rem; margin: 0; }
-  dt { color: var(--muted); font-size: .9rem; }
-  dd { margin: 0; font-family: ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; }
+  .editor fieldset { margin: .8rem 0; border: 1px solid var(--line); border-radius: 4px; }
+  .acciones { flex: none; display: flex; gap: .3rem; }
+  .acciones button { min-height: 40px; padding: .2rem .6rem; font-size: .9rem; }
+  @media print { header button, #barra, #editor { display: none; } :root { --bg: #fff; --ink: #000; } }
 </style>
 </head>
 <body>
-<h1 id="titulo"></h1>
+<header><h1 id="titulo"></h1><button id="tema" type="button"></button></header>
 <p id="intro"></p>
 <div id="editor"></div>
-<p>
-  <label>Buscar: <input id="q" type="search"></label>
-  <label>Tono: <select id="tono"></select></label>
-</p>
-<p id="cuenta" aria-live="polite"></p>
-<div class="scroll">
-  <table>
-    <thead id="cabeza"></thead>
-    <tbody id="filas"></tbody>
-  </table>
+<div id="barra">
+  <div class="busca"><input id="q" type="search" placeholder="Buscar canción o artista" autocomplete="off"><span id="cuenta" class="badge" aria-live="polite"></span></div>
+  <div id="pastillas" class="pastillas"></div>
 </div>
+<main id="lista"></main>
 <hr>
 <p id="pie"></p>
 
@@ -63,8 +64,6 @@
   'use strict';
 
   const EDITOR = new URLSearchParams(location.search).has('editar');
-  const COLS = [['titulo', 'Canción'], ['artista', 'Artista'], ['tono', 'Tono']];
-  const NCOL = COLS.length + (EDITOR ? 1 : 0);
   const NOTAS = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
 
   const $ = id => document.getElementById(id);
@@ -75,8 +74,22 @@
     n.append(...kids.flat().filter(k => k != null && k !== false));
     return n;
   };
-  // --- búsqueda ---
-  // Sin tildes, mayúsculas ni signos; tolera pequeños errores de escritura (distancia de edición).
+
+  // --- tema (Papel / Escenario): arranca según el modo del teléfono y se recuerda ---
+  const TEMA = 'repertorio-tema';
+  const guardado = () => { try { return localStorage.getItem(TEMA); } catch (e) { return null; } };
+  function aplicarTema(t) {
+    document.documentElement.dataset.tema = t;
+    $('tema').textContent = t === 'papel' ? 'Escenario' : 'Papel';
+  }
+  aplicarTema(guardado() || (matchMedia('(prefers-color-scheme: dark)').matches ? 'escenario' : 'papel'));
+  $('tema').addEventListener('click', () => {
+    const t = document.documentElement.dataset.tema === 'papel' ? 'escenario' : 'papel';
+    try { localStorage.setItem(TEMA, t); } catch (e) { /* nada */ }
+    aplicarTema(t);
+  });
+
+  // --- búsqueda: sin tildes ni signos; tolera pequeños errores (distancia de edición) ---
   const fichas = s => norm(s).replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
   const distancia = (a, b) => {
     const fila = Array.from({ length: b.length + 1 }, (_, j) => j);
@@ -91,7 +104,6 @@
     }
     return fila[b.length];
   };
-  // null = no coincide; menor número = mejor coincidencia.
   const puntaje = (c, palabras) => {
     const textos = fichas(c.titulo + ' ' + c.artista);
     let total = 0;
@@ -111,12 +123,24 @@
     }
     return total;
   };
-  // --- fin búsqueda ---
-  // Orden musical: por nota (C, C#, D...) y, a igual nota, mayor antes que menor.
+
+  // --- color por tono: misma nota = mismo matiz; el menor, más frío (hacia azul) y más apagado ---
+  const TONO_RE = /^([A-G][#b]?)(m?)/;
   const posTono = k => {
-    const m = /^([A-G][#b]?)(m?)/.exec(k || '');
+    const m = TONO_RE.exec(k || '');
     return m ? NOTAS[m[1]] * 2 + (m[2] ? 1 : 0) : 99;
   };
+  function colorear(nodo, tono) {
+    const m = TONO_RE.exec(tono || '');
+    if (!m) return nodo;
+    let h = NOTAS[m[1]] * 30;
+    if (m[2]) h = (h + (((220 - h + 540) % 360) - 180) * 0.2 + 360) % 360;
+    nodo.style.setProperty('--h', Math.round(h));
+    nodo.style.setProperty('--s', m[2] ? '22%' : '34%');
+    return nodo;
+  }
+  const rotulo = t => { const m = TONO_RE.exec(t || ''); return m ? [m[1], m[2] && el('small', {}, 'm')] : [t || '—']; };
+  const pastilla = t => colorear(el('span', { className: 'tono' }, ...rotulo(t)), t);
 
   const normalizar = d => {
     const x = clone(d || {});
@@ -124,52 +148,34 @@
     return x;
   };
   let data = normalizar(null);
-  const vista = { q: '', tono: '', campo: 'titulo', dir: 1, manual: false };
-  // Con texto en el buscador se ordena por parecido, salvo que la persona haya elegido una columna.
-  const porRelevancia = () => vista.q.trim() !== '' && !vista.manual;
+  const vista = { q: '', tono: '' };
 
-  const valores = k => [...new Set(data.canciones.map(c => c[k]).filter(Boolean))]
-    .sort(k === 'tono' ? (a, b) => posTono(a) - posTono(b) : (a, b) => a.localeCompare(b, 'es'));
+  const tonosPresentes = () => [...new Set(data.canciones.map(c => c.tono).filter(Boolean))].sort((a, b) => posTono(a) - posTono(b));
 
   function visibles() {
     const palabras = fichas(vista.q);
-    const cmp = vista.campo === 'tono'
-      ? (a, b) => posTono(a.c.tono) - posTono(b.c.tono)
-      : (a, b) => (a.c[vista.campo] || '').localeCompare(b.c[vista.campo] || '', 'es');
     const filas = [];
     data.canciones.forEach((c, i) => {
       if (vista.tono && c.tono !== vista.tono) return;
       const p = puntaje(c, palabras);
       if (p !== null) filas.push({ c, i, p });
     });
-    return filas.sort(porRelevancia()
-      ? (a, b) => a.p - b.p || a.c.titulo.localeCompare(b.c.titulo, 'es')
-      : (a, b) => cmp(a, b) * vista.dir);
+    const porTitulo = (a, b) => a.c.titulo.localeCompare(b.c.titulo, 'es');
+    return filas.sort(palabras.length ? (a, b) => a.p - b.p || porTitulo(a, b) : porTitulo);
   }
 
-  function llenarSelect(sel, vals) {
-    const actual = sel.value;
-    sel.replaceChildren(el('option', { value: '' }, 'todos'), ...vals.map(v => el('option', { value: v }, v)));
-    sel.value = vals.includes(actual) ? actual : '';
-    vista[sel.id] = sel.value;
+  function pastillas() {
+    if (vista.tono && !tonosPresentes().includes(vista.tono)) vista.tono = '';
+    const boton = (t, hijos, tono) => colorear(el('button', {
+      type: 'button', 'aria-pressed': String(vista.tono === t),
+      onclick: () => { vista.tono = t; render(); }
+    }, ...hijos), tono);
+    $('pastillas').replaceChildren(
+      boton('', ['Todos']),
+      ...tonosPresentes().map(t => { const b = boton(t, rotulo(t), t); b.classList.add('tono'); return b; }));
   }
 
-  function cabecera() {
-    const flecha = k => !porRelevancia() && vista.campo === k ? (vista.dir > 0 ? ' ▲' : ' ▼') : '';
-    $('cabeza').replaceChildren(el('tr', {},
-      COLS.map(([k, t]) => el('th', {},
-        el('button', { type: 'button', title: 'Ordenar por ' + t, onclick: () => ordenar(k) }, t + flecha(k)))),
-      EDITOR && el('th', {}, '')));
-  }
-
-  function ordenar(k) {
-    vista.dir = vista.campo === k ? -vista.dir : 1;
-    vista.campo = k;
-    vista.manual = true;
-    render();
-  }
-
-  // Canciones con partes (intro, verso, precoro, coro...) se abren al tocar el título.
+  // Canciones con partes se abren al tocar (se reemplaza por pantalla completa en el Bloque 2).
   const abiertas = new Set();
   const clave = c => c.titulo + '|' + (c.artista || '');
 
@@ -177,27 +183,17 @@
     const partes = (c.partes || []).filter(p => p.prog);
     const k = clave(c);
     const abierta = partes.length > 0 && abiertas.has(k);
-    let titulo = c.titulo;
-    if (partes.length) {
-      titulo = el('button', {
-        type: 'button', className: 'abrir',
-        onclick: () => { abiertas.has(k) ? abiertas.delete(k) : abiertas.add(k); render(); }
-      }, (abierta ? '▾ ' : '▸ ') + c.titulo);
-      titulo.setAttribute('aria-expanded', String(abierta));
-    }
-    const pedir = data.whatsapp && el('a', {
-      href: `https://wa.me/${encodeURIComponent(data.whatsapp)}?text=${encodeURIComponent(`Hola, quisiera que cantaras "${c.titulo}" en la iglesia.`)}`,
-      target: '_blank', rel: 'noopener'
-    }, 'pedir');
-    const principal = el('tr', {},
-      el('td', {}, titulo, c.nota && el('span', { className: 'nota' }, c.nota), pedir),
-      el('td', {}, c.artista || ''),
-      el('td', {}, c.tono || ''),
-      EDITOR && (app.acciones ? app.acciones(i) : el('td')));
+    const cuerpo = el('button', {
+      type: 'button', className: 'abrir',
+      onclick: () => { if (!partes.length) return; abiertas.has(k) ? abiertas.delete(k) : abiertas.add(k); render(); }
+    },
+      el('span', { className: 't' }, (partes.length ? (abierta ? '▾ ' : '▸ ') : '') + c.titulo),
+      c.artista && el('span', { className: 'a' }, c.artista),
+      c.nota && el('span', { className: 'a' }, c.nota));
+    if (partes.length) cuerpo.setAttribute('aria-expanded', String(abierta));
+    const principal = el('div', { className: 'fila' }, cuerpo, pastilla(c.tono), EDITOR && app.acciones && app.acciones(i));
     if (!abierta) return [principal];
-    const detalle = el('tr', { className: 'detalle' }, el('td', { colSpan: NCOL },
-      el('dl', {}, ...partes.flatMap(p => [el('dt', {}, p.nombre || ''), el('dd', {}, p.prog)]))));
-    return [principal, detalle];
+    return [principal, el('dl', { className: 'detalle' }, ...partes.flatMap(p => [el('dt', {}, p.nombre || ''), el('dd', {}, p.prog)]))];
   }
 
   function render() {
@@ -205,17 +201,15 @@
     $('titulo').textContent = data.nombre || 'Repertorio';
     $('intro').textContent = data.intro || '';
     $('pie').textContent = data.actualizado ? 'Actualizado: ' + data.actualizado : '';
-    llenarSelect($('tono'), valores('tono'));
-    cabecera();
+    pastillas();
     const rows = visibles();
-    $('cuenta').textContent = `${rows.length} de ${data.canciones.length} canciones`;
-    $('filas').replaceChildren(...(rows.length
+    $('cuenta').textContent = `${rows.length} de ${data.canciones.length}`;
+    $('lista').replaceChildren(...(rows.length
       ? rows.flatMap(fila)
-      : [el('tr', {}, el('td', { colSpan: NCOL }, 'No hay canciones con esos filtros.'))]));
+      : [el('p', { className: 'vacio' }, 'No hay canciones con esos filtros.')]));
   }
 
-  $('q').addEventListener('input', e => { vista.q = e.target.value; vista.manual = false; render(); });
-  $('tono').addEventListener('change', e => { vista.tono = e.target.value; render(); });
+  $('q').addEventListener('input', e => { vista.q = e.target.value; render(); });
 
   // Interfaz que usa editor.js (solo se carga con ?editar)
   const app = window.RepertorioApp = {
@@ -225,10 +219,9 @@
     acciones: null
   };
 
-  // Los datos viven en el servidor (/api/canciones). Si no responde, se usa la copia
-  // incluida en el sitio (canciones.js) para que la página nunca quede vacía.
+  // Datos en el servidor (/api/canciones); si no responde, la copia incluida (canciones.js).
   async function cargar() {
-    $('cuenta').textContent = 'Cargando…';
+    $('cuenta').textContent = '…';
     let d = window.REPERTORIO;
     try {
       const r = await fetch('/api/canciones', { cache: 'no-store' });

@@ -18,8 +18,6 @@
   const leerClave = () => { try { return sessionStorage.getItem(CLAVE) || ''; } catch (e) { return ''; } };
   const recordarClave = v => { try { sessionStorage.setItem(CLAVE, v); } catch (e) { /* nada */ } };
 
-  // input.list es de solo lectura en el DOM: el vínculo con el datalist se hace por atributo.
-  const conLista = (input, id) => { input.setAttribute('list', id); return input; };
   const campo = (k, etiqueta, extra) => el('label', {}, etiqueta + ': ', extra || el('input', { id: 'f-' + k, size: 16 }));
 
   // Partes: una por línea, "Nombre: acordes". Ej: "Precoro: Am C D"
@@ -32,7 +30,7 @@
   const paquete = () => {
     const d = app.data;
     return {
-      nombre: d.nombre || '', intro: d.intro || '', whatsapp: d.whatsapp || '',
+      nombre: d.nombre || '', intro: d.intro || '',
       actualizado: new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }),
       canciones: d.canciones.map(limpia)
     };
@@ -75,6 +73,7 @@
     e.preventDefault();
     const c = { ...Object.fromEntries(CAMPOS.map(k => [k, $('f-' + k).value.trim()])), partes: textoAPartes($('f-partes').value) };
     if (!c.titulo) { $('f-titulo').focus(); return; }
+    if (!c.tono) { estado('Elige el tono de la canción.'); $('f-tono').focus(); return; }
     const repetida = lista().some((x, i) => i !== editando && norm(x.titulo) === norm(c.titulo) && norm(x.artista) === norm(c.artista));
     if (repetida && !confirm('Ya existe una canción igual. ¿Agregarla de todos modos?')) return;
     if (editando >= 0) lista()[editando] = c; else lista().push(c);
@@ -105,6 +104,8 @@
       return { titulo, artista: artista || '', tono: tono || '', nota: '', partes: [] };
     });
     if (!nuevas.length) return;
+    const malas = nuevas.filter(n => !TONOS.includes(n.tono));
+    if (malas.length) { estado('Falta el tono o es inválido en: ' + malas.map(n => n.titulo).join(', ') + '. No se agregó nada.'); return; }
     lista().push(...nuevas);
     $('masivo').value = '';
     cambio();
@@ -138,20 +139,19 @@
       el('form', { onsubmit: guardarCancion },
         el('fieldset', {}, el('legend', {}, 'Agregar o editar una canción'),
           campo('titulo', 'Canción'), campo('artista', 'Artista'),
-          campo('tono', 'Tono', conLista(el('input', { id: 'f-tono', size: 5 }), 'tonos')),
+          campo('tono', 'Tono (obligatorio)', el('select', { id: 'f-tono', required: true }, el('option', { value: '' }, 'Elige'), ...TONOS.map(t => el('option', { value: t }, t)))),
           campo('nota', 'Nota (opcional, ej: capo 2)'),
           el('p', {}, el('label', {}, 'Partes y acordes (opcional): ', el('br'),
             el('textarea', { id: 'f-partes', rows: 6, cols: 44, placeholder: 'Intro: G D Em C\nVerso: G D Em C\nPrecoro: Am C D\nCoro: G D C' })),
             el('br'), el('small', {}, 'Una parte por línea, así: Nombre: acordes. Puedes poner también grados (I V vi IV) o la nota que quieras.')),
-          el('datalist', { id: 'tonos' }, ...TONOS.map(t => el('option', { value: t }))),
           el('button', { id: 'btn-guardar', type: 'submit' }, 'Agregar'), ' ',
           el('button', { id: 'btn-cancelar', type: 'button', hidden: true, onclick: limpiarForm }, 'Cancelar'))),
       el('details', {}, el('summary', {}, 'Agregar varias de una vez'),
         el('p', {}, 'Una canción por línea: ', el('code', {}, 'Título ; Artista ; Tono')),
         el('textarea', { id: 'masivo', rows: 5, cols: 50, placeholder: 'Océanos ; Hillsong ; D' }),
         el('br'), el('button', { type: 'button', onclick: agregarVarias }, 'Agregar todas')),
-      el('details', {}, el('summary', {}, 'Nombre, texto y WhatsApp de la página'),
-        el('p', {}, datosPagina('nombre', 'Nombre', 30), datosPagina('intro', 'Texto', 40), datosPagina('whatsapp', 'WhatsApp (ej: 18095551234)', 14))),
+      el('details', {}, el('summary', {}, 'Nombre y texto de la página'),
+        el('p', {}, datosPagina('nombre', 'Nombre', 30), datosPagina('intro', 'Texto', 40))),
       el('p', {},
         el('button', { type: 'button', onclick: guardar }, 'Guardar ahora'), ' ',
         el('button', { type: 'button', onclick: descargarCopia }, 'Descargar copia de seguridad'), ' ',
@@ -159,7 +159,7 @@
       el('p', { id: 'estado', 'aria-live': 'polite' }, '')));
   }
 
-  app.acciones = i => el('td', {},
+  app.acciones = i => el('div', { className: 'acciones' },
     el('button', { type: 'button', onclick: () => editar(i) }, 'Editar'), ' ',
     el('button', { type: 'button', onclick: () => borrar(i) }, 'Borrar'));
 
