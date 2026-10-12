@@ -42,7 +42,7 @@
   .parte h3 { margin: 0 0 .4rem; font: 700 .85rem var(--sans); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
   .parte h3 small { font-weight: 400; text-transform: none; }
   .chips { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
-  .chip { padding: .3rem .7rem; border: 1px solid var(--ink); border-radius: 3px; font: 700 calc(1.3rem * var(--z))/1.2 ui-monospace, Menlo, Consolas, monospace; }
+  .chip { display: inline-flex; flex-direction: column; align-items: center; padding: .3rem .7rem; border: 1px solid var(--ink); border-radius: 3px; font: 700 calc(1.3rem * var(--z))/1.2 ui-monospace, Menlo, Consolas, monospace; }
   .barra { color: var(--muted); font-size: calc(1.5rem * var(--z)); padding: 0 .15rem; }
   .pista { margin: .5rem 0 0; color: var(--muted); font-style: italic; font-size: calc(1rem * var(--z)); }
   .estrella { flex: none; min-width: 44px; padding: .2rem; border: 0; background: none; font-size: 1.3rem; }
@@ -55,7 +55,16 @@
   .editor fieldset { margin: .8rem 0; border: 1px solid var(--line); border-radius: 4px; }
   .acciones { flex: none; display: flex; gap: .3rem; }
   .acciones button { min-height: 40px; padding: .2rem .6rem; font-size: .9rem; }
-  @media print { header button, #barra, #editor { display: none; } :root { --bg: #fff; --ink: #000; } }
+  .rom { font: 400 calc(.75rem * var(--z))/1.1 var(--sans); color: var(--muted); }
+  #vaciar { min-height: 36px; font-size: .85rem; color: var(--muted); }
+  @media print {
+    header button, #barra, #editor, .cbarra, .estrella, .noimp { display: none !important; }
+    :root[data-tema] { --bg: #fff; --ink: #000; --muted: #444; --line: #999; --fila: #fff; --fila2: #fff; }
+    body.fija { overflow: visible; }
+    body.fija header, body.fija #intro, body.fija #lista, body.fija hr, body.fija #pie { display: none; }
+    #cancion { position: static; overflow: visible; }
+    .parte { break-inside: avoid; }
+  }
 </style>
 </head>
 <body>
@@ -70,6 +79,7 @@
 <div id="cancion" hidden></div>
 <hr>
 <p id="pie"></p>
+<p class="noimp"><button id="vaciar" type="button">Borrar copia guardada en este teléfono</button></p>
 
 <script src="canciones.js"></script>
 <script>
@@ -213,13 +223,27 @@
 
   // --- pantalla completa por canción: capa propia, el gesto de atrás del teléfono la cierra ---
   // Compás marcado a mano con "|"; sin barras, los acordes van seguidos.
+  // Número romano = distancia del acorde al tono (de la parte, si tiene uno propio). Aproximado a propósito:
+  // minúscula si el acorde es menor, ♭/♯ en grados alterados, extensiones (7, sus4...) se conservan.
+  const NUM_MAY = ['I', '♭II', 'II', '♭III', 'III', 'IV', '♭V', 'V', '♭VI', 'VI', '♭VII', 'VII'];
+  const NUM_MEN = ['I', '♭II', 'II', 'III', '♯III', 'IV', '♯IV', 'V', 'VI', '♯VI', 'VII', '♯VII'];
+  function romano(acorde, tono) {
+    const k = TONO_RE.exec(tono || ''), m = /^([A-G][#b]?)(.*)$/.exec(acorde);
+    if (!k || !m || NOTAS[m[1]] == null) return '';
+    let ext = m[2].split('/')[0];
+    const menor = /^m(?!aj)/.test(ext) || /^dim/.test(ext);
+    ext = ext.replace(/^m(?!aj)/, '').replace(/^dim/, '°');
+    let n = (k[2] ? NUM_MEN : NUM_MAY)[(NOTAS[m[1]] - NOTAS[k[1]] + 12) % 12];
+    if (menor) n = n.replace(/[IV]+/, x => x.toLowerCase());
+    return n + ext;
+  }
   const compases = prog => prog.split('|').map(g => g.trim().split(/\s+/).filter(t => t && t !== '-')).filter(g => g.length);
 
   function parte(p) {
     const hijos = [];
     compases(p.prog).forEach((g, i) => {
       if (i) hijos.push(el('span', { className: 'barra' }, '|'));
-      g.forEach(a => hijos.push(el('span', { className: 'chip' }, a)));
+      g.forEach(a => hijos.push(el('span', { className: 'chip' }, el('b', {}, a), el('i', { className: 'rom' }, romano(a, p.tono || actual.tono)))));
     });
     return el('section', { className: 'parte' + (norm(p.nombre).trim() === 'coro' ? ' coro' : '') },
       el('h3', {}, p.nombre || '', p.tono && el('small', {}, ' · ' + p.tono)),
@@ -242,7 +266,8 @@
         el('h2', {}, c.titulo),
         el('p', { className: 'a' }, [c.artista, c.nota].filter(Boolean).join(' · ')),
         pastilla(c.tono),
-        ...(partes.length ? partes.map(parte) : [el('p', { className: 'vacio' }, 'Aún no hay partes ni acordes para esta canción.')])));
+        ...(partes.length ? partes.map(parte) : [el('p', { className: 'vacio' }, 'Aún no hay partes ni acordes para esta canción.')]),
+        el('p', { className: 'noimp' }, el('button', { type: 'button', onclick: () => print() }, 'Imprimir'))));
     caja.style.setProperty('--z', zoom);
     caja.hidden = false;
     document.body.classList.add('fija');
@@ -306,13 +331,23 @@
     $('cuenta').textContent = '…';
     let d = window.REPERTORIO;
     try {
-      const r = await fetch('/api/canciones', { cache: 'no-store' });
+      const r = await (EDITOR ? fetch('/api/canciones?fresco=1', { cache: 'no-store' }) : fetch('/api/canciones'));
       if (r.ok) d = await r.json();
     } catch (e) { /* sin servidor: se usa la copia del sitio */ }
     data = normalizar(d);
     render();
     if (EDITOR) document.head.append(el('script', { src: 'editor.js' }));
   }
+  // Offline: sw.js guarda la página y las canciones; se actualizan al abrir con internet.
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => { /* sin offline */ });
+  $('vaciar').addEventListener('click', async () => {
+    if (!confirm('¿Borrar la copia guardada? Hará falta internet para volver a abrir la página. Tus favoritos se conservan.')) return;
+    try {
+      for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
+      for (const k of await caches.keys()) await caches.delete(k);
+    } catch (e) { /* nada */ }
+    location.reload();
+  });
   cargar();
 })();
 </script>
