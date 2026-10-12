@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Repertorio</title>
+<style>
+  body { font: 18px/1.5 Georgia, "Times New Roman", serif; max-width: 46em; margin: 0 auto; padding: 1em; color: #000; background: #fff; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #999; padding: .3em .5em; text-align: left; vertical-align: top; }
+  th { background: #eee; }
+  th button { font: inherit; font-weight: bold; background: none; border: 0; padding: 0; cursor: pointer; color: #00e; text-decoration: underline; }
+  label { display: inline-block; margin: .2em .8em .2em 0; }
+  .scroll { overflow-x: auto; }
+  .nota { display: block; font-size: .85em; color: #555; }
+  .editor { background: #ffc; border: 1px solid #cc9; padding: .6em .8em; margin: 1em 0; font-size: 16px; }
+  .editor input, .editor select, .editor textarea { font: inherit; max-width: 100%; }
+  .editor fieldset { margin: .6em 0; }
+  @media (max-width: 560px) { .ritmo { display: none; } }
+</style>
+</head>
+<body>
+<h1 id="titulo"></h1>
+<p id="intro"></p>
+<div id="editor"></div>
+<p>
+  <label>Buscar: <input id="q" type="search"></label>
+  <label>Tono: <select id="tono"></select></label>
+</p>
+<p id="cuenta" aria-live="polite"></p>
+<div class="scroll">
+  <table>
+    <thead id="cabeza"></thead>
+    <tbody id="filas"></tbody>
+  </table>
+</div>
+<hr>
+<p id="pie"></p>
+
+<script src="canciones.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  const DRAFT = 'repertorio-borrador';
+  const EDITOR = new URLSearchParams(location.search).has('editar');
+  const COLS = [['titulo', 'Canción'], ['artista', 'Artista'], ['tono', 'Tono'], ['ritmo', 'Ritmo']];
+  const NOTAS = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
+
+  const $ = id => document.getElementById(id);
+  const clone = o => JSON.parse(JSON.stringify(o));
+  const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const el = (tag, props = {}, ...kids) => {
+    const n = Object.assign(document.createElement(tag), props);
+    n.append(...kids.flat().filter(k => k != null && k !== false));
+    return n;
+  };
+  // Orden musical: por nota (C, C#, D...) y, a igual nota, mayor antes que menor.
+  const posTono = k => {
+    const m = /^([A-G][#b]?)(m?)/.exec(k || '');
+    return m ? NOTAS[m[1]] * 2 + (m[2] ? 1 : 0) : 99;
+  };
+
+  let data = clone(window.REPERTORIO || {});
+  data.canciones = data.canciones || [];
+  if (EDITOR) {
+    try { const d = localStorage.getItem(DRAFT); if (d) data = JSON.parse(d); } catch (e) { /* sin borrador */ }
+  }
+  const vista = { q: '', tono: '', campo: 'titulo', dir: 1 };
+
+  const valores = k => [...new Set(data.canciones.map(c => c[k]).filter(Boolean))]
+    .sort(k === 'tono' ? (a, b) => posTono(a) - posTono(b) : (a, b) => a.localeCompare(b, 'es'));
+
+  function visibles() {
+    const q = norm(vista.q);
+    const cmp = vista.campo === 'tono'
+      ? (a, b) => posTono(a.c.tono) - posTono(b.c.tono)
+      : (a, b) => (a.c[vista.campo] || '').localeCompare(b.c[vista.campo] || '', 'es');
+    return data.canciones
+      .map((c, i) => ({ c, i }))
+      .filter(({ c }) => (!vista.tono || c.tono === vista.tono)
+        && norm(c.titulo + ' ' + c.artista).includes(q))
+      .sort((a, b) => cmp(a, b) * vista.dir);
+  }
+
+  function llenarSelect(sel, vals) {
+    const actual = sel.value;
+    sel.replaceChildren(el('option', { value: '' }, 'todos'), ...vals.map(v => el('option', { value: v }, v)));
+    sel.value = vals.includes(actual) ? actual : '';
+    vista[sel.id] = sel.value;
+  }
+
+  function cabecera() {
+    const flecha = k => vista.campo === k ? (vista.dir > 0 ? ' ▲' : ' ▼') : '';
+    $('cabeza').replaceChildren(el('tr', {},
+      COLS.map(([k, t]) => el('th', { className: k === 'ritmo' ? 'ritmo' : '' },
+        el('button', { type: 'button', title: 'Ordenar por ' + t, onclick: () => ordenar(k) }, t + flecha(k)))),
+      EDITOR && el('th', {}, '')));
+  }
+
+  function ordenar(k) {
+    vista.dir = vista.campo === k ? -vista.dir : 1;
+    vista.campo = k;
+    render();
+  }
+
+  function fila({ c, i }) {
+    const pedir = data.whatsapp && el('a', {
+      href: `https://wa.me/${encodeURIComponent(data.whatsapp)}?text=${encodeURIComponent(`Hola, quisiera que cantaras "${c.titulo}" en la iglesia.`)}`,
+      target: '_blank', rel: 'noopener'
+    }, 'pedir');
+    return el('tr', {},
+      el('td', {}, c.titulo, c.nota && el('span', { className: 'nota' }, c.nota), pedir),
+      el('td', {}, c.artista || ''),
+      el('td', {}, c.tono || ''),
+      el('td', { className: 'ritmo' }, c.ritmo || ''),
+      EDITOR && (app.acciones ? app.acciones(i) : el('td')));
+  }
+
+  function render() {
+    document.title = data.nombre || 'Repertorio';
+    $('titulo').textContent = data.nombre || 'Repertorio';
+    $('intro').textContent = data.intro || '';
+    $('pie').textContent = data.actualizado ? 'Actualizado: ' + data.actualizado : '';
+    llenarSelect($('tono'), valores('tono'));
+    cabecera();
+    const rows = visibles();
+    $('cuenta').textContent = `${rows.length} de ${data.canciones.length} canciones`;
+    $('filas').replaceChildren(...(rows.length
+      ? rows.map(fila)
+      : [el('tr', {}, el('td', { colSpan: 5 }, 'No hay canciones con esos filtros.'))]));
+  }
+
+  $('q').addEventListener('input', e => { vista.q = e.target.value; render(); });
+  $('tono').addEventListener('change', e => { vista.tono = e.target.value; render(); });
+
+  // Interfaz que usa editor.js (solo se carga con ?editar)
+  const app = window.RepertorioApp = {
+    DRAFT, el, norm, render,
+    get data() { return data; },
+    set data(d) { data = d; render(); },
+    acciones: null
+  };
+
+  render();
+  if (EDITOR) document.head.append(el('script', { src: 'editor.js' }));
+})();
+</script>
+</body>
+</html>
