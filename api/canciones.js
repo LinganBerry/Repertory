@@ -49,7 +49,6 @@ function limpiar(d) {
   return {
     nombre: texto(d.nombre, 120),
     intro: texto(d.intro, 300),
-    whatsapp: texto(d.whatsapp, 20).replace(/\D/g, ''),
     actualizado: texto(d.actualizado, 60),
     canciones
   };
