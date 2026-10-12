@@ -5,17 +5,32 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Repertorio</title>
 <style>
-  body { font: 18px/1.5 Georgia, "Times New Roman", serif; max-width: 46em; margin: 0 auto; padding: 1em; color: #000; background: #fff; }
+  :root { --ink: #1b1b1f; --muted: #6b6f76; --line: #e3e5e8; --accent: #2b59c3; }
+  * { box-sizing: border-box; }
+  body { font: 17px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; max-width: 44rem; margin: 0 auto; padding: 2rem 1rem 4rem; color: var(--ink); background: #fff; }
+  h1 { font-size: 1.9rem; line-height: 1.2; letter-spacing: -.01em; margin: 0 0 .4rem; }
+  #intro { color: var(--muted); margin: 0 0 1.5rem; }
+  input, select, textarea { font: inherit; color: var(--ink); padding: .5rem .7rem; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  button { font: inherit; font-size: .95rem; padding: .45rem .8rem; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); cursor: pointer; }
+  button:hover { border-color: #b9bec6; }
+  button[type=submit] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :is(input, select, textarea, button, a):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  label { display: inline-block; margin: .2rem .8rem .2rem 0; color: var(--muted); font-size: .9rem; }
   table { border-collapse: collapse; width: 100%; }
-  th, td { border: 1px solid #999; padding: .3em .5em; text-align: left; vertical-align: top; }
-  th { background: #eee; }
-  th button { font: inherit; font-weight: bold; background: none; border: 0; padding: 0; cursor: pointer; color: #00e; text-decoration: underline; }
-  label { display: inline-block; margin: .2em .8em .2em 0; }
+  th, td { padding: .7rem .5rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+  th { font-size: .85rem; color: var(--muted); border-bottom: 2px solid var(--line); }
+  th button { font-weight: 600; font-size: inherit; padding: 0; border: 0; background: none; color: inherit; }
+  th button:hover { color: var(--accent); }
+  tbody tr:hover { background: #f6f8fc; }
+  td:first-child { font-weight: 600; }
+  td a { margin-left: .6rem; font-size: .9rem; font-weight: 400; color: var(--accent); }
   .scroll { overflow-x: auto; }
-  .nota { display: block; font-size: .85em; color: #555; }
-  .editor { background: #ffc; border: 1px solid #cc9; padding: .6em .8em; margin: 1em 0; font-size: 16px; }
-  .editor input, .editor select, .editor textarea { font: inherit; max-width: 100%; }
-  .editor fieldset { margin: .6em 0; }
+  .nota { display: block; font-size: .85rem; font-weight: 400; color: var(--muted); }
+  #cuenta, #pie { color: var(--muted); font-size: .9rem; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 2rem 0 1rem; }
+  .editor { background: #fff8d6; border: 1px solid #eadb8f; border-radius: 10px; padding: .8rem 1rem; margin: 1rem 0 1.5rem; font-size: 16px; }
+  .editor input, .editor select, .editor textarea { max-width: 100%; }
+  .editor fieldset { margin: .8rem 0; border: 1px solid #eadb8f; border-radius: 8px; }
   @media (max-width: 560px) { .ritmo { display: none; } }
 </style>
 </head>
@@ -55,6 +70,43 @@
     n.append(...kids.flat().filter(k => k != null && k !== false));
     return n;
   };
+  // --- búsqueda ---
+  // Sin tildes, mayúsculas ni signos; tolera pequeños errores de escritura (distancia de edición).
+  const fichas = s => norm(s).replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
+  const distancia = (a, b) => {
+    const fila = Array.from({ length: b.length + 1 }, (_, j) => j);
+    for (let i = 1; i <= a.length; i++) {
+      let previo = fila[0];
+      fila[0] = i;
+      for (let j = 1; j <= b.length; j++) {
+        const actual = fila[j];
+        fila[j] = Math.min(fila[j] + 1, fila[j - 1] + 1, previo + (a[i - 1] === b[j - 1] ? 0 : 1));
+        previo = actual;
+      }
+    }
+    return fila[b.length];
+  };
+  // null = no coincide; menor número = mejor coincidencia.
+  const puntaje = (c, palabras) => {
+    const textos = fichas(c.titulo + ' ' + c.artista);
+    let total = 0;
+    for (const w of palabras) {
+      const tolerancia = w.length <= 3 ? 0 : w.length <= 6 ? 1 : 2;
+      let mejor = Infinity;
+      for (const t of textos) {
+        if (t.startsWith(w)) mejor = Math.min(mejor, 0);
+        else if (t.includes(w)) mejor = Math.min(mejor, 1);
+        else {
+          const d = Math.min(distancia(w, t), distancia(w, t.slice(0, w.length)));
+          if (d <= tolerancia) mejor = Math.min(mejor, 1 + d);
+        }
+      }
+      if (mejor === Infinity) return null;
+      total += mejor;
+    }
+    return total;
+  };
+  // --- fin búsqueda ---
   // Orden musical: por nota (C, C#, D...) y, a igual nota, mayor antes que menor.
   const posTono = k => {
     const m = /^([A-G][#b]?)(m?)/.exec(k || '');
@@ -66,21 +118,27 @@
   if (EDITOR) {
     try { const d = localStorage.getItem(DRAFT); if (d) data = JSON.parse(d); } catch (e) { /* sin borrador */ }
   }
-  const vista = { q: '', tono: '', campo: 'titulo', dir: 1 };
+  const vista = { q: '', tono: '', campo: 'titulo', dir: 1, manual: false };
+  // Con texto en el buscador se ordena por parecido, salvo que la persona haya elegido una columna.
+  const porRelevancia = () => vista.q.trim() !== '' && !vista.manual;
 
   const valores = k => [...new Set(data.canciones.map(c => c[k]).filter(Boolean))]
     .sort(k === 'tono' ? (a, b) => posTono(a) - posTono(b) : (a, b) => a.localeCompare(b, 'es'));
 
   function visibles() {
-    const q = norm(vista.q);
+    const palabras = fichas(vista.q);
     const cmp = vista.campo === 'tono'
       ? (a, b) => posTono(a.c.tono) - posTono(b.c.tono)
       : (a, b) => (a.c[vista.campo] || '').localeCompare(b.c[vista.campo] || '', 'es');
-    return data.canciones
-      .map((c, i) => ({ c, i }))
-      .filter(({ c }) => (!vista.tono || c.tono === vista.tono)
-        && norm(c.titulo + ' ' + c.artista).includes(q))
-      .sort((a, b) => cmp(a, b) * vista.dir);
+    const filas = [];
+    data.canciones.forEach((c, i) => {
+      if (vista.tono && c.tono !== vista.tono) return;
+      const p = puntaje(c, palabras);
+      if (p !== null) filas.push({ c, i, p });
+    });
+    return filas.sort(porRelevancia()
+      ? (a, b) => a.p - b.p || a.c.titulo.localeCompare(b.c.titulo, 'es')
+      : (a, b) => cmp(a, b) * vista.dir);
   }
 
   function llenarSelect(sel, vals) {
@@ -91,7 +149,7 @@
   }
 
   function cabecera() {
-    const flecha = k => vista.campo === k ? (vista.dir > 0 ? ' ▲' : ' ▼') : '';
+    const flecha = k => !porRelevancia() && vista.campo === k ? (vista.dir > 0 ? ' ▲' : ' ▼') : '';
     $('cabeza').replaceChildren(el('tr', {},
       COLS.map(([k, t]) => el('th', { className: k === 'ritmo' ? 'ritmo' : '' },
         el('button', { type: 'button', title: 'Ordenar por ' + t, onclick: () => ordenar(k) }, t + flecha(k)))),
@@ -101,6 +159,7 @@
   function ordenar(k) {
     vista.dir = vista.campo === k ? -vista.dir : 1;
     vista.campo = k;
+    vista.manual = true;
     render();
   }
 
@@ -131,7 +190,7 @@
       : [el('tr', {}, el('td', { colSpan: 5 }, 'No hay canciones con esos filtros.'))]));
   }
 
-  $('q').addEventListener('input', e => { vista.q = e.target.value; render(); });
+  $('q').addEventListener('input', e => { vista.q = e.target.value; vista.manual = false; render(); });
   $('tono').addEventListener('change', e => { vista.tono = e.target.value; render(); });
 
   // Interfaz que usa editor.js (solo se carga con ?editar)
