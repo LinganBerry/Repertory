@@ -20,11 +20,16 @@
 
   const campo = (k, etiqueta, extra) => el('label', {}, etiqueta + ': ', extra || el('input', { id: 'f-' + k, size: 16 }));
 
-  // Partes: una por línea, "Nombre: acordes". Ej: "Precoro: Am C D"
-  const partesATexto = ps => (ps || []).map(p => (p.nombre ? p.nombre + ': ' : '') + p.prog).join('\n');
+  // Partes: una por línea, "Nombre (tono): acordes // pista". Tono y pista son opcionales; | marca el compás.
+  const partesATexto = ps => (ps || []).map(p => (p.nombre ? p.nombre + (p.tono ? ' (' + p.tono + ')' : '') + ': ' : '') + p.prog + (p.pista ? ' // ' + p.pista : '')).join('\n');
   const textoAPartes = t => t.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
-    const i = l.indexOf(':');
-    return i < 0 ? { nombre: '', prog: l } : { nombre: l.slice(0, i).trim(), prog: l.slice(i + 1).trim() };
+    const [cuerpo, ...resto] = l.split('//');
+    const i = cuerpo.indexOf(':');
+    let nombre = i < 0 ? '' : cuerpo.slice(0, i).trim();
+    const prog = (i < 0 ? cuerpo : cuerpo.slice(i + 1)).trim();
+    const m = /\s*\(([A-G][#b]?m?)\)$/.exec(nombre);
+    if (m) nombre = nombre.slice(0, m.index).trim();
+    return { nombre, tono: m ? m[1] : '', prog, pista: resto.join('//').trim() };
   });
   const limpia = c => ({ ...Object.fromEntries(CAMPOS.map(k => [k, c[k] || ''])), partes: c.partes || [] });
   const paquete = () => {
@@ -142,8 +147,8 @@
           campo('tono', 'Tono (obligatorio)', el('select', { id: 'f-tono', required: true }, el('option', { value: '' }, 'Elige'), ...TONOS.map(t => el('option', { value: t }, t)))),
           campo('nota', 'Nota (opcional, ej: capo 2)'),
           el('p', {}, el('label', {}, 'Partes y acordes (opcional): ', el('br'),
-            el('textarea', { id: 'f-partes', rows: 6, cols: 44, placeholder: 'Intro: G D Em C\nVerso: G D Em C\nPrecoro: Am C D\nCoro: G D C' })),
-            el('br'), el('small', {}, 'Una parte por línea, así: Nombre: acordes. Puedes poner también grados (I V vi IV) o la nota que quieras.')),
+            el('textarea', { id: 'f-partes', rows: 6, cols: 44, placeholder: 'Intro: G D | Em C\nVerso: G D | Em C // una línea que te ubique\nCoro (D): D G | Bm A' })),
+            el('br'), el('small', {}, 'Una parte por línea: Nombre (tono): acordes // pista. El (tono) y la pista son opcionales (el tono solo si la parte modula). Marca el compás con |. Pista: una línea corta, no la letra completa.')),
           el('button', { id: 'btn-guardar', type: 'submit' }, 'Agregar'), ' ',
           el('button', { id: 'btn-cancelar', type: 'button', hidden: true, onclick: limpiarForm }, 'Cancelar'))),
       el('details', {}, el('summary', {}, 'Agregar varias de una vez'),

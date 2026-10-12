@@ -6,8 +6,8 @@
 <title>Repertorio</title>
 <style>
   :root { --accent: #2b59c3; --serif: Georgia, "Times New Roman", serif; --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  :root[data-tema=papel] { --bg: #faf6ee; --ink: #2a2620; --muted: #7a7266; --line: #e4dccb; --fila: #f1eadb; --pl: 84%; --pt: #2a2620; --tit: var(--serif); }
-  :root[data-tema=escenario] { --bg: #1c1c1e; --ink: #f1e9d8; --muted: #a39d90; --line: #38383b; --fila: #27272a; --pl: 30%; --pt: #f1e9d8; --tit: var(--sans); }
+  :root[data-tema=papel] { --bg: #faf6ee; --ink: #2a2620; --muted: #7a7266; --line: #e4dccb; --fila: #f1eadb; --fila2: #fffdf8; --pl: 84%; --pt: #2a2620; --tit: var(--serif); }
+  :root[data-tema=escenario] { --bg: #1c1c1e; --ink: #f1e9d8; --muted: #a39d90; --line: #38383b; --fila: #27272a; --fila2: #343438; --pl: 30%; --pt: #f1e9d8; --tit: var(--sans); }
   * { box-sizing: border-box; }
   body { font: 17px/1.4 var(--sans); max-width: 44rem; margin: 0 auto; padding: 1.2rem 1rem 4rem; color: var(--ink); background: var(--bg); }
   html { background: var(--bg); }
@@ -31,9 +31,21 @@
   .abrir { flex: 1; min-width: 0; display: block; text-align: left; border: 0; background: none; padding: .55rem 0; min-height: 56px; }
   .t { display: block; font: 700 1.2rem/1.25 var(--tit); }
   .a { display: block; font-size: .9rem; color: var(--muted); }
-  .detalle { display: grid; grid-template-columns: max-content 1fr; gap: .3rem 1rem; margin: 0; padding: .7rem .8rem; background: var(--fila); border-bottom: 1px solid var(--line); }
-  .detalle dt { color: var(--muted); font-size: .9rem; }
-  .detalle dd { margin: 0; font-family: ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; }
+  body.fija { overflow: hidden; }
+  #cancion { position: fixed; inset: 0; z-index: 20; overflow-y: auto; background: var(--bg); --z: 1; }
+  .cbarra { position: sticky; top: 0; display: flex; gap: .4rem; padding: .5rem 1rem; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .cbarra .sp { flex: 1; }
+  .ccuerpo { max-width: 44rem; margin: 0 auto; padding: 1rem 1rem 5rem; }
+  .ccuerpo h2 { font: 700 calc(1.8rem * var(--z))/1.2 var(--tit); margin: 0 0 .2rem; }
+  .parte { margin: .9rem 0; padding: .6rem .8rem; border-left: 5px solid var(--line); background: var(--fila); }
+  .parte.coro { background: var(--fila2); border-left-color: var(--ink); }
+  .parte h3 { margin: 0 0 .4rem; font: 700 .85rem var(--sans); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .parte h3 small { font-weight: 400; text-transform: none; }
+  .chips { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+  .chip { padding: .3rem .7rem; border: 1px solid var(--ink); border-radius: 3px; font: 700 calc(1.3rem * var(--z))/1.2 ui-monospace, Menlo, Consolas, monospace; }
+  .barra { color: var(--muted); font-size: calc(1.5rem * var(--z)); padding: 0 .15rem; }
+  .pista { margin: .5rem 0 0; color: var(--muted); font-style: italic; font-size: calc(1rem * var(--z)); }
+  .estrella { flex: none; min-width: 44px; padding: .2rem; border: 0; background: none; font-size: 1.3rem; }
   .vacio { padding: 1.5rem 0; color: var(--muted); }
   #pie { color: var(--muted); font-size: .9rem; }
   hr { border: 0; border-top: 1px solid var(--line); margin: 2rem 0 1rem; }
@@ -55,6 +67,7 @@
   <div id="pastillas" class="pastillas"></div>
 </div>
 <main id="lista"></main>
+<div id="cancion" hidden></div>
 <hr>
 <p id="pie"></p>
 
@@ -148,7 +161,7 @@
     return x;
   };
   let data = normalizar(null);
-  const vista = { q: '', tono: '' };
+  const vista = { q: '', tono: '', fav: false };
 
   const tonosPresentes = () => [...new Set(data.canciones.map(c => c.tono).filter(Boolean))].sort((a, b) => posTono(a) - posTono(b));
 
@@ -157,6 +170,7 @@
     const filas = [];
     data.canciones.forEach((c, i) => {
       if (vista.tono && c.tono !== vista.tono) return;
+      if (vista.fav && !favs.has(clave(c))) return;
       const p = puntaje(c, palabras);
       if (p !== null) filas.push({ c, i, p });
     });
@@ -168,32 +182,100 @@
     if (vista.tono && !tonosPresentes().includes(vista.tono)) vista.tono = '';
     const boton = (t, hijos, tono) => colorear(el('button', {
       type: 'button', 'aria-pressed': String(vista.tono === t),
-      onclick: () => { vista.tono = t; render(); }
+      onclick: () => { vista.tono = t; if (!t) vista.fav = false; render(); }
     }, ...hijos), tono);
     $('pastillas').replaceChildren(
       boton('', ['Todos']),
+      el('button', { type: 'button', 'aria-pressed': String(vista.fav), 'aria-label': 'Solo favoritos', onclick: () => { vista.fav = !vista.fav; render(); } }, '★'),
       ...tonosPresentes().map(t => { const b = boton(t, rotulo(t), t); b.classList.add('tono'); return b; }));
   }
 
-  // Canciones con partes se abren al tocar (se reemplaza por pantalla completa en el Bloque 2).
-  const abiertas = new Set();
+  // --- favoritos y ajustes: por dispositivo (localStorage), sin cuentas ni cookies ---
+  const leer = (k, def) => { try { return JSON.parse(localStorage.getItem(k)) ?? def; } catch (e) { return def; } };
+  const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* nada */ } };
+  const favs = new Set(leer('repertorio-fav', []));
   const clave = c => c.titulo + '|' + (c.artista || '');
+  const alternarFav = c => { const k = clave(c); favs.has(k) ? favs.delete(k) : favs.add(k); guardar('repertorio-fav', [...favs]); };
+  let zoom = Math.min(1.9, Math.max(.85, Number(leer('repertorio-zoom', 1)) || 1));
+  let actual = null;
+
+  // Pantalla encendida mientras la canción está abierta (si el navegador lo permite).
+  let candado = null;
+  async function pantallaEncendida() {
+    try {
+      if (candado || !('wakeLock' in navigator)) return;
+      candado = await navigator.wakeLock.request('screen');
+      candado.addEventListener('release', () => { candado = null; });
+    } catch (e) { /* nada */ }
+  }
+  const soltarPantalla = () => { try { candado && candado.release(); } catch (e) { /* nada */ } candado = null; };
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && actual) pantallaEncendida(); });
+
+  // --- pantalla completa por canción: capa propia, el gesto de atrás del teléfono la cierra ---
+  // Compás marcado a mano con "|"; sin barras, los acordes van seguidos.
+  const compases = prog => prog.split('|').map(g => g.trim().split(/\s+/).filter(t => t && t !== '-')).filter(g => g.length);
+
+  function parte(p) {
+    const hijos = [];
+    compases(p.prog).forEach((g, i) => {
+      if (i) hijos.push(el('span', { className: 'barra' }, '|'));
+      g.forEach(a => hijos.push(el('span', { className: 'chip' }, a)));
+    });
+    return el('section', { className: 'parte' + (norm(p.nombre).trim() === 'coro' ? ' coro' : '') },
+      el('h3', {}, p.nombre || '', p.tono && el('small', {}, ' · ' + p.tono)),
+      el('div', { className: 'chips' }, ...hijos),
+      p.pista && el('p', { className: 'pista' }, p.pista));
+  }
+
+  function mostrar() {
+    const c = actual, caja = $('cancion');
+    const esFav = favs.has(clave(c));
+    const partes = (c.partes || []).filter(p => p.prog);
+    caja.replaceChildren(
+      el('div', { className: 'cbarra' },
+        el('button', { type: 'button', onclick: () => history.back() }, '← Volver'),
+        el('span', { className: 'sp' }),
+        el('button', { type: 'button', 'aria-label': 'Letra más chica', onclick: () => cambiarZoom(-.15) }, 'A−'),
+        el('button', { type: 'button', 'aria-label': 'Letra más grande', onclick: () => cambiarZoom(.15) }, 'A+'),
+        el('button', { type: 'button', 'aria-pressed': String(esFav), 'aria-label': 'Favorito', onclick: () => { alternarFav(c); mostrar(); render(); } }, esFav ? '★' : '☆')),
+      el('div', { className: 'ccuerpo' },
+        el('h2', {}, c.titulo),
+        el('p', { className: 'a' }, [c.artista, c.nota].filter(Boolean).join(' · ')),
+        pastilla(c.tono),
+        ...(partes.length ? partes.map(parte) : [el('p', { className: 'vacio' }, 'Aún no hay partes ni acordes para esta canción.')])));
+    caja.style.setProperty('--z', zoom);
+    caja.hidden = false;
+    document.body.classList.add('fija');
+  }
+
+  function cambiarZoom(d) {
+    zoom = Math.min(1.9, Math.max(.85, Math.round((zoom + d) * 100) / 100));
+    guardar('repertorio-zoom', zoom);
+    $('cancion').style.setProperty('--z', zoom);
+  }
+
+  function abrirCancion(c) {
+    actual = c;
+    history.pushState({ cancion: true }, '');
+    mostrar();
+    pantallaEncendida();
+  }
+  function cerrarCancion() {
+    actual = null;
+    $('cancion').hidden = true;
+    document.body.classList.remove('fija');
+    soltarPantalla();
+  }
+  window.addEventListener('popstate', () => { if (actual) cerrarCancion(); });
 
   function fila({ c, i }) {
-    const partes = (c.partes || []).filter(p => p.prog);
-    const k = clave(c);
-    const abierta = partes.length > 0 && abiertas.has(k);
-    const cuerpo = el('button', {
-      type: 'button', className: 'abrir',
-      onclick: () => { if (!partes.length) return; abiertas.has(k) ? abiertas.delete(k) : abiertas.add(k); render(); }
-    },
-      el('span', { className: 't' }, (partes.length ? (abierta ? '▾ ' : '▸ ') : '') + c.titulo),
+    const cuerpo = el('button', { type: 'button', className: 'abrir', onclick: () => abrirCancion(c) },
+      el('span', { className: 't' }, c.titulo),
       c.artista && el('span', { className: 'a' }, c.artista),
       c.nota && el('span', { className: 'a' }, c.nota));
-    if (partes.length) cuerpo.setAttribute('aria-expanded', String(abierta));
-    const principal = el('div', { className: 'fila' }, cuerpo, pastilla(c.tono), EDITOR && app.acciones && app.acciones(i));
-    if (!abierta) return [principal];
-    return [principal, el('dl', { className: 'detalle' }, ...partes.flatMap(p => [el('dt', {}, p.nombre || ''), el('dd', {}, p.prog)]))];
+    const esFav = favs.has(clave(c));
+    const estrella = el('button', { type: 'button', className: 'estrella', 'aria-pressed': String(esFav), 'aria-label': 'Favorito', onclick: () => { alternarFav(c); render(); } }, esFav ? '★' : '☆');
+    return [el('div', { className: 'fila' }, cuerpo, estrella, pastilla(c.tono), EDITOR && app.acciones && app.acciones(i))];
   }
 
   function render() {
