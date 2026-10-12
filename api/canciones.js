@@ -43,7 +43,7 @@ function limpiar(d) {
     tono: texto(c?.tono, 10),
     nota: texto(c?.nota, 300),
     partes: (Array.isArray(c?.partes) ? c.partes : []).slice(0, 30)
-      .map(p => ({ nombre: texto(p?.nombre, 60), prog: texto(p?.prog, 500) }))
+      .map(p => ({ nombre: texto(p?.nombre, 60), tono: texto(p?.tono, 10), prog: texto(p?.prog, 500), pista: texto(p?.pista, 200) }))
       .filter(p => p.prog)
   })).filter(c => c.titulo);
   return {
