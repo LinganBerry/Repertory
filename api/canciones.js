@@ -47,6 +47,7 @@ function limpiar(d) {
       .filter(p => p.prog)
   })).filter(c => c.titulo);
   return {
+    version: 1,
     nombre: texto(d.nombre, 120),
     intro: texto(d.intro, 300),
     actualizado: texto(d.actualizado, 60),
