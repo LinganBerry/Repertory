@@ -45,7 +45,6 @@
   .chip { display: inline-flex; flex-direction: column; align-items: center; padding: .3rem .7rem; border: 1px solid var(--ink); border-radius: 3px; font: 700 calc(1.3rem * var(--z))/1.2 ui-monospace, Menlo, Consolas, monospace; }
   .barra { color: var(--muted); font-size: calc(1.5rem * var(--z)); padding: 0 .15rem; }
   .pista { margin: .5rem 0 0; color: var(--muted); font-style: italic; font-size: calc(1rem * var(--z)); }
-  .estrella { flex: none; min-width: 44px; padding: .2rem; border: 0; background: none; font-size: 1.3rem; }
   .vacio { padding: 1.5rem 0; color: var(--muted); }
   #pie { color: var(--muted); font-size: .9rem; }
   hr { border: 0; border-top: 1px solid var(--line); margin: 2rem 0 1rem; }
@@ -56,9 +55,8 @@
   .acciones { flex: none; display: flex; gap: .3rem; }
   .acciones button { min-height: 40px; padding: .2rem .6rem; font-size: .9rem; }
   .rom { font: 400 calc(.75rem * var(--z))/1.1 var(--sans); color: var(--muted); }
-  #vaciar { min-height: 36px; font-size: .85rem; color: var(--muted); }
   @media print {
-    header button, #barra, #editor, .cbarra, .estrella, .noimp { display: none !important; }
+    header button, #barra, #editor, .cbarra, .noimp { display: none !important; }
     :root[data-tema] { --bg: #fff; --ink: #000; --muted: #444; --line: #999; --fila: #fff; --fila2: #fff; }
     body.fija { overflow: visible; }
     body.fija header, body.fija #intro, body.fija #lista, body.fija hr, body.fija #pie { display: none; }
@@ -79,7 +77,6 @@
 <div id="cancion" hidden></div>
 <hr>
 <p id="pie"></p>
-<p class="noimp"><button id="vaciar" type="button">Borrar copia guardada en este teléfono</button></p>
 
 <script src="canciones.js"></script>
 <script>
@@ -171,7 +168,7 @@
     return x;
   };
   let data = normalizar(null);
-  const vista = { q: '', tono: '', fav: false };
+  const vista = { q: '', tono: '' };
 
   const tonosPresentes = () => [...new Set(data.canciones.map(c => c.tono).filter(Boolean))].sort((a, b) => posTono(a) - posTono(b));
 
@@ -180,7 +177,6 @@
     const filas = [];
     data.canciones.forEach((c, i) => {
       if (vista.tono && c.tono !== vista.tono) return;
-      if (vista.fav && !favs.has(clave(c))) return;
       const p = puntaje(c, palabras);
       if (p !== null) filas.push({ c, i, p });
     });
@@ -192,20 +188,16 @@
     if (vista.tono && !tonosPresentes().includes(vista.tono)) vista.tono = '';
     const boton = (t, hijos, tono) => colorear(el('button', {
       type: 'button', 'aria-pressed': String(vista.tono === t),
-      onclick: () => { vista.tono = t; if (!t) vista.fav = false; render(); }
+      onclick: () => { vista.tono = t; render(); }
     }, ...hijos), tono);
     $('pastillas').replaceChildren(
       boton('', ['Todos']),
-      el('button', { type: 'button', 'aria-pressed': String(vista.fav), 'aria-label': 'Solo favoritos', onclick: () => { vista.fav = !vista.fav; render(); } }, '★'),
       ...tonosPresentes().map(t => { const b = boton(t, rotulo(t), t); b.classList.add('tono'); return b; }));
   }
 
-  // --- favoritos y ajustes: por dispositivo (localStorage), sin cuentas ni cookies ---
+  // --- tamaño de letra: se recuerda en el dispositivo (localStorage) ---
   const leer = (k, def) => { try { return JSON.parse(localStorage.getItem(k)) ?? def; } catch (e) { return def; } };
   const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* nada */ } };
-  const favs = new Set(leer('repertorio-fav', []));
-  const clave = c => c.titulo + '|' + (c.artista || '');
-  const alternarFav = c => { const k = clave(c); favs.has(k) ? favs.delete(k) : favs.add(k); guardar('repertorio-fav', [...favs]); };
   let zoom = Math.min(1.9, Math.max(.85, Number(leer('repertorio-zoom', 1)) || 1));
   let actual = null;
 
@@ -223,19 +215,44 @@
 
   // --- pantalla completa por canción: capa propia, el gesto de atrás del teléfono la cierra ---
   // Compás marcado a mano con "|"; sin barras, los acordes van seguidos.
-  // Número romano = distancia del acorde al tono (de la parte, si tiene uno propio). Aproximado a propósito:
-  // minúscula si el acorde es menor, ♭/♯ en grados alterados, extensiones (7, sus4...) se conservan.
-  const NUM_MAY = ['I', '♭II', 'II', '♭III', 'III', 'IV', '♭V', 'V', '♭VI', 'VI', '♭VII', 'VII'];
-  const NUM_MEN = ['I', '♭II', 'II', 'III', '♯III', 'IV', '♯IV', 'V', 'VI', '♯VI', 'VII', '♯VII'];
-  function romano(acorde, tono) {
-    const k = TONO_RE.exec(tono || ''), m = /^([A-G][#b]?)(.*)$/.exec(acorde);
-    if (!k || !m || NOTAS[m[1]] == null) return '';
-    let ext = m[2].split('/')[0];
-    const menor = /^m(?!aj)/.test(ext) || /^dim/.test(ext);
-    ext = ext.replace(/^m(?!aj)/, '').replace(/^dim/, '°');
-    let n = (k[2] ? NUM_MEN : NUM_MAY)[(NOTAS[m[1]] - NOTAS[k[1]] + 12) % 12];
-    if (menor) n = n.replace(/[IV]+/, x => x.toLowerCase());
-    return n + ext;
+  // --- números romanos ---
+  // Se calculan por NOMBRE de nota, no solo por semitonos: así F en G es ♭VII y nunca ♯VI.
+  //  1) el grado sale de la distancia de letras entre el tono y la raíz (G → F = séptimo grado);
+  //  2) la alteración (♭/♯) sale de comparar la raíz con ese grado en la escala del tono;
+  //  3) mayúscula/minúscula y sufijo salen de la calidad del acorde.
+  // Tono mayor: escala mayor. Tono menor: escala menor natural (III, VI y VII salen sin alteración).
+  const LETRAS = 'CDEFGAB', PC_LETRA = [0, 2, 4, 5, 7, 9, 11];
+  const ESC_MAYOR = [0, 2, 4, 5, 7, 9, 11], ESC_MENOR = [0, 2, 3, 5, 7, 8, 10];
+  const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+  const nota = s => {
+    const m = /^([A-G])([#♯b♭]*)/.exec(s || '');
+    return m && { letra: LETRAS.indexOf(m[1]), alt: [...m[2]].reduce((a, x) => a + (x === '#' || x === '♯' ? 1 : -1), 0), largo: m[0].length };
+  };
+  const clase = n => (PC_LETRA[n.letra] + n.alt + 120) % 12;
+  function grado(n, tono) {
+    const d = (n.letra - tono.nota.letra + 7) % 7;
+    const esperado = (clase(tono.nota) + (tono.menor ? ESC_MENOR : ESC_MAYOR)[d]) % 12;
+    const dif = ((clase(n) - esperado + 18) % 12) - 6;
+    return { d, alt: dif > 0 ? '♯'.repeat(dif) : '♭'.repeat(-dif) };
+  }
+  function romano(acorde, tonoTexto) {
+    const n0 = nota(tonoTexto);
+    const tono = n0 && { nota: n0, menor: tonoTexto.slice(n0.largo).startsWith('m') };
+    const barra = /^(.*?)\/([A-G][#♯b♭]*)$/.exec(acorde || '');
+    const base = barra ? barra[1] : (acorde || ''), bajo = barra && nota(barra[2]);
+    const raiz = nota(base);
+    if (!tono || !raiz) return '';
+    const { d, alt } = grado(raiz, tono);
+    const q = base.slice(raiz.largo);
+    let menor = false, suf = q, m;
+    if ((m = /^(dim|o|°)/.exec(q))) { menor = true; suf = '°' + q.slice(m[0].length); }
+    else if ((m = /^(m7b5|m7♭5|min7b5|ø)/.exec(q))) { menor = true; suf = m[0] === 'ø' ? 'ø' + q.slice(1) : 'ø7' + q.slice(m[0].length); }
+    else if ((m = /^(min|m|-)(?!aj)/.exec(q))) { menor = true; suf = q.slice(m[0].length); }
+    else if ((m = /^(aug|\+)/.exec(q))) suf = '+' + q.slice(m[0].length);
+    const num = menor ? ROMANOS[d].toLowerCase() : ROMANOS[d];
+    let r = alt + num + suf;
+    if (bajo) { const b = grado(bajo, tono); r += '/' + b.alt + (b.d + 1); }  // bajo = grado de la escala (D/F# en G → V/7)
+    return r;
   }
   const compases = prog => prog.split('|').map(g => g.trim().split(/\s+/).filter(t => t && t !== '-')).filter(g => g.length);
 
@@ -253,15 +270,13 @@
 
   function mostrar() {
     const c = actual, caja = $('cancion');
-    const esFav = favs.has(clave(c));
     const partes = (c.partes || []).filter(p => p.prog);
     caja.replaceChildren(
       el('div', { className: 'cbarra' },
         el('button', { type: 'button', onclick: () => history.back() }, '← Volver'),
         el('span', { className: 'sp' }),
         el('button', { type: 'button', 'aria-label': 'Letra más chica', onclick: () => cambiarZoom(-.15) }, 'A−'),
-        el('button', { type: 'button', 'aria-label': 'Letra más grande', onclick: () => cambiarZoom(.15) }, 'A+'),
-        el('button', { type: 'button', 'aria-pressed': String(esFav), 'aria-label': 'Favorito', onclick: () => { alternarFav(c); mostrar(); render(); } }, esFav ? '★' : '☆')),
+        el('button', { type: 'button', 'aria-label': 'Letra más grande', onclick: () => cambiarZoom(.15) }, 'A+')),
       el('div', { className: 'ccuerpo' },
         el('h2', {}, c.titulo),
         el('p', { className: 'a' }, [c.artista, c.nota].filter(Boolean).join(' · ')),
@@ -298,9 +313,7 @@
       el('span', { className: 't' }, c.titulo),
       c.artista && el('span', { className: 'a' }, c.artista),
       c.nota && el('span', { className: 'a' }, c.nota));
-    const esFav = favs.has(clave(c));
-    const estrella = el('button', { type: 'button', className: 'estrella', 'aria-pressed': String(esFav), 'aria-label': 'Favorito', onclick: () => { alternarFav(c); render(); } }, esFav ? '★' : '☆');
-    return [el('div', { className: 'fila' }, cuerpo, estrella, pastilla(c.tono), EDITOR && app.acciones && app.acciones(i))];
+    return [el('div', { className: 'fila' }, cuerpo, pastilla(c.tono), EDITOR && app.acciones && app.acciones(i))];
   }
 
   function render() {
@@ -331,23 +344,16 @@
     $('cuenta').textContent = '…';
     let d = window.REPERTORIO;
     try {
-      const r = await (EDITOR ? fetch('/api/canciones?fresco=1', { cache: 'no-store' }) : fetch('/api/canciones'));
+      const r = await fetch('/api/canciones', { cache: 'no-store' });
       if (r.ok) d = await r.json();
     } catch (e) { /* sin servidor: se usa la copia del sitio */ }
     data = normalizar(d);
     render();
     if (EDITOR) document.head.append(el('script', { src: 'editor.js' }));
   }
-  // Offline: sw.js guarda la página y las canciones; se actualizan al abrir con internet.
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => { /* sin offline */ });
-  $('vaciar').addEventListener('click', async () => {
-    if (!confirm('¿Borrar la copia guardada? Hará falta internet para volver a abrir la página. Tus favoritos se conservan.')) return;
-    try {
-      for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
-      for (const k of await caches.keys()) await caches.delete(k);
-    } catch (e) { /* nada */ }
-    location.reload();
-  });
+  // Versiones anteriores instalaron una copia offline (service worker). Se desinstala y se borra.
+  if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => { /* nada */ });
+  if ('caches' in window) caches.keys().then(ks => ks.forEach(k => caches.delete(k))).catch(() => { /* nada */ });
   cargar();
 })();
 </script>
