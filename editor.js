@@ -1,5 +1,5 @@
-// Modo editor: solo se carga al abrir la página con ?editar al final del link.
-// Cada cambio se guarda en el servidor (/api/canciones) y lo ven todos al instante.
+// Modo editor: se abre con ?editar al final del link, o tocando 5 veces el título de la página.
+// Cada cambio se guarda en el servidor (/api/canciones) y lo ve todo el mundo.
 // El servidor exige la contraseña ADMIN_PASSWORD; sin ella nadie puede modificar nada.
 (() => {
   'use strict';
@@ -10,15 +10,14 @@
   const CAMPOS = ['titulo', 'artista', 'tono', 'nota', 'enlace'];
   const TONOS = ['C', 'C#', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
     .flatMap(t => [t, t + 'm']);
-  const CLAVE = 'repertorio-clave'; // se recuerda solo mientras la pestaña siga abierta
-  let editando = -1;
-
+  const CLAVE = 'repertorio-clave', FLAG = 'repertorio-editor';
   const lista = () => app.data.canciones;
-  const estado = texto => { $('estado').textContent = texto; };
-  const leerClave = () => { try { return sessionStorage.getItem(CLAVE) || ''; } catch (e) { return ''; } };
-  const recordarClave = v => { try { sessionStorage.setItem(CLAVE, v); } catch (e) { /* nada */ } };
 
-  const campo = (k, etiqueta, extra) => el('label', {}, etiqueta + ': ', extra || el('input', { id: 'f-' + k, size: 16 }));
+  // Contraseña: vive en memoria; si lo pides, queda recordada en este teléfono.
+  const leerClave = () => { try { return sessionStorage.getItem(CLAVE) || localStorage.getItem(CLAVE) || ''; } catch (e) { return ''; } };
+  const olvidarClave = () => { try { sessionStorage.removeItem(CLAVE); localStorage.removeItem(CLAVE); } catch (e) { /* nada */ } };
+  const recordarClave = (v, fija) => { olvidarClave(); try { (fija ? localStorage : sessionStorage).setItem(CLAVE, v); } catch (e) { /* nada */ } };
+  let clave = leerClave(), pendiente = false;
 
   // Partes: una por línea, "Nombre (tono): acordes // pista". Tono y pista son opcionales; | marca el compás.
   const partesATexto = ps => (ps || []).map(p => (p.nombre ? p.nombre + (p.tono ? ' (' + p.tono + ')' : '') + ': ' : '') + p.prog + (p.pista ? ' // ' + p.pista : '')).join('\n');
@@ -56,14 +55,6 @@
     });
     return { errores, avisos };
   }
-  function mostrarRevision() {
-    const { errores, avisos } = revisar($('f-partes').value);
-    $('avisos').replaceChildren(
-      ...errores.map(t => el('li', { className: 'aviso-e' }, 'Error: ' + t)),
-      ...avisos.map(t => el('li', { className: 'aviso-a' }, 'Aviso: ' + t)));
-    return errores;
-  }
-
   const limpia = c => ({ ...Object.fromEntries(CAMPOS.map(k => [k, c[k] || ''])), partes: c.partes || [] });
   const paquete = () => {
     const d = app.data;
@@ -74,103 +65,141 @@
     };
   };
 
-  // Envía TODO el repertorio al servidor. Si falla, el siguiente cambio vuelve a intentarlo.
+  const estado = (texto, tipo = '') => {
+    $('estado').textContent = texto;
+    $('estado').className = 'estado ' + tipo;
+    $('b-reintentar').hidden = tipo !== 'mal';
+  };
+
+  // Envía TODO el repertorio al servidor. Si falla, queda "Reintentar" en la barra.
   async function guardar() {
-    const clave = $('clave').value.trim() || leerClave();
-    if (!clave) { estado('Escribe tu contraseña arriba para poder guardar.'); $('clave').focus(); return false; }
+    if (!clave) { pendiente = true; abrirLogin(); return false; }
     estado('Guardando…');
+    const d = paquete();
     try {
-      const r = await fetch('/api/canciones', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clave, data: paquete() })
-      });
+      const r = await fetch('/api/canciones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clave, data: d }) });
       const j = await r.json().catch(() => ({}));
-      if (r.status === 401) { recordarClave(''); estado('Contraseña incorrecta. No se guardó.'); return false; }
-      if (!r.ok) { estado('No se guardó: ' + (j.error || 'error ' + r.status)); return false; }
-      recordarClave(clave);
-      app.data.actualizado = paquete().actualizado;
-      estado('Guardado. Ya lo ve todo el mundo.');
-      try { navigator.vibrate && navigator.vibrate([10, 25, 15]); } catch (err) { /* nada */ }
+      if (r.status === 401) { pendiente = true; clave = ''; olvidarClave(); estado('No se guardó: contraseña incorrecta.', 'mal'); abrirLogin('Contraseña incorrecta.'); return false; }
+      if (!r.ok) { pendiente = true; estado('No se guardó: ' + (j.error || 'error ' + r.status), 'mal'); return false; }
+      pendiente = false;
+      app.data.actualizado = d.actualizado;
+      estado('Guardado ✓');
+      try { navigator.vibrate && navigator.vibrate([10, 25, 15]); } catch (e) { /* nada */ }
       return true;
     } catch (e) {
-      estado('No se guardó: sin conexión con el servidor. Prueba de nuevo.');
+      pendiente = true;
+      estado('Sin conexión con el servidor.', 'mal');
       return false;
     }
   }
   const cambio = () => { app.render(); return guardar(); };
 
-  function limpiarForm() {
-    CAMPOS.forEach(k => { $('f-' + k).value = ''; });
-    $('f-partes').value = '';
+  // --- pantallas completas (formulario, ajustes, entrada) ---
+  let abierta = null;
+  function abrirCapa(titulo, cuerpo, pie, cerrable = true) {
+    cerrarCapa();
+    abierta = el('div', { className: 'capa' },
+      el('div', { className: 'capa-t' }, el('span', {}, titulo), cerrable && el('button', { type: 'button', onclick: cerrarCapa }, 'Cerrar')),
+      el('div', { className: 'capa-c' }, ...cuerpo),
+      pie && el('div', { className: 'capa-p' }, ...pie));
+    document.body.append(abierta);
+    document.body.classList.add('fija');
+    return abierta;
+  }
+  function cerrarCapa() {
+    if (!abierta) return;
+    abierta.remove();
+    abierta = null;
+    if ($('cancion').hidden) document.body.classList.remove('fija');
+  }
+  const salir = () => { location.href = location.pathname; };
+  const sp = () => el('span', { className: 'sp' });
+
+  function abrirLogin(aviso) {
+    const msg = el('p', { className: 'aviso-e' }, aviso || '');
+    const pass = el('input', { type: 'password', autocomplete: 'current-password', placeholder: 'Contraseña' });
+    const fija = el('input', { type: 'checkbox' });
+    const entrar = () => {
+      if (!pass.value) { pass.focus(); return; }
+      clave = pass.value;
+      recordarClave(clave, fija.checked);
+      cerrarCapa();
+      estado('Listo');
+      if (pendiente) guardar();
+    };
+    abrirCapa('Entrar al editor', [
+      el('label', { className: 'campo' }, el('span', {}, 'Contraseña'), pass),
+      el('label', { className: 'campo' }, fija, ' Recordar en este teléfono'),
+      msg
+    ], [el('button', { type: 'button', onclick: salir }, 'Solo mirar'), sp(), el('button', { type: 'button', className: 'primario', onclick: entrar }, 'Entrar')], false);
+    pass.addEventListener('keydown', ev => { if (ev.key === 'Enter') entrar(); });
+    pass.focus();
+  }
+
+  function mostrarRevision() {
+    const { errores, avisos } = revisar($('f-partes').value);
+    $('avisos').replaceChildren(
+      ...errores.map(t => el('li', { className: 'aviso-e' }, 'Error: ' + t)),
+      ...avisos.map(t => el('li', { className: 'aviso-a' }, 'Aviso: ' + t)));
+    return errores;
+  }
+
+  function abrirForm(i) {
+    const c = i >= 0 ? lista()[i] : { titulo: '', artista: '', tono: '', nota: '', enlace: '', partes: [] };
+    const campo = (etiqueta, ctl) => el('label', { className: 'campo' }, el('span', {}, etiqueta), ctl);
+    const f = (k, props = {}) => el('input', { id: 'f-' + k, value: c[k] || '', ...props });
+    const tono = el('select', { id: 'f-tono' }, el('option', { value: '' }, 'Elige el tono'), ...TONOS.map(t => el('option', { value: t }, t)));
+    tono.value = c.tono || '';
+    const partes = el('textarea', {
+      id: 'f-partes', rows: 8, value: partesATexto(c.partes), oninput: mostrarRevision,
+      placeholder: 'Intro: G D | Em C\nVerso: G D | Em C // una línea que te ubique\nCoro (D): D G | Bm A'
+    });
+    const guardarForm = () => {
+      const v = k => $('f-' + k).value.trim();
+      const n = { titulo: v('titulo'), artista: v('artista'), tono: v('tono'), nota: v('nota'), enlace: v('enlace'), partes: textoAPartes($('f-partes').value) };
+      const mal = !n.titulo ? ['f-titulo', 'Escribe el nombre de la canción.']
+        : !n.tono ? ['f-tono', 'Elige el tono.']
+        : n.enlace && !/^https?:\/\/\S+$/i.test(n.enlace) ? ['f-enlace', 'El link debe empezar con http:// o https://']
+        : mostrarRevision().length ? ['f-partes', 'Corrige los errores marcados en las partes.'] : null;
+      if (mal) { $('f-msg').textContent = mal[1]; $(mal[0]).focus(); return; }
+      const repetida = lista().some((x, j) => j !== i && norm(x.titulo) === norm(n.titulo) && norm(x.artista) === norm(n.artista));
+      if (repetida && !confirm('Ya existe una canción igual. ¿Guardarla de todos modos?')) return;
+      if (i >= 0) lista()[i] = n; else lista().push(n);
+      cerrarCapa();
+      cambio();
+    };
+    const borrar = () => {
+      if (!confirm(`¿Borrar "${c.titulo}"?`)) return;
+      lista().splice(i, 1);
+      cerrarCapa();
+      cambio();
+    };
+    abrirCapa(i >= 0 ? 'Editar canción' : 'Nueva canción', [
+      campo('Canción', f('titulo')),
+      campo('Artista', f('artista')),
+      campo('Tono', tono),
+      campo('Nota (opcional, ej: capo 2)', f('nota')),
+      campo('Link de referencia (opcional)', f('enlace', { type: 'url', placeholder: 'https://…' })),
+      campo('Partes y acordes (opcional)', partes),
+      el('p', { className: 'pista-ayuda' }, 'Una parte por línea: Nombre (tono): acordes // pista. El (tono) solo si la parte modula. Marca el compás con |. La pista es una línea corta, no la letra.'),
+      el('ul', { id: 'avisos' }),
+      el('p', { id: 'f-msg', className: 'aviso-e' })
+    ], [i >= 0 && el('button', { type: 'button', className: 'peligro', onclick: borrar }, 'Borrar'), sp(), el('button', { type: 'button', className: 'primario', onclick: guardarForm }, 'Guardar')]);
     mostrarRevision();
-    editando = -1;
-    $('btn-guardar').textContent = 'Agregar';
-    $('btn-cancelar').hidden = true;
-  }
-
-  function guardarCancion(e) {
-    e.preventDefault();
-    const c = { ...Object.fromEntries(CAMPOS.map(k => [k, $('f-' + k).value.trim()])), partes: textoAPartes($('f-partes').value) };
-    if (!c.titulo) { $('f-titulo').focus(); return; }
-    if (!c.tono) { estado('Elige el tono de la canción.'); $('f-tono').focus(); return; }
-    if (c.enlace && !/^https?:\/\/\S+$/i.test(c.enlace)) { estado('El link debe empezar con http:// o https://'); $('f-enlace').focus(); return; }
-    if (mostrarRevision().length) { estado('Corrige los errores marcados en las partes antes de guardar.'); $('f-partes').focus(); return; }
-    const repetida = lista().some((x, i) => i !== editando && norm(x.titulo) === norm(c.titulo) && norm(x.artista) === norm(c.artista));
-    if (repetida && !confirm('Ya existe una canción igual. ¿Agregarla de todos modos?')) return;
-    if (editando >= 0) lista()[editando] = c; else lista().push(c);
-    limpiarForm();
-    cambio();
-  }
-
-  function editar(i) {
-    CAMPOS.forEach(k => { $('f-' + k).value = lista()[i][k] || ''; });
-    $('f-partes').value = partesATexto(lista()[i].partes);
-    mostrarRevision();
-    editando = i;
-    $('btn-guardar').textContent = 'Guardar cambios';
-    $('btn-cancelar').hidden = false;
-    $('f-titulo').focus();
-  }
-
-  function borrar(i) {
-    if (!confirm(`¿Borrar "${lista()[i].titulo}"?`)) return;
-    lista().splice(i, 1);
-    limpiarForm();
-    cambio();
+    if (i < 0) $('f-titulo').focus();
   }
 
   // Cada línea: Título ; Artista ; Tono   (también acepta tabulador o " - ")
-  function agregarVarias() {
-    const nuevas = $('masivo').value.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+  function agregarVarias(caja, msg) {
+    const nuevas = caja.value.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
       const [titulo, artista, tono] = l.split(/\s*[;\t]\s*|\s+-\s+/).map(s => s.trim());
-      return { titulo, artista: artista || '', tono: tono || '', nota: '', partes: [] };
+      return { titulo, artista: artista || '', tono: tono || '', nota: '', enlace: '', partes: [] };
     });
     if (!nuevas.length) return;
     const malas = nuevas.filter(n => !TONOS.includes(n.tono));
-    if (malas.length) { estado('Falta el tono o es inválido en: ' + malas.map(n => n.titulo).join(', ') + '. No se agregó nada.'); return; }
+    if (malas.length) { msg.textContent = 'Falta el tono o es inválido en: ' + malas.map(n => n.titulo).join(', ') + '. No se agregó nada.'; return; }
     lista().push(...nuevas);
-    $('masivo').value = '';
-    cambio();
-  }
-
-  // Importar una copia (.json bajado con "Descargar copia de seguridad"). Reemplaza la lista actual.
-  async function leerCopia(ev) {
-    const archivo = ev.target.files[0];
-    ev.target.value = '';
-    if (!archivo) return;
-    let d;
-    try { d = JSON.parse(await archivo.text()); } catch (err) { estado('El archivo no es una copia válida.'); return; }
-    if (!d || !Array.isArray(d.canciones) || !d.canciones.length) { estado('El archivo no trae canciones. No se importó nada.'); return; }
-    if (!confirm(`Esto reemplaza las ${lista().length} canciones actuales por las ${d.canciones.length} del archivo. ¿Continuar?`)) return;
-    app.data.nombre = d.nombre || app.data.nombre;
-    app.data.intro = typeof d.intro === 'string' ? d.intro : app.data.intro;
-    app.data.canciones = d.canciones.filter(c => c && typeof c === 'object').map(c => {
-      const x = limpia(c);
-      x.partes = Array.isArray(c.partes) ? c.partes : [];
-      return x;
-    });
-    limpiarForm();
+    cerrarCapa();
     cambio();
   }
 
@@ -180,48 +209,62 @@
     URL.revokeObjectURL(url);
   }
 
-  // Nombre, texto y WhatsApp: se guardan al salir de cada casilla.
-  function datosPagina(k, etiqueta, size) {
-    return el('label', {}, etiqueta + ': ', el('input', {
-      size, value: app.data[k] || '',
-      onchange: e => { app.data[k] = e.target.value.trim(); cambio(); }
-    }), ' ');
+  // Importar una copia (.json bajado con "Descargar copia"). Reemplaza la lista actual.
+  async function leerCopia(ev, msg) {
+    const archivo = ev.target.files[0];
+    ev.target.value = '';
+    if (!archivo) return;
+    let d;
+    try { d = JSON.parse(await archivo.text()); } catch (err) { msg.textContent = 'El archivo no es una copia válida.'; return; }
+    if (!d || !Array.isArray(d.canciones) || !d.canciones.length) { msg.textContent = 'El archivo no trae canciones. No se importó nada.'; return; }
+    if (!confirm(`Esto reemplaza las ${lista().length} canciones actuales por las ${d.canciones.length} del archivo. ¿Continuar?`)) return;
+    app.data.nombre = d.nombre || app.data.nombre;
+    app.data.intro = typeof d.intro === 'string' ? d.intro : app.data.intro;
+    app.data.canciones = d.canciones.filter(c => c && typeof c === 'object').map(c => {
+      const x = limpia(c);
+      x.partes = Array.isArray(c.partes) ? c.partes : [];
+      return x;
+    });
+    cerrarCapa();
+    cambio();
   }
 
-  function montar() {
-    $('editor').replaceChildren(el('div', { className: 'editor' },
-      el('p', {}, el('b', {}, 'Modo editor. '), 'Cada cambio se guarda al instante y lo ve todo el mundo. Solo funciona con tu contraseña.'),
-      el('p', {}, el('label', {}, 'Contraseña: ', el('input', { id: 'clave', type: 'password', size: 22, value: leerClave(), autocomplete: 'current-password' }))),
-      el('form', { onsubmit: guardarCancion },
-        el('fieldset', {}, el('legend', {}, 'Agregar o editar una canción'),
-          campo('titulo', 'Canción'), campo('artista', 'Artista'),
-          campo('tono', 'Tono (obligatorio)', el('select', { id: 'f-tono', required: true }, el('option', { value: '' }, 'Elige'), ...TONOS.map(t => el('option', { value: t }, t)))),
-          campo('nota', 'Nota (opcional, ej: capo 2)'),
-          campo('enlace', 'Link de referencia (opcional)', el('input', { id: 'f-enlace', type: 'url', size: 30, placeholder: 'https://…' })),
-          el('p', {}, el('label', {}, 'Partes y acordes (opcional): ', el('br'),
-            el('textarea', { id: 'f-partes', rows: 6, cols: 44, oninput: mostrarRevision, placeholder: 'Intro: G D | Em C\nVerso: G D | Em C // una línea que te ubique\nCoro (D): D G | Bm A' })),
-            el('br'), el('small', {}, 'Una parte por línea: Nombre (tono): acordes // pista. El (tono) y la pista son opcionales (el tono solo si la parte modula). Marca el compás con |. Pista: una línea corta, no la letra completa.')),
-          el('ul', { id: 'avisos', 'aria-live': 'polite' }),
-          el('button', { id: 'btn-guardar', type: 'submit' }, 'Agregar'), ' ',
-          el('button', { id: 'btn-cancelar', type: 'button', hidden: true, onclick: limpiarForm }, 'Cancelar'))),
-      el('details', {}, el('summary', {}, 'Agregar varias de una vez'),
-        el('p', {}, 'Una canción por línea: ', el('code', {}, 'Título ; Artista ; Tono')),
-        el('textarea', { id: 'masivo', rows: 5, cols: 50, placeholder: 'Océanos ; Hillsong ; D' }),
-        el('br'), el('button', { type: 'button', onclick: agregarVarias }, 'Agregar todas')),
-      el('details', {}, el('summary', {}, 'Nombre y texto de la página'),
-        el('p', {}, datosPagina('nombre', 'Nombre', 30), datosPagina('intro', 'Texto', 40))),
-      el('p', {},
-        el('button', { type: 'button', onclick: guardar }, 'Guardar ahora'), ' ',
-        el('button', { type: 'button', onclick: descargarCopia }, 'Descargar copia de seguridad'), ' ',
-        el('button', { type: 'button', onclick: () => $('archivo').click() }, 'Importar copia de seguridad'),
-        el('input', { id: 'archivo', type: 'file', accept: 'application/json,.json', hidden: true, onchange: leerCopia })),
-      el('p', { id: 'estado', 'aria-live': 'polite' }, '')));
+  function cerrarSesion() {
+    olvidarClave();
+    try { localStorage.removeItem(FLAG); } catch (e) { /* nada */ }
+    salir();
   }
 
-  app.acciones = i => el('div', { className: 'acciones' },
-    el('button', { type: 'button', onclick: () => editar(i) }, 'Editar'), ' ',
-    el('button', { type: 'button', onclick: () => borrar(i) }, 'Borrar'));
+  function abrirAjustes() {
+    const msg = el('p', { className: 'aviso-e' });
+    const masivo = el('textarea', { rows: 5, placeholder: 'Océanos ; Hillsong ; D' });
+    const archivo = el('input', { type: 'file', accept: 'application/json,.json', hidden: true, onchange: ev => leerCopia(ev, msg) });
+    const dato = (k, etiqueta) => el('label', { className: 'campo' }, el('span', {}, etiqueta),
+      el('input', { value: app.data[k] || '', onchange: ev => { app.data[k] = ev.target.value.trim(); cambio(); } }));
+    abrirCapa('Ajustes', [
+      el('div', { className: 'grupo' }, el('h3', {}, 'Página'), dato('nombre', 'Nombre'), dato('intro', 'Texto de presentación')),
+      el('div', { className: 'grupo' }, el('h3', {}, 'Agregar varias de una vez'),
+        el('p', { className: 'pista-ayuda' }, 'Una canción por línea: Título ; Artista ; Tono'), masivo,
+        el('p', {}, el('button', { type: 'button', onclick: () => agregarVarias(masivo, msg) }, 'Agregar todas'))),
+      el('div', { className: 'grupo' }, el('h3', {}, 'Copia de seguridad'),
+        el('p', {}, el('button', { type: 'button', onclick: descargarCopia }, 'Descargar copia'), ' ',
+          el('button', { type: 'button', onclick: () => archivo.click() }, 'Importar copia'), archivo)),
+      el('div', { className: 'grupo' }, el('h3', {}, 'Sesión'),
+        el('p', {}, el('button', { type: 'button', onclick: salir }, 'Salir del editor'), ' ',
+          el('button', { type: 'button', onclick: cerrarSesion }, 'Cerrar sesión'))),
+      msg
+    ]);
+  }
 
-  montar();
+  $('editor').replaceChildren(el('div', { className: 'ebarra' },
+    el('b', {}, 'Editor'),
+    el('span', { id: 'estado', className: 'estado', 'aria-live': 'polite' }, 'Listo'),
+    el('button', { id: 'b-reintentar', type: 'button', hidden: true, onclick: guardar }, 'Reintentar'),
+    el('button', { type: 'button', className: 'primario', onclick: () => abrirForm(-1) }, '+ Nueva'),
+    el('button', { type: 'button', onclick: abrirAjustes }, 'Ajustes')));
+
+  app.acciones = i => el('div', { className: 'acciones' }, el('button', { type: 'button', onclick: () => abrirForm(i) }, 'Editar'));
+
   app.render();
+  if (!clave) abrirLogin();
 })();

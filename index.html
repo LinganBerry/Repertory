@@ -48,10 +48,26 @@
   .vacio { padding: 1.5rem 0; color: var(--muted); }
   #pie { color: var(--muted); font-size: .9rem; }
   hr { border: 0; border-top: 1px solid var(--line); margin: 2rem 0 1rem; }
-  .editor { border-left: 5px solid #d9a400; padding: .4rem 0 .4rem .9rem; margin: 1rem 0 1.2rem; font-size: 16px; }
-  .editor label { display: inline-block; margin: .2rem .8rem .2rem 0; color: var(--muted); }
-  .editor input, .editor select, .editor textarea { max-width: 100%; }
-  .editor fieldset { margin: .8rem 0; border: 1px solid var(--line); border-radius: 4px; }
+  .ebarra { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; border-left: 5px solid #d9a400; padding: .3rem 0 .3rem .8rem; margin: .5rem 0 1rem; }
+  .ebarra b { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; }
+  .estado { flex: 1; min-width: 6rem; color: var(--muted); font-size: .9rem; }
+  .estado.mal { color: #c0392b; font-weight: 700; }
+  .primario { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 600; }
+  .peligro { color: #c0392b; border-color: #c0392b; }
+  .capa { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; background: var(--bg); }
+  .capa-t { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .6rem 1rem; border-bottom: 1px solid var(--line); font-weight: 700; }
+  .capa-c { flex: 1; overflow-y: auto; width: 100%; max-width: 44rem; margin: 0 auto; padding: 1rem; }
+  .capa-p { display: flex; gap: .5rem; padding: .6rem 1rem; border-top: 1px solid var(--line); }
+  .capa-p .sp { flex: 1; }
+  .campo { display: block; margin: 0 0 1rem; }
+  .campo > span { display: block; margin-bottom: .25rem; color: var(--muted); font-size: .85rem; }
+  .campo input, .campo select, .campo textarea { width: 100%; }
+  .campo input[type=checkbox] { width: auto; }
+  .capa textarea { font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .grupo { margin: 0 0 1.6rem; }
+  .grupo h3 { margin: 0 0 .6rem; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .pista-ayuda { color: var(--muted); font-size: .85rem; margin: .2rem 0 .6rem; }
+  #ir-editar { display: inline-block; padding: .5rem 0; color: var(--muted); font-size: .85rem; }
   #avisos { margin: .4rem 0; padding-left: 1.2rem; font-size: .9rem; }
   .aviso-e { color: #c0392b; font-weight: 700; }
   .aviso-a { color: var(--muted); }
@@ -104,6 +120,7 @@
 <div id="cancion" hidden></div>
 <hr>
 <p id="pie"></p>
+<p class="noimp"><a id="ir-editar" href="?editar" hidden>Editar</a></p>
 
 <script src="canciones.js"></script>
 <script>
@@ -459,6 +476,20 @@
       : [el('p', { className: 'vacio' }, data.canciones.length ? 'No hay canciones con esos filtros. ' : 'Aún no hay canciones.',
           data.canciones.length > 0 && el('button', { type: 'button', onclick: () => { vista.q = ''; vista.tono = ''; $('q').value = ''; render(); } }, 'Quitar filtros'))]));
   }
+
+  // Acceso al editor sin escribir nada: 5 toques seguidos al título lo abren; después, en este teléfono,
+  // queda un enlace "Editar" al pie de la página (nadie más lo ve).
+  const FLAG = 'repertorio-editor';
+  try {
+    if (EDITOR) localStorage.setItem(FLAG, '1');
+    $('ir-editar').hidden = EDITOR || localStorage.getItem(FLAG) !== '1';
+  } catch (e) { /* nada */ }
+  let toques = [];
+  $('titulo').addEventListener('click', () => {
+    const t = Date.now();
+    toques = toques.filter(x => t - x < 3000).concat(t);
+    if (!EDITOR && toques.length >= 5) location.search = '?editar';
+  });
 
   $('q').addEventListener('input', e => { vista.q = e.target.value; render(); });
 
