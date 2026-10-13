@@ -1,6 +1,7 @@
 // Copia de respaldo. La página usa los datos guardados en el servidor; este archivo solo se usa
 // si el servidor no responde o si todavía no has guardado nada desde ?editar.
 window.REPERTORIO = {
+  version: 1,
   nombre: "Mi repertorio",
   intro: "Canciones que me sé.",
   actualizado: "",
