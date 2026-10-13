@@ -1,4 +1,4 @@
-// Modo editor: se abre con ?editar al final del link, o tocando 5 veces el título de la página.
+// Modo editor: se abre tocando 5 veces el título de la página (o con ?editar al final del link).
 // Cada cambio se guarda en el servidor (/api/canciones) y lo ve todo el mundo.
 // El servidor exige la contraseña ADMIN_PASSWORD; sin ella nadie puede modificar nada.
 (() => {
@@ -10,7 +10,7 @@
   const CAMPOS = ['titulo', 'artista', 'tono', 'nota', 'enlace'];
   const TONOS = ['C', 'C#', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
     .flatMap(t => [t, t + 'm']);
-  const CLAVE = 'repertorio-clave', FLAG = 'repertorio-editor';
+  const CLAVE = 'repertorio-clave';
   const lista = () => app.data.canciones;
 
   // Contraseña: vive en memoria; si lo pides, queda recordada en este teléfono.
@@ -83,6 +83,9 @@
       if (!r.ok) { pendiente = true; estado('No se guardó: ' + (j.error || 'error ' + r.status), 'mal'); return false; }
       pendiente = false;
       app.data.actualizado = d.actualizado;
+      // Si el servidor es una versión vieja, descarta los links sin avisar: aquí se detecta.
+      const conLink = d.canciones.filter(c => c.enlace).length;
+      if (conLink && j.enlaces !== conLink) { estado('Guardado, pero el servidor NO guardó los links: sube la versión nueva de api/canciones.js a GitHub.', 'alerta'); return true; }
       estado('Guardado ✓');
       try { navigator.vibrate && navigator.vibrate([10, 25, 15]); } catch (e) { /* nada */ }
       return true;
@@ -231,7 +234,6 @@
 
   function cerrarSesion() {
     olvidarClave();
-    try { localStorage.removeItem(FLAG); } catch (e) { /* nada */ }
     salir();
   }
 

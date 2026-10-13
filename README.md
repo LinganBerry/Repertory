@@ -10,7 +10,7 @@ Página con las canciones que sé tocar (acordes, tono y partes). La gente solo 
 | Archivo | Para qué |
 |---|---|
 | `index.html` | Página pública: lista, buscador, tonos, pantalla de canción, números romanos |
-| `editor.js` | Modo editor: se abre tocando 5 veces el título, o con `?editar` al final del link; después queda un enlace "Editar" al pie en ese teléfono |
+| `editor.js` | Modo editor: se abre tocando 5 veces seguidas el título (secreto, sin enlace visible) o con `?editar` al final del link |
 | `api/canciones.js` | `GET` público · `POST` protegido con contraseña |
 | `canciones.js` | Copia de respaldo (`window.REPERTORIO`) |
 | `sw.js` | Desinstalador de la copia offline antigua. Se puede borrar cuando ya no quede nadie con ella |

@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Repertorio</title>
+<meta name="description" content="Repertorio de canciones con acordes, tono y partes.">
+<meta name="theme-color" content="#faf6ee">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Repertorio">
+<meta property="og:description" content="Canciones con acordes, tono y partes.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232a2620'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='%23faf6ee' font-family='Georgia%2Cserif' font-weight='700'%3ER%3C/text%3E%3C/svg%3E">
 <style>
   :root { --accent: #2b59c3; --serif: Georgia, "Times New Roman", serif; --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   :root[data-tema=papel] { --bg: #faf6ee; --ink: #2a2620; --muted: #7a7266; --line: #e4dccb; --fila: #f1eadb; --fila2: #fffdf8; --pl: 84%; --pt: #2a2620; --tit: var(--serif); }
@@ -51,7 +57,7 @@
   .ebarra { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; border-left: 5px solid #d9a400; padding: .3rem 0 .3rem .8rem; margin: .5rem 0 1rem; }
   .ebarra b { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; }
   .estado { flex: 1; min-width: 6rem; color: var(--muted); font-size: .9rem; }
-  .estado.mal { color: #c0392b; font-weight: 700; }
+  .estado.mal, .estado.alerta { color: #c0392b; font-weight: 700; }
   .primario { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 600; }
   .peligro { color: #c0392b; border-color: #c0392b; }
   .capa { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; background: var(--bg); }
@@ -67,7 +73,6 @@
   .grupo { margin: 0 0 1.6rem; }
   .grupo h3 { margin: 0 0 .6rem; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
   .pista-ayuda { color: var(--muted); font-size: .85rem; margin: .2rem 0 .6rem; }
-  #ir-editar { display: inline-block; padding: .5rem 0; color: var(--muted); font-size: .85rem; }
   #avisos { margin: .4rem 0; padding-left: 1.2rem; font-size: .9rem; }
   .aviso-e { color: #c0392b; font-weight: 700; }
   .aviso-a { color: var(--muted); }
@@ -120,7 +125,6 @@
 <div id="cancion" hidden></div>
 <hr>
 <p id="pie"></p>
-<p class="noimp"><a id="ir-editar" href="?editar" hidden>Editar</a></p>
 
 <script src="canciones.js"></script>
 <script>
@@ -477,13 +481,8 @@
           data.canciones.length > 0 && el('button', { type: 'button', onclick: () => { vista.q = ''; vista.tono = ''; $('q').value = ''; render(); } }, 'Quitar filtros'))]));
   }
 
-  // Acceso al editor sin escribir nada: 5 toques seguidos al título lo abren; después, en este teléfono,
-  // queda un enlace "Editar" al pie de la página (nadie más lo ve).
-  const FLAG = 'repertorio-editor';
-  try {
-    if (EDITOR) localStorage.setItem(FLAG, '1');
-    $('ir-editar').hidden = EDITOR || localStorage.getItem(FLAG) !== '1';
-  } catch (e) { /* nada */ }
+  // Acceso secreto al editor: 5 toques seguidos al título (en 3 segundos). No hay enlace visible.
+  try { localStorage.removeItem('repertorio-editor'); } catch (e) { /* nada */ }
   let toques = [];
   $('titulo').addEventListener('click', () => {
     const t = Date.now();
