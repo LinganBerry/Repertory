@@ -24,7 +24,7 @@
   .badge { flex: none; padding: .25rem .6rem; border: 1px solid var(--line); border-radius: 4px; font-size: .85rem; color: var(--muted); white-space: nowrap; }
   .pastillas { display: flex; gap: .45rem; overflow-x: auto; padding: .6rem 0 .2rem; -webkit-overflow-scrolling: touch; }
   .pastillas button { flex: none; min-width: 48px; padding: .3rem .7rem; font-weight: 700; }
-  .pastillas button[aria-pressed=true] { border: 2px solid var(--ink); }
+  .pastillas button[aria-pressed=true] { border: 2px solid var(--ink); text-decoration: underline; text-underline-offset: 3px; }
   .tono { display: inline-flex; align-items: center; justify-content: center; min-width: 2.6rem; padding: .35rem .6rem; border-radius: 4px; font-weight: 700; color: var(--pt); background: hsl(var(--h, 0) var(--s, 0%) var(--pl)); }
   .tono small { font-size: .65em; font-weight: 600; margin-left: 1px; }
   .fila { display: flex; align-items: center; gap: .6rem; padding: .3rem 0; border-bottom: 1px solid var(--line); }
@@ -34,7 +34,7 @@
   body.fija { overflow: hidden; }
   #cancion { position: fixed; inset: 0; z-index: 20; overflow-y: auto; background: var(--bg); --z: 1; }
   .cbarra { position: sticky; top: 0; display: flex; gap: .4rem; padding: .5rem 1rem; background: var(--bg); border-bottom: 1px solid var(--line); }
-  .cbarra .sp { flex: 1; }
+  .ctitulo { flex: 1; min-width: 0; align-self: center; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ccuerpo { max-width: 44rem; margin: 0 auto; padding: 1rem 1rem 5rem; }
   .ccuerpo h2 { font: 700 calc(1.8rem * var(--z))/1.2 var(--tit); margin: 0 0 .2rem; }
   .parte { margin: .9rem 0; padding: .6rem .8rem; border-left: 5px solid var(--line); background: var(--fila); }
@@ -54,6 +54,15 @@
   .editor fieldset { margin: .8rem 0; border: 1px solid var(--line); border-radius: 4px; }
   .acciones { flex: none; display: flex; gap: .3rem; }
   .acciones button { min-height: 40px; padding: .2rem .6rem; font-size: .9rem; }
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a, input { touch-action: manipulation; }
+  button:active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .abrir:active { background: var(--fila); color: var(--ink); border: 0; }
+  button:disabled { opacity: .35; }
+  button:disabled:active { background: var(--bg); color: var(--ink); border-color: var(--line); }
+  .fila:hover { background: var(--fila); }
+  .fila.ultima { border-left: 4px solid var(--accent); padding-left: .6rem; }
+  .badge.activo { border-color: var(--accent); color: var(--accent); font-weight: 700; }
   .rom { font: 400 calc(.75rem * var(--z))/1.1 var(--sans); color: var(--muted); }
   @media print {
     header button, #barra, #editor, .cbarra, .noimp { display: none !important; }
@@ -199,7 +208,7 @@
   const leer = (k, def) => { try { return JSON.parse(localStorage.getItem(k)) ?? def; } catch (e) { return def; } };
   const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* nada */ } };
   let zoom = Math.min(1.9, Math.max(.85, Number(leer('repertorio-zoom', 1)) || 1));
-  let actual = null;
+  let actual = null, ultima = null;
 
   // Pantalla encendida mientras la canción está abierta (si el navegador lo permite).
   let candado = null;
@@ -274,9 +283,9 @@
     caja.replaceChildren(
       el('div', { className: 'cbarra' },
         el('button', { type: 'button', onclick: () => history.back() }, '← Volver'),
-        el('span', { className: 'sp' }),
-        el('button', { type: 'button', 'aria-label': 'Letra más chica', onclick: () => cambiarZoom(-.15) }, 'A−'),
-        el('button', { type: 'button', 'aria-label': 'Letra más grande', onclick: () => cambiarZoom(.15) }, 'A+')),
+        el('span', { className: 'ctitulo' }, c.titulo),
+        el('button', { type: 'button', id: 'zmenos', 'aria-label': 'Letra más chica', onclick: () => cambiarZoom(-.15) }, 'A−'),
+        el('button', { type: 'button', id: 'zmas', 'aria-label': 'Letra más grande', onclick: () => cambiarZoom(.15) }, 'A+')),
       el('div', { className: 'ccuerpo' },
         el('h2', {}, c.titulo),
         el('p', { className: 'a' }, [c.artista, c.nota].filter(Boolean).join(' · ')),
@@ -284,18 +293,22 @@
         ...(partes.length ? partes.map(parte) : [el('p', { className: 'vacio' }, 'Aún no hay partes ni acordes para esta canción.')]),
         el('p', { className: 'noimp' }, el('button', { type: 'button', onclick: () => print() }, 'Imprimir'))));
     caja.style.setProperty('--z', zoom);
+    topesZoom();
     caja.hidden = false;
     document.body.classList.add('fija');
   }
 
+  // A− / A+ se apagan al llegar al límite, para que se note que no hay más.
+  const topesZoom = () => { const a = $('zmenos'), b = $('zmas'); if (a) a.disabled = zoom <= .85; if (b) b.disabled = zoom >= 1.9; };
   function cambiarZoom(d) {
     zoom = Math.min(1.9, Math.max(.85, Math.round((zoom + d) * 100) / 100));
     guardar('repertorio-zoom', zoom);
     $('cancion').style.setProperty('--z', zoom);
+    topesZoom();
   }
 
   function abrirCancion(c) {
-    actual = c;
+    actual = ultima = c;
     history.pushState({ cancion: true }, '');
     mostrar();
     pantallaEncendida();
@@ -313,7 +326,7 @@
       el('span', { className: 't' }, c.titulo),
       c.artista && el('span', { className: 'a' }, c.artista),
       c.nota && el('span', { className: 'a' }, c.nota));
-    return [el('div', { className: 'fila' }, cuerpo, pastilla(c.tono), EDITOR && app.acciones && app.acciones(i))];
+    return [el('div', { className: 'fila' + (c === ultima ? ' ultima' : '') }, cuerpo, pastilla(c.tono), EDITOR && app.acciones && app.acciones(i))];
   }
 
   function render() {
@@ -324,9 +337,11 @@
     pastillas();
     const rows = visibles();
     $('cuenta').textContent = `${rows.length} de ${data.canciones.length}`;
+    $('cuenta').classList.toggle('activo', Boolean(vista.q.trim() || vista.tono));
     $('lista').replaceChildren(...(rows.length
       ? rows.flatMap(fila)
-      : [el('p', { className: 'vacio' }, 'No hay canciones con esos filtros.')]));
+      : [el('p', { className: 'vacio' }, data.canciones.length ? 'No hay canciones con esos filtros. ' : 'Aún no hay canciones.',
+          data.canciones.length > 0 && el('button', { type: 'button', onclick: () => { vista.q = ''; vista.tono = ''; $('q').value = ''; render(); } }, 'Quitar filtros'))]));
   }
 
   $('q').addEventListener('input', e => { vista.q = e.target.value; render(); });
