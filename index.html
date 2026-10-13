@@ -266,7 +266,8 @@
     if (bajo) { const b = grado(bajo, tono); r += '/' + b.alt + (b.d + 1); }  // bajo = grado de la escala (D/F# en G → V/7)
     return r;
   }
-  const compases = prog => prog.split('|').map(g => g.trim().split(/\s+/).filter(t => t && t !== '-')).filter(g => g.length);
+  // Separadores de acorde: espacio o guion pegado a otro acorde (F#-G-A). Un guion seguido de número (A-7) es "menor", no separador.
+  const compases = prog => prog.split('|').map(g => g.trim().split(/\s+/).flatMap(t => t.split(/-(?=[A-G])/)).filter(t => t && t !== '-')).filter(g => g.length);
 
   function parte(p) {
     const hijos = [];

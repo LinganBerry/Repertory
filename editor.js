@@ -47,7 +47,7 @@
       const prog = (i < 0 ? cuerpo : cuerpo.slice(i + 1)).trim();
       if (!prog) { errores.push(donde + 'no hay acordes.'); return; }
       if (prog.split('|').some(g => !g.trim())) avisos.push(donde + 'hay un compás vacío (un | de más, al inicio, al final o repetido).');
-      const raros = prog.split(/[\s|]+/).filter(t => t && t !== '-' && t !== 'N.C.').filter(t => {
+      const raros = prog.split(/[\s|]+/).flatMap(t => t.split(/-(?=[A-G])/)).filter(t => t && t !== '-' && t !== 'N.C.').filter(t => {
         const r = /^[A-G][#♯b♭]*/.exec(t);
         return !r || !ACORDE.test(t.slice(r[0].length));
       });
