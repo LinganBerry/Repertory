@@ -9,7 +9,9 @@ Objetivo: repertorio propio, sin cuadernos, que se vea desde cualquier lugar y s
 
 | Archivo | Para qué |
 |---|---|
-| `index.html` | Toda la página pública: estilos, lista, buscador, pantalla de canción, números romanos, transposición |
+| `index.html` | Solo la estructura de la página |
+| `app.js` | Toda la lógica pública: lista, buscador, pantalla de canción, números romanos, transposición |
+| `estilos.css` | Todo el diseño (colores, temas, tamaños) |
 | `editor.js` | Modo editor. Se abre **tocando 5 veces seguidas el título** (o con `?editar` al final del link) |
 | `api/canciones.js` | `GET` público (devuelve el repertorio) · `POST` protegido (guarda) |
 | `api/entrar.js` | Único lugar donde se prueba la contraseña; devuelve un pase de 30 días |
@@ -20,26 +22,38 @@ Objetivo: repertorio propio, sin cuadernos, que se vea desde cualquier lugar y s
 
 ## Seguridad (cómo funciona)
 - Escribir datos exige un **pase firmado**. Se obtiene en `/api/entrar` con la contraseña (`ADMIN_PASSWORD` en Vercel).
-- El teléfono guarda solo el pase (vence a los 30 días), **nunca la contraseña**.
+- El teléfono guarda solo el pase (vence a los 30 días), **nunca la contraseña**. "Recordar" viene desmarcado.
+- El pase se firma con `SESSION_SECRET` (texto aleatorio de 32+ caracteres en Vercel), separado de la contraseña: robar un pase no ayuda a adivinarla.
 - La contraseña debe tener **12 caracteres o más**; si es más corta, el servidor se niega a funcionar y lo dice.
-- 5 contraseñas malas desde una misma IP → bloqueo de 15 minutos (ayuda, pero no es infalible en Vercel: la defensa real es una contraseña larga).
-- **Cambiar la contraseña** invalida todos los pases a la vez (cierra todas las sesiones).
-- Todo lo que se muestra se escribe como texto y los links solo pueden ser `http(s)`.
+- 5 contraseñas malas desde una misma IP → bloqueo de 15 minutos (ayuda, pero no es infalible en Vercel: la defensa real es una contraseña larga y aleatoria).
+- **Matar todas las sesiones:** cambiar `ADMIN_PASSWORD` o `SESSION_SECRET` en Vercel (y Redeploy).
+- Cada guardado conserva el estado anterior (`previo.json`): **Ajustes → Deshacer último guardado**. El servidor no guarda listas vacías.
+- La página no ejecuta nada que venga de los datos: todo se escribe como texto, los links solo pueden ser `http(s)`, y la política de seguridad (CSP en `vercel.json`) solo permite scripts y estilos de la propia página.
 - Es público a propósito: la lista de canciones (`GET /api/canciones`) y el código del repo.
+
+## Lista de seguridad (acciones mías, no de código)
+- [ ] **Verificación en dos pasos (2FA) en GitHub y en Vercel**, con códigos de recuperación guardados. Quien controle esas cuentas controla el sitio entero.
+- [ ] `ADMIN_PASSWORD` larga (16+ caracteres o 5 palabras sin relación), única, en un gestor de contraseñas.
+- [ ] `SESSION_SECRET` creada en Vercel (aleatoria, 32+ caracteres, generada por el gestor de contraseñas).
+- [ ] Nunca subir contraseñas ni archivos `.env` al repo (el repo es público).
+- [ ] Fijar la versión de `@vercel/blob` (ver el número instalado en el log de un despliegue de Vercel y quitar el `^` en `package.json`).
+- [ ] Si el plan lo permite: regla de límite de peticiones para `/api/entrar` en el Firewall de Vercel.
+- [ ] Descargar una copia de seguridad cada cierto tiempo (Ajustes → Descargar copia).
 
 ## Cambios que puedo hacer solo
 | Quiero… | Dónde |
 |---|---|
 | Cambiar nombre o texto de la página | Editor → **Ajustes → Página** |
 | Cambiar la contraseña | Vercel → proyecto → Settings → Environment Variables → `ADMIN_PASSWORD` (mín. 12 caracteres) → después **Redeploy** (Deployments → ⋯ → Redeploy) |
-| Colores de los temas | `index.html`, bloques `:root[data-tema=papel]` y `:root[data-tema=escenario]` (variables `--bg`, `--ink`, `--muted`…) |
-| Color de las pastillas de tono | `index.html`, función `colorear` (`NOTAS[m[1]] * 30` = matiz; `'34%'` = intensidad) |
-| Nº de toques para abrir el editor | `index.html`, buscar `toques.length >= 5` (y `3000` = segundos de ventana) |
-| Límites del tamaño de letra | `index.html`, buscar `.85` y `1.9` (aparecen en 3 sitios: `zoom`, `topesZoom`, `cambiarZoom`) |
+| Colores de los temas | `estilos.css`, bloques `:root[data-tema=papel]` y `:root[data-tema=escenario]` (variables `--bg`, `--ink`, `--muted`…) |
+| Color de las pastillas de tono | `app.js`, función `colorear` (`NOTAS[m[1]] * 30` = matiz; `'34%'` = intensidad) |
+| Nº de toques para abrir el editor | `app.js`, buscar `toques.length >= 5` (y `3000` = segundos de ventana) |
+| Límites del tamaño de letra | `app.js`, buscar `.85` y `1.9` (aparecen en 3 sitios: `zoom`, `topesZoom`, `cambiarZoom`) |
 | Tonos que se pueden elegir | `editor.js`, lista `TONOS` |
 | Tiempo de vida del pase | `lib/auth.js`, constante `DIAS` |
-| Agregar un campo a cada canción (ej. "BPM") | 4 sitios: `editor.js` (`CAMPOS` y el formulario en `abrirForm`) · `api/canciones.js` (`limpiar()`, si no, el servidor lo descarta) · `index.html` (`mostrar()`, donde se dibuja) · este README |
+| Agregar un campo a cada canción (ej. "BPM") | 4 sitios: `editor.js` (`CAMPOS` y el formulario en `abrirForm`) · `api/canciones.js` (`limpiar()`, si no, el servidor lo descarta) · `app.js` (`mostrar()`, donde se dibuja) · este README |
 | Deshacer un cambio que rompió algo | GitHub → archivo → History → copiar la versión anterior. O Vercel → Deployments → un despliegue anterior → Promote / Instant Rollback |
+| Deshacer mi último guardado | Editor → Ajustes → **Deshacer último guardado** |
 | Restaurar mis canciones | Editor → Ajustes → **Importar copia** (con el `.json` de "Descargar copia") |
 | Dominio propio | Vercel → proyecto → Settings → Domains |
 
@@ -52,6 +66,7 @@ Objetivo: repertorio propio, sin cuadernos, que se vea desde cualquier lugar y s
 | "El servidor NO guardó los links" | `api/canciones.js` en GitHub es una versión vieja: reemplázalo |
 | No entra con la contraseña correcta | ¿Tiene 12+ caracteres? ¿Hubo 5 fallos seguidos (espera 15 min)? ¿Falta `api/entrar.js` o `lib/auth.js` en GitHub? |
 | Cambié algo y la página no cambia | Espera ~1 minuto, revisa en Vercel que el último despliegue diga **Ready**, y recarga |
+| La página se ve rota o sin estilos tras un cambio en `vercel.json` | Borra la línea `Content-Security-Policy` de `vercel.json` y vuelve a desplegar; luego avisa |
 | Página en blanco | Vercel → Deployments → ver el error; deshacer el último cambio |
 
 ## Formato de datos (versión 1)
