@@ -1,6 +1,6 @@
 // Modo editor: se abre tocando 5 veces el título de la página (o con ?editar al final del link).
 // Cada cambio se guarda en el servidor (/api/canciones) y lo ve todo el mundo.
-// El servidor exige la contraseña ADMIN_PASSWORD; sin ella nadie puede modificar nada.
+// El servidor exige un pase de sesión (se obtiene con la contraseña ADMIN_PASSWORD); sin él nadie puede modificar nada.
 (() => {
   'use strict';
 
@@ -10,14 +10,16 @@
   const CAMPOS = ['titulo', 'artista', 'tono', 'nota', 'enlace'];
   const TONOS = ['C', 'C#', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
     .flatMap(t => [t, t + 'm']);
-  const CLAVE = 'repertorio-clave';
   const lista = () => app.data.canciones;
 
-  // Contraseña: vive en memoria; si lo pides, queda recordada en este teléfono.
-  const leerClave = () => { try { return sessionStorage.getItem(CLAVE) || localStorage.getItem(CLAVE) || ''; } catch (e) { return ''; } };
-  const olvidarClave = () => { try { sessionStorage.removeItem(CLAVE); localStorage.removeItem(CLAVE); } catch (e) { /* nada */ } };
-  const recordarClave = (v, fija) => { olvidarClave(); try { (fija ? localStorage : sessionStorage).setItem(CLAVE, v); } catch (e) { /* nada */ } };
-  let clave = leerClave(), pendiente = false;
+  // Sesión: el servidor cambia la contraseña por un pase que vence a los 30 días. La contraseña NO se guarda.
+  const SESION = 'repertorio-sesion';
+  const leerSesion = () => { try { return sessionStorage.getItem(SESION) || localStorage.getItem(SESION) || ''; } catch (e) { return ''; } };
+  const olvidarSesion = () => { try { sessionStorage.removeItem(SESION); localStorage.removeItem(SESION); } catch (e) { /* nada */ } };
+  const guardarSesion = (v, fija) => { olvidarSesion(); try { (fija ? localStorage : sessionStorage).setItem(SESION, v); } catch (e) { /* nada */ } };
+  // Versiones anteriores guardaban la contraseña en el teléfono: se borra.
+  try { sessionStorage.removeItem('repertorio-clave'); localStorage.removeItem('repertorio-clave'); } catch (e) { /* nada */ }
+  let token = leerSesion(), pendiente = false;
 
   // Partes: una por línea, "Nombre (tono): acordes // pista". Tono y pista son opcionales; | marca el compás.
   const partesATexto = ps => (ps || []).map(p => (p.nombre ? p.nombre + (p.tono ? ' (' + p.tono + ')' : '') + ': ' : '') + p.prog + (p.pista ? ' // ' + p.pista : '')).join('\n');
@@ -73,13 +75,13 @@
 
   // Envía TODO el repertorio al servidor. Si falla, queda "Reintentar" en la barra.
   async function guardar() {
-    if (!clave) { pendiente = true; abrirLogin(); return false; }
+    if (!token) { pendiente = true; abrirLogin(); return false; }
     estado('Guardando…');
     const d = paquete();
     try {
-      const r = await fetch('/api/canciones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clave, data: d }) });
+      const r = await fetch('/api/canciones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, data: d }) });
       const j = await r.json().catch(() => ({}));
-      if (r.status === 401) { pendiente = true; clave = ''; olvidarClave(); estado('No se guardó: contraseña incorrecta.', 'mal'); abrirLogin('Contraseña incorrecta.'); return false; }
+      if (r.status === 401) { pendiente = true; token = ''; olvidarSesion(); estado('No se guardó: sesión vencida o no válida.', 'mal'); abrirLogin('Entra de nuevo con tu contraseña.'); return false; }
       if (!r.ok) { pendiente = true; estado('No se guardó: ' + (j.error || 'error ' + r.status), 'mal'); return false; }
       pendiente = false;
       app.data.actualizado = d.actualizado;
@@ -122,19 +124,31 @@
     const msg = el('p', { className: 'aviso-e' }, aviso || '');
     const pass = el('input', { type: 'password', autocomplete: 'current-password', placeholder: 'Contraseña' });
     const fija = el('input', { type: 'checkbox' });
-    const entrar = () => {
+    const boton = el('button', { type: 'button', className: 'primario' }, 'Entrar');
+    const entrar = async () => {
       if (!pass.value) { pass.focus(); return; }
-      clave = pass.value;
-      recordarClave(clave, fija.checked);
-      cerrarCapa();
-      estado('Listo');
-      if (pendiente) guardar();
+      boton.disabled = true;
+      msg.textContent = 'Entrando…';
+      try {
+        const r = await fetch('/api/entrar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clave: pass.value }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || !j.token) { msg.textContent = j.error || 'No se pudo entrar (error ' + r.status + ').'; boton.disabled = false; return; }
+        token = j.token;
+        guardarSesion(token, fija.checked);
+        cerrarCapa();
+        estado('Listo');
+        if (pendiente) guardar();
+      } catch (err) {
+        msg.textContent = 'Sin conexión con el servidor.';
+        boton.disabled = false;
+      }
     };
+    boton.onclick = entrar;
     abrirCapa('Entrar al editor', [
       el('label', { className: 'campo' }, el('span', {}, 'Contraseña'), pass),
-      el('label', { className: 'campo' }, fija, ' Recordar en este teléfono'),
+      el('label', { className: 'campo' }, fija, ' Recordar en este teléfono (30 días)'),
       msg
-    ], [el('button', { type: 'button', onclick: salir }, 'Solo mirar'), sp(), el('button', { type: 'button', className: 'primario', onclick: entrar }, 'Entrar')], false);
+    ], [el('button', { type: 'button', onclick: salir }, 'Solo mirar'), sp(), boton], false);
     pass.addEventListener('keydown', ev => { if (ev.key === 'Enter') entrar(); });
     pass.focus();
   }
@@ -233,7 +247,7 @@
   }
 
   function cerrarSesion() {
-    olvidarClave();
+    olvidarSesion();
     salir();
   }
 
@@ -268,5 +282,5 @@
   app.acciones = i => el('div', { className: 'acciones' }, el('button', { type: 'button', onclick: () => abrirForm(i) }, 'Editar'));
 
   app.render();
-  if (!clave) abrirLogin();
+  if (!token) abrirLogin();
 })();

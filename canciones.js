@@ -1,8 +1,8 @@
 // Servidor del repertorio: lee y guarda los datos en Vercel Blob.
 //   GET  /api/canciones  -> devuelve el repertorio (público)
-//   POST /api/canciones  -> guarda cambios; exige la contraseña ADMIN_PASSWORD
+//   POST /api/canciones  -> guarda cambios; exige un pase de sesión (se obtiene en /api/entrar con ADMIN_PASSWORD)
 import { get, put } from '@vercel/blob';
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { tokenValido, problemaConClave } from '../lib/auth.js';
 
 const RUTA = 'repertorio/canciones.json';
 const MAX_BYTES = 500_000;
@@ -28,10 +28,6 @@ async function leer() {
 const escribir = data => conAcceso(access => put(RUTA, JSON.stringify(data), {
   access, contentType: 'application/json', addRandomSuffix: false, allowOverwrite: true
 }));
-
-// Compara las contraseñas en tiempo constante (sin revelar cuántas letras acertó).
-const hash = s => createHash('sha256').update(String(s ?? '')).digest();
-const claveValida = intento => timingSafeEqual(hash(intento), hash(process.env.ADMIN_PASSWORD));
 
 // Solo se aceptan los campos conocidos, con límites de tamaño.
 const texto = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -69,21 +65,19 @@ export async function GET() {
 }
 
 export async function POST(request) {
-  if (!process.env.ADMIN_PASSWORD) return responder({ error: 'Falta la variable ADMIN_PASSWORD en Vercel' }, 500);
+  const problema = problemaConClave();
+  if (problema) return responder({ error: problema }, 500);
   const crudo = await request.text();
   if (crudo.length > MAX_BYTES) return responder({ error: 'Demasiado grande' }, 413);
   let cuerpo;
   try { cuerpo = JSON.parse(crudo); } catch { return responder({ error: 'JSON inválido' }, 400); }
   if (!cuerpo || typeof cuerpo !== 'object') return responder({ error: 'Solicitud inválida' }, 400);
-  if (!claveValida(cuerpo.clave)) {
-    await new Promise(r => setTimeout(r, 800)); // frena los intentos repetidos
-    return responder({ error: 'Contraseña incorrecta' }, 401);
-  }
+  if (!tokenValido(cuerpo.token)) return responder({ error: 'Sesión no válida o vencida. Entra de nuevo.' }, 401);
   const data = limpiar(cuerpo.data);
   if (!data) return responder({ error: 'Datos inválidos' }, 400);
   try {
     await escribir(data);
-    return responder({ ok: true, canciones: data.canciones.length });
+    return responder({ ok: true, canciones: data.canciones.length, enlaces: data.canciones.filter(c => c.enlace).length });
   } catch (e) {
     console.error(e);
     return responder({ error: 'No se pudo guardar en Blob: ' + (e?.message || e) }, 500);
