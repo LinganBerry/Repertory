@@ -24,7 +24,7 @@ Página con las canciones que sé tocar (acordes, tono y partes). La gente solo 
 - `POST /api/canciones` con `{ "clave": "...", "data": {...} }` → guarda. Responde `401` si la contraseña es incorrecta. El servidor descarta todo campo desconocido (`limpiar()`): un campo nuevo hay que agregarlo ahí.
 
 ## Formato de datos (versión 1)
-`{version, nombre, intro, actualizado, canciones:[{titulo, artista, tono, nota, partes:[{nombre, tono, prog, pista}]}]}`
+`{version, nombre, intro, actualizado, canciones:[{titulo, artista, tono, nota, enlace, partes:[{nombre, tono, prog, pista}]}]}`
 
 ## Escribir las partes (editor)
 Una parte por línea: `Nombre (tono): acordes // pista`

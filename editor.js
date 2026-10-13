@@ -7,7 +7,7 @@
   const app = window.RepertorioApp;
   const { el, norm } = app;
   const $ = id => document.getElementById(id);
-  const CAMPOS = ['titulo', 'artista', 'tono', 'nota'];
+  const CAMPOS = ['titulo', 'artista', 'tono', 'nota', 'enlace'];
   const TONOS = ['C', 'C#', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
     .flatMap(t => [t, t + 'm']);
   const CLAVE = 'repertorio-clave'; // se recuerda solo mientras la pestaña siga abierta
@@ -91,6 +91,7 @@
       recordarClave(clave);
       app.data.actualizado = paquete().actualizado;
       estado('Guardado. Ya lo ve todo el mundo.');
+      try { navigator.vibrate && navigator.vibrate([10, 25, 15]); } catch (err) { /* nada */ }
       return true;
     } catch (e) {
       estado('No se guardó: sin conexión con el servidor. Prueba de nuevo.');
@@ -113,6 +114,7 @@
     const c = { ...Object.fromEntries(CAMPOS.map(k => [k, $('f-' + k).value.trim()])), partes: textoAPartes($('f-partes').value) };
     if (!c.titulo) { $('f-titulo').focus(); return; }
     if (!c.tono) { estado('Elige el tono de la canción.'); $('f-tono').focus(); return; }
+    if (c.enlace && !/^https?:\/\/\S+$/i.test(c.enlace)) { estado('El link debe empezar con http:// o https://'); $('f-enlace').focus(); return; }
     if (mostrarRevision().length) { estado('Corrige los errores marcados en las partes antes de guardar.'); $('f-partes').focus(); return; }
     const repetida = lista().some((x, i) => i !== editando && norm(x.titulo) === norm(c.titulo) && norm(x.artista) === norm(c.artista));
     if (repetida && !confirm('Ya existe una canción igual. ¿Agregarla de todos modos?')) return;
@@ -152,17 +154,30 @@
     cambio();
   }
 
+  // Importar una copia (.json bajado con "Descargar copia de seguridad"). Reemplaza la lista actual.
+  async function leerCopia(ev) {
+    const archivo = ev.target.files[0];
+    ev.target.value = '';
+    if (!archivo) return;
+    let d;
+    try { d = JSON.parse(await archivo.text()); } catch (err) { estado('El archivo no es una copia válida.'); return; }
+    if (!d || !Array.isArray(d.canciones) || !d.canciones.length) { estado('El archivo no trae canciones. No se importó nada.'); return; }
+    if (!confirm(`Esto reemplaza las ${lista().length} canciones actuales por las ${d.canciones.length} del archivo. ¿Continuar?`)) return;
+    app.data.nombre = d.nombre || app.data.nombre;
+    app.data.intro = typeof d.intro === 'string' ? d.intro : app.data.intro;
+    app.data.canciones = d.canciones.filter(c => c && typeof c === 'object').map(c => {
+      const x = limpia(c);
+      x.partes = Array.isArray(c.partes) ? c.partes : [];
+      return x;
+    });
+    limpiarForm();
+    cambio();
+  }
+
   function descargarCopia() {
     const url = URL.createObjectURL(new Blob([JSON.stringify(paquete(), null, 2)], { type: 'application/json' }));
     el('a', { href: url, download: 'repertorio-copia.json' }).click();
     URL.revokeObjectURL(url);
-  }
-
-  function vaciar() {
-    if (!confirm('¿Borrar TODAS las canciones de la lista?')) return;
-    app.data.canciones = [];
-    limpiarForm();
-    cambio();
   }
 
   // Nombre, texto y WhatsApp: se guardan al salir de cada casilla.
@@ -182,6 +197,7 @@
           campo('titulo', 'Canción'), campo('artista', 'Artista'),
           campo('tono', 'Tono (obligatorio)', el('select', { id: 'f-tono', required: true }, el('option', { value: '' }, 'Elige'), ...TONOS.map(t => el('option', { value: t }, t)))),
           campo('nota', 'Nota (opcional, ej: capo 2)'),
+          campo('enlace', 'Link de referencia (opcional)', el('input', { id: 'f-enlace', type: 'url', size: 30, placeholder: 'https://…' })),
           el('p', {}, el('label', {}, 'Partes y acordes (opcional): ', el('br'),
             el('textarea', { id: 'f-partes', rows: 6, cols: 44, oninput: mostrarRevision, placeholder: 'Intro: G D | Em C\nVerso: G D | Em C // una línea que te ubique\nCoro (D): D G | Bm A' })),
             el('br'), el('small', {}, 'Una parte por línea: Nombre (tono): acordes // pista. El (tono) y la pista son opcionales (el tono solo si la parte modula). Marca el compás con |. Pista: una línea corta, no la letra completa.')),
@@ -197,7 +213,8 @@
       el('p', {},
         el('button', { type: 'button', onclick: guardar }, 'Guardar ahora'), ' ',
         el('button', { type: 'button', onclick: descargarCopia }, 'Descargar copia de seguridad'), ' ',
-        el('button', { type: 'button', onclick: vaciar }, 'Vaciar lista')),
+        el('button', { type: 'button', onclick: () => $('archivo').click() }, 'Importar copia de seguridad'),
+        el('input', { id: 'archivo', type: 'file', accept: 'application/json,.json', hidden: true, onchange: leerCopia })),
       el('p', { id: 'estado', 'aria-live': 'polite' }, '')));
   }
 
