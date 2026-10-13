@@ -35,6 +35,8 @@ const claveValida = intento => timingSafeEqual(hash(intento), hash(process.env.A
 
 // Solo se aceptan los campos conocidos, con límites de tamaño.
 const texto = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+// El link de referencia solo puede ser http(s): nada de javascript: ni otros esquemas.
+const urlHttp = v => { const t = texto(v, 300); return /^https?:\/\/\S+$/i.test(t) ? t : ''; };
 function limpiar(d) {
   if (!d || typeof d !== 'object' || !Array.isArray(d.canciones) || d.canciones.length > 1000) return null;
   const canciones = d.canciones.map(c => ({
@@ -42,6 +44,7 @@ function limpiar(d) {
     artista: texto(c?.artista, 200),
     tono: texto(c?.tono, 10),
     nota: texto(c?.nota, 300),
+    enlace: urlHttp(c?.enlace),
     partes: (Array.isArray(c?.partes) ? c.partes : []).slice(0, 30)
       .map(p => ({ nombre: texto(p?.nombre, 60), tono: texto(p?.tono, 10), prog: texto(p?.prog, 500), pista: texto(p?.pista, 200) }))
       .filter(p => p.prog)
@@ -80,7 +83,7 @@ export async function POST(request) {
   if (!data) return responder({ error: 'Datos inválidos' }, 400);
   try {
     await escribir(data);
-    return responder({ ok: true, canciones: data.canciones.length });
+    return responder({ ok: true, canciones: data.canciones.length, enlaces: data.canciones.filter(c => c.enlace).length });
   } catch (e) {
     console.error(e);
     return responder({ error: 'No se pudo guardar en Blob: ' + (e?.message || e) }, 500);
