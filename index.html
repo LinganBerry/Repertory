@@ -9,11 +9,15 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="Repertorio">
 <meta property="og:description" content="Canciones con acordes, tono y partes.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232a2620'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='%23faf6ee' font-family='Georgia%2Cserif' font-weight='700'%3ER%3C/text%3E%3C/svg%3E">
+<link rel="icon" id="icono" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232a2620'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='%23faf6ee' font-family='Georgia%2Cserif' font-weight='700'%3ER%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="estilos.css">
 </head>
 <body>
-<header><h1 id="titulo"></h1><button id="tema" type="button"></button></header>
+<header>
+  <div class="marca"><span class="logo" aria-hidden="true"><b id="logo-l">R</b><i class="rom">I</i></span><h1 id="titulo"></h1></div>
+  <button id="tema" type="button"></button>
+</header>
+<div id="franja" aria-hidden="true"></div>
 <p id="intro"></p>
 <div id="editor"></div>
 <div id="barra">

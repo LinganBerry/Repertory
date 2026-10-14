@@ -339,6 +339,10 @@
   function render() {
     document.title = data.nombre || 'Repertorio';
     $('titulo').textContent = data.nombre || 'Repertorio';
+    // La letra de la ficha y del icono de la pestaña salen de la primera letra del nombre (Ajustes → Página).
+    const ini = ((data.nombre || 'Repertorio').match(/[0-9A-Za-zÀ-ÿ]/) || ['R'])[0].toUpperCase();
+    $('logo-l').textContent = ini;
+    $('icono').href = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#2a2620"/><text x="16" y="24" font-size="22" text-anchor="middle" fill="#faf6ee" font-family="Georgia,serif" font-weight="700">${ini}</text></svg>`);
     $('intro').textContent = data.intro || '';
     $('pie').textContent = data.actualizado ? 'Actualizado: ' + data.actualizado : '';
     pastillas();
@@ -354,7 +358,7 @@
   // Acceso secreto al editor: 5 toques seguidos al título (en 3 segundos). No hay enlace visible.
   try { localStorage.removeItem('repertorio-editor'); } catch (e) { /* nada */ }
   let toques = [];
-  $('titulo').addEventListener('click', () => {
+  document.querySelector('.marca').addEventListener('click', () => {
     const t = Date.now();
     toques = toques.filter(x => t - x < 3000).concat(t);
     if (!EDITOR && toques.length >= 5) location.search = '?editar';
@@ -385,5 +389,12 @@
   // Versiones anteriores instalaron una copia offline (service worker). Se desinstala y se borra.
   if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => { /* nada */ });
   if ('caches' in window) caches.keys().then(ks => ks.forEach(k => caches.delete(k))).catch(() => { /* nada */ });
+  // Franja de 12 tonos (los mismos colores de las pastillas): C, C#, D … B.
+  for (let i = 0; i < 12; i++) {
+    const seg = el('span');
+    seg.style.setProperty('--h', i * 30);
+    seg.style.setProperty('--s', '34%');
+    $('franja').append(seg);
+  }
   cargar();
 })();

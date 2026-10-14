@@ -4,7 +4,7 @@
   * { box-sizing: border-box; }
   body { font: 17px/1.4 var(--sans); max-width: 44rem; margin: 0 auto; padding: 1.2rem 1rem 4rem; color: var(--ink); background: var(--bg); }
   html { background: var(--bg); }
-  header { display: flex; justify-content: space-between; align-items: flex-start; gap: .8rem; }
+  header { display: flex; justify-content: space-between; align-items: center; gap: .8rem; }
   h1 { font: 700 1.8rem/1.2 var(--tit); margin: 0 0 .3rem; }
   #intro { color: var(--muted); margin: 0 0 1rem; }
   input, select, textarea, button { font: inherit; color: var(--ink); }
@@ -89,9 +89,16 @@
   #cancion.rueda .chip { animation: rueda .2s ease-out; }
   @keyframes rueda { from { opacity: .2; transform: translateY(var(--dy, -6px)); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  .marca { display: flex; align-items: center; gap: .7rem; min-width: 0; cursor: default; }
+  .marca h1 { margin: 0; overflow-wrap: anywhere; }
+  .logo { flex: none; display: inline-flex; flex-direction: column; align-items: center; padding: .2rem .6rem .25rem; border: 1.5px solid var(--ink); border-radius: 4px; }
+  .logo b { font: 700 1.55rem/1.1 var(--tit); }
+  .logo .rom { font: 400 .7rem/1 var(--sans); font-style: normal; color: var(--muted); }
+  #franja { display: flex; height: 6px; margin: .7rem 0 1rem; }
+  #franja span { flex: 1; background: hsl(var(--h) var(--s) var(--pl)); }
   .rom { font: 400 calc(.75rem * var(--z))/1.1 var(--sans); color: var(--muted); }
   @media print {
-    header button, #barra, #editor, .cbarra, .noimp { display: none !important; }
+    header button, #barra, #editor, #franja, .cbarra, .noimp { display: none !important; }
     :root[data-tema] { --bg: #fff; --ink: #000; --muted: #444; --line: #999; --fila: #fff; --fila2: #fff; }
     body.fija { overflow: visible; }
     body.fija header, body.fija #intro, body.fija #lista, body.fija hr, body.fija #pie { display: none; }

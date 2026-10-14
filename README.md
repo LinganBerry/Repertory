@@ -47,6 +47,7 @@ Objetivo: repertorio propio, sin cuadernos, que se vea desde cualquier lugar y s
 | Cambiar la contraseña | Vercel → proyecto → Settings → Environment Variables → `ADMIN_PASSWORD` (mín. 12 caracteres) → después **Redeploy** (Deployments → ⋯ → Redeploy) |
 | Colores de los temas | `estilos.css`, bloques `:root[data-tema=papel]` y `:root[data-tema=escenario]` (variables `--bg`, `--ink`, `--muted`…) |
 | Color de las pastillas de tono | `app.js`, función `colorear` (`NOTAS[m[1]] * 30` = matiz; `'34%'` = intensidad) |
+| Logo (ficha con letra) e icono de la pestaña | Salen solos de la primera letra del nombre: Editor → Ajustes → Página. La franja de colores está en `app.js` (buscar `Franja de 12 tonos`) y su estilo en `estilos.css` (`#franja`) |
 | Nº de toques para abrir el editor | `app.js`, buscar `toques.length >= 5` (y `3000` = segundos de ventana) |
 | Límites del tamaño de letra | `app.js`, buscar `.85` y `1.9` (aparecen en 3 sitios: `zoom`, `topesZoom`, `cambiarZoom`) |
 | Tonos que se pueden elegir | `editor.js`, lista `TONOS` |
