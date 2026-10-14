@@ -234,7 +234,12 @@
     let d;
     try { d = JSON.parse(await archivo.text()); } catch (err) { msg.textContent = 'El archivo no es una copia válida.'; return; }
     if (!d || !Array.isArray(d.canciones) || !d.canciones.length) { msg.textContent = 'El archivo no trae canciones. No se importó nada.'; return; }
-    if (!confirm(`Esto reemplaza las ${lista().length} canciones actuales por las ${d.canciones.length} del archivo. ¿Continuar?`)) return;
+    aplicar(d, msg, 'del archivo');
+  }
+
+  // Reemplaza la lista actual (con confirmación). Sirve para importar una copia o recuperar la versión anterior.
+  function aplicar(d, msg, origen) {
+    if (!confirm(`Esto reemplaza las ${lista().length} canciones actuales por las ${d.canciones.length} ${origen}. ¿Continuar?`)) return;
     app.data.nombre = d.nombre || app.data.nombre;
     app.data.intro = typeof d.intro === 'string' ? d.intro : app.data.intro;
     app.data.canciones = d.canciones.filter(c => c && typeof c === 'object').map(c => {
@@ -244,6 +249,18 @@
     });
     cerrarCapa();
     cambio();
+  }
+
+  // Deshacer el último guardado: el servidor guarda el estado anterior en cada cambio.
+  async function recuperarPrevio(msg) {
+    let d;
+    try {
+      const r = await fetch('/api/canciones?previo=1', { cache: 'no-store' });
+      if (!r.ok) throw new Error('sin copia');
+      d = await r.json();
+    } catch (err) { msg.textContent = 'No hay una versión anterior guardada.'; return; }
+    if (!d || !Array.isArray(d.canciones) || !d.canciones.length) { msg.textContent = 'La versión anterior está vacía.'; return; }
+    aplicar(d, msg, 'de la versión anterior');
   }
 
   function cerrarSesion() {
@@ -264,7 +281,8 @@
         el('p', {}, el('button', { type: 'button', onclick: () => agregarVarias(masivo, msg) }, 'Agregar todas'))),
       el('div', { className: 'grupo' }, el('h3', {}, 'Copia de seguridad'),
         el('p', {}, el('button', { type: 'button', onclick: descargarCopia }, 'Descargar copia'), ' ',
-          el('button', { type: 'button', onclick: () => archivo.click() }, 'Importar copia'), archivo)),
+          el('button', { type: 'button', onclick: () => archivo.click() }, 'Importar copia'), ' ',
+          el('button', { type: 'button', onclick: () => recuperarPrevio(msg) }, 'Deshacer último guardado'), archivo)),
       el('div', { className: 'grupo' }, el('h3', {}, 'Sesión'),
         el('p', {}, el('button', { type: 'button', onclick: salir }, 'Salir del editor'), ' ',
           el('button', { type: 'button', onclick: cerrarSesion }, 'Cerrar sesión'))),
