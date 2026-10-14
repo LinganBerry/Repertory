@@ -1,10 +1,11 @@
 // Servidor del repertorio: lee y guarda los datos en Vercel Blob.
 //   GET  /api/canciones  -> devuelve el repertorio (público)
-//   POST /api/canciones  -> guarda cambios; exige la contraseña ADMIN_PASSWORD
+//   POST /api/canciones  -> guarda cambios; exige un pase de sesión (se obtiene en /api/entrar con ADMIN_PASSWORD)
 import { get, put } from '@vercel/blob';
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { tokenValido, problemaConClave } from '../lib/auth.js';
 
 const RUTA = 'repertorio/canciones.json';
+const RUTA_PREVIA = 'repertorio/previo.json'; // estado anterior al último guardado (para deshacer)
 const MAX_BYTES = 500_000;
 
 const responder = (cuerpo, status = 200) =>
@@ -19,19 +20,15 @@ async function conAcceso(operacion) {
   throw ultimo;
 }
 
-async function leer() {
-  const r = await conAcceso(access => get(RUTA, { access, useCache: false }));
+async function leer(ruta = RUTA) {
+  const r = await conAcceso(access => get(ruta, { access, useCache: false }));
   if (!r || r.statusCode !== 200 || !r.stream) return null;
   return JSON.parse(await new Response(r.stream).text());
 }
 
-const escribir = data => conAcceso(access => put(RUTA, JSON.stringify(data), {
+const escribir = (data, ruta = RUTA) => conAcceso(access => put(ruta, JSON.stringify(data), {
   access, contentType: 'application/json', addRandomSuffix: false, allowOverwrite: true
 }));
-
-// Compara las contraseñas en tiempo constante (sin revelar cuántas letras acertó).
-const hash = s => createHash('sha256').update(String(s ?? '')).digest();
-const claveValida = intento => timingSafeEqual(hash(intento), hash(process.env.ADMIN_PASSWORD));
 
 // Solo se aceptan los campos conocidos, con límites de tamaño.
 const texto = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -58,9 +55,10 @@ function limpiar(d) {
   };
 }
 
-export async function GET() {
+export async function GET(request) {
   try {
-    const data = await leer();
+    const previo = new URL(request.url).searchParams.has('previo');
+    const data = await leer(previo ? RUTA_PREVIA : RUTA);
     return data ? responder(data) : responder({ error: 'Aún no hay datos guardados' }, 404);
   } catch (e) {
     console.error(e);
@@ -69,19 +67,20 @@ export async function GET() {
 }
 
 export async function POST(request) {
-  if (!process.env.ADMIN_PASSWORD) return responder({ error: 'Falta la variable ADMIN_PASSWORD en Vercel' }, 500);
+  const problema = problemaConClave();
+  if (problema) return responder({ error: problema }, 500);
   const crudo = await request.text();
   if (crudo.length > MAX_BYTES) return responder({ error: 'Demasiado grande' }, 413);
   let cuerpo;
   try { cuerpo = JSON.parse(crudo); } catch { return responder({ error: 'JSON inválido' }, 400); }
   if (!cuerpo || typeof cuerpo !== 'object') return responder({ error: 'Solicitud inválida' }, 400);
-  if (!claveValida(cuerpo.clave)) {
-    await new Promise(r => setTimeout(r, 800)); // frena los intentos repetidos
-    return responder({ error: 'Contraseña incorrecta' }, 401);
-  }
+  if (!tokenValido(cuerpo.token)) return responder({ error: 'Sesión no válida o vencida. Entra de nuevo.' }, 401);
   const data = limpiar(cuerpo.data);
   if (!data) return responder({ error: 'Datos inválidos' }, 400);
+  if (!data.canciones.length) return responder({ error: 'No se guarda una lista vacía (protege contra borrados por accidente)' }, 400);
   try {
+    // Copia del estado anterior para poder deshacer el último guardado. Si falla, no impide guardar.
+    try { const antes = await leer(); if (antes) await escribir(antes, RUTA_PREVIA); } catch (e) { console.error(e); }
     await escribir(data);
     return responder({ ok: true, canciones: data.canciones.length, enlaces: data.canciones.filter(c => c.enlace).length });
   } catch (e) {
