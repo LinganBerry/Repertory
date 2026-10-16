@@ -25,7 +25,7 @@
   .t { display: block; font: 700 1.2rem/1.25 var(--tit); }
   .a { display: block; font-size: .9rem; color: var(--muted); }
   body.fija { overflow: hidden; }
-  #cancion { position: fixed; inset: 0; z-index: 20; overflow-y: auto; background: var(--bg); --z: 1; }
+  #cancion, #teoria { position: fixed; inset: 0; z-index: 20; overflow-y: auto; background: var(--bg); --z: 1; }
   .cbarra { position: sticky; top: 0; display: flex; gap: .4rem; padding: .5rem 1rem; background: var(--bg); border-bottom: 1px solid var(--line); }
   .ctitulo { flex: 1; min-width: 0; align-self: center; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ccuerpo { max-width: 44rem; margin: 0 auto; padding: 1rem 1rem 5rem; }
@@ -77,6 +77,18 @@
   button:active { transform: scale(.93); }
   .abrir:active { transform: scale(.98); }
   .tonos { display: flex; align-items: center; gap: .6rem; margin: .5rem 0; }
+  .acciones { display: flex; gap: .4rem; }
+  .tg { display: flex; flex-wrap: wrap; gap: .45rem; padding: .3rem 0 .6rem; }
+  .tg button { min-width: 48px; padding: .3rem .7rem; font-weight: 700; }
+  .tg button[aria-pressed=true] { border: 2px solid var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+  #teoria select { width: 100%; margin: .2rem 0 .8rem; }
+  #teoria .parte { cursor: default; }
+  .teclado { display: block; width: 100%; height: auto; margin: .8rem 0; }
+  .tk-b { fill: #fffdf8; stroke: #2a2620; stroke-width: 1; }
+  .tk-n { fill: #2a2620; stroke: #2a2620; }
+  .tk-b.on, .tk-n.on { fill: #2b59c3; }
+  .tk-b.raiz, .tk-n.raiz { fill: #b8432f; }
+  .tk-t { font: 700 9px system-ui, sans-serif; fill: #fff; text-anchor: middle; pointer-events: none; }
   .ccuerpo p a { color: var(--accent); font-weight: 600; }
   .cpie { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .5rem 1rem; background: var(--bg); border-top: 1px solid var(--line); }
   .cpie .pos { color: var(--muted); font-size: .9rem; }

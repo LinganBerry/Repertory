@@ -18,6 +18,8 @@ Objetivo: repertorio propio, sin cuadernos, que se vea desde cualquier lugar y s
 | `lib/auth.js` | Lógica de contraseña y pases (compartida por las dos funciones) |
 | `canciones.js` | Copia de respaldo si el servidor no responde |
 | `sw.js` | Modo offline: guarda la página y las canciones en el dispositivo. Con internet siempre carga lo más nuevo; sin internet usa la copia guardada |
+| `teoria.js` | Pantalla \"Teoría\" (botón arriba): escalas, modos y diccionario de acordes con teclado. Solo dibuja; calcula la librería Tonal |
+| `vendor/tonal.min.js` | Librería [Tonal](https://github.com/tonaljs/tonal) 6.5.1 (MIT) copiada tal cual, con su licencia. Para actualizar: `npm pack tonal` y copiar `browser/tonal.min.js` |
 | `vercel.json` | Cabeceras de seguridad básicas |
 
 ## Seguridad (cómo funciona)
