@@ -1,0 +1,6 @@
+Salamander Grand Piano V2 (Yamaha C5)
+Autor: Alexander Holm
+Licencia: Creative Commons Attribution 3.0 (CC BY 3.0) - http://creativecommons.org/licenses/by/3.0/
+Fuente de estos archivos: https://github.com/Tonejs/audio (carpeta "salamander", versión .mp3: una capa de
+velocidad, muestras cada tercera menor desde A0, 44.1 kHz / 128 kbps).
+Se usan sin modificar. Para usarlos hay que dar crédito al autor (la pantalla Teoría y el README lo hacen).
