@@ -32,7 +32,8 @@
   let T = null, cargando = null;
   const caja = el('div', { id: 'teoria', hidden: true });
   document.body.append(caja);
-  let sinte = null, notas_en_cola = [];
+  const VOLUMEN_PIANO = -2; // dB; medido: un acorde de 6 notas llega a 0.82 de 1.0 sin esto, así que queda margen
+  let notas_en_cola = [];
 
   // --- intervalos → grados (♭3, ♯4…) respecto a la escala mayor ---
   const partir = code => { const m = /^(\d+)([PMmdA]+)$/.exec(code); return m && { n: Number(m[1]), q: m[2] }; };
@@ -80,7 +81,27 @@
     return svg;
   }
 
-  // --- sonido: Tone.js (https://github.com/Tonejs/Tone.js, MIT) en vendor/Tone.js. Sintetizador simple, no piano real. ---
+  // --- sonido: Tone.js (https://github.com/Tonejs/Tone.js, MIT) + piano de cola Salamander Grand de Alexander Holm (CC BY 3.0),
+  // muestras en vendor/piano/ (de https://github.com/Tonejs/audio). Si el piano no carga, suena un sintetizador simple. ---
+  const PIANO = { A0: 'A0.mp3', C8: 'C8.mp3' };
+  for (let o = 1; o <= 7; o++) Object.assign(PIANO, { ['C' + o]: `C${o}.mp3`, ['D#' + o]: `Ds${o}.mp3`, ['F#' + o]: `Fs${o}.mp3`, ['A' + o]: `A${o}.mp3` });
+  let piano = null, pianoListo = false, pianoFallo = false, respaldo = null;
+  const estadoPiano = () => (pianoListo ? 'Piano de cola listo.' : pianoFallo ? 'No se pudo cargar el piano: suena un sintetizador simple.' : 'Cargando piano…');
+  const avisar = () => document.querySelectorAll('.estado-piano').forEach(n => { n.textContent = estadoPiano(); });
+  function crearPiano() {
+    if (piano || !window.Tone) return;
+    piano = new Tone.Sampler({ urls: PIANO, baseUrl: '/vendor/piano/', release: 1,
+      onload: () => { pianoListo = true; avisar(); }, onerror: () => { pianoFallo = true; avisar(); } }).toDestination();
+    piano.volume.value = VOLUMEN_PIANO;
+  }
+  function instrumento() {
+    if (pianoListo) return piano;
+    if (!respaldo) {
+      respaldo = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.25, sustain: 0.25, release: 0.9 } }).toDestination();
+      respaldo.volume.value = -14;
+    }
+    return respaldo;
+  }
   // Notas con octava, siempre hacia arriba desde la tónica (octava 4). Una escala termina en la octava de la tónica.
   function alturas(notas, cerrar) {
     const out = [];
@@ -96,24 +117,22 @@
   function parar() {
     notas_en_cola.forEach(clearTimeout);
     notas_en_cola = [];
-    if (sinte) sinte.releaseAll();
+    if (piano && pianoListo) piano.releaseAll();
+    if (respaldo) respaldo.releaseAll();
   }
   function escuchar(midis, junto) {
-    if (!window.Tone) { cargarTone().catch(() => {}); return; } // aún cargando: se precarga al abrir Teoría
-    // Tone.start() debe llamarse dentro del toque (iPhone/Safari); lo demás va después.
+    if (!window.Tone) { cargarTone().then(crearPiano).catch(() => {}); return; } // aún cargando: se precarga al abrir Teoría
     Tone.start().then(() => {
       parar();
-      if (!sinte) {
-        sinte = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.25, sustain: 0.25, release: 0.9 } }).toDestination();
-        sinte.volume.value = -14; // 3-4 notas juntas a volumen normal saturan
-      }
-      const f = m => Tone.Frequency(m, 'midi').toFrequency();
-      if (junto) sinte.triggerAttackRelease(midis.map(f), 1.6);
-      else midis.forEach((m, i) => notas_en_cola.push(setTimeout(() => sinte.triggerAttackRelease(f(m), 0.45), i * 420)));
+      const inst = instrumento(), f = m => Tone.Frequency(m, 'midi').toFrequency();
+      if (junto) inst.triggerAttackRelease(midis.map(f), 2.2, undefined, 0.8);
+      else midis.forEach((m, i) => notas_en_cola.push(setTimeout(() => inst.triggerAttackRelease(f(m), 0.6, undefined, 0.8), i * 420)));
     });
   }
   const sonar = (etiqueta, midis, junto) => el('button', { type: 'button', onclick: () => escuchar(midis, junto) }, etiqueta);
-  const reproductor = (...botones) => el('div', { className: 'tg' }, ...botones, el('button', { type: 'button', onclick: parar }, '■ Parar'));
+  const reproductor = (...botones) => el('div', {},
+    el('div', { className: 'tg' }, ...botones, el('button', { type: 'button', onclick: parar }, '■ Parar')),
+    el('p', { className: 'a estado-piano' }, estadoPiano()));
 
   // --- piezas de interfaz ---
   const grupo = (opciones, activo, alElegir) =>
@@ -221,7 +240,7 @@
       cuerpo = [
         grupo([['escalas', 'Escalas y modos'], ['acordes', 'Acordes']], est.tab, v => { est.tab = v; dibujar(); }),
         ...(est.tab === 'escalas' ? escalas() : acordes()),
-        el('p', { className: 'a' }, 'Cálculo: librería Tonal ', el('a', { href: 'https://github.com/tonaljs/tonal', target: '_blank', rel: 'noopener noreferrer' }, 'github.com/tonaljs/tonal'), ' (MIT) y Tone.js ', el('a', { href: 'https://github.com/Tonejs/Tone.js', target: '_blank', rel: 'noopener noreferrer' }, 'github.com/Tonejs/Tone.js'), ' (MIT) para el sonido.')
+        el('p', { className: 'a' }, 'Cálculo: librería Tonal ', el('a', { href: 'https://github.com/tonaljs/tonal', target: '_blank', rel: 'noopener noreferrer' }, 'github.com/tonaljs/tonal'), ' (MIT) y Tone.js ', el('a', { href: 'https://github.com/Tonejs/Tone.js', target: '_blank', rel: 'noopener noreferrer' }, 'github.com/Tonejs/Tone.js'), ' (MIT) para el sonido. Piano: Salamander Grand Piano de Alexander Holm, ', el('a', { href: 'https://creativecommons.org/licenses/by/3.0/', target: '_blank', rel: 'noopener noreferrer' }, 'CC BY 3.0'), '.')
       ];
     } catch (e) {
       cuerpo = [el('p', { className: 'vacio' }, 'No se pudo cargar la teoría. Abre la página con internet una vez y vuelve a intentar.')];
@@ -256,7 +275,7 @@
     caja.hidden = false;
     document.body.classList.add('fija');
     caja.scrollTop = 0;
-    cargarTone().catch(() => {}); // se baja ahora para que el primer toque ya pueda sonar
+    cargarTone().then(crearPiano).catch(() => {}); // se baja ahora para que el primer toque ya pueda sonar
     dibujar();
   }
   function cerrar() {

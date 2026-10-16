@@ -27,19 +27,21 @@ const guardable = url => url.origin === location.origin && (!url.pathname.starts
 self.addEventListener('fetch', e => {
   const req = e.request, url = new URL(req.url);
   if (req.method !== 'GET' || !guardable(url)) return;
+  const nav = req.mode === 'navigate';
   e.respondWith((async () => {
     const c = await caches.open(CACHE);
-    const nav = req.mode === 'navigate';
     const copia = () => c.match(nav ? '/' : req, { ignoreSearch: nav });
+    // Las muestras del piano no cambian: primero lo guardado (la 1ª vez se bajan y quedan para el modo offline).
+    if (url.pathname.startsWith('/vendor/piano/')) { const g = await copia(); if (g) return g; }
+    const red = fetch(req, { cache: 'no-store' });
+    red.catch(() => {}); // si se queda sin atender, que no ensucie la consola
+    const guardar = r => { if (r.status === 200) c.put(nav ? '/' : req, r.clone()).catch(() => {}); return r; };
     try {
-      const r = await Promise.race([
-        fetch(req, { cache: 'no-store' }),
-        new Promise((_, no) => setTimeout(no, ESPERA_MS))
-      ]);
-      if (r.ok) c.put(nav ? '/' : req, r.clone());
-      return r;
+      return guardar(await Promise.race([red, new Promise((_, no) => setTimeout(no, ESPERA_MS))]));
     } catch (err) {
-      return (await copia()) || Response.error();
+      const g = await copia();
+      if (g) return g;                                          // red lenta o sin internet: copia guardada
+      return red.then(guardar).catch(() => Response.error());   // sin copia: esperar a la red lo que haga falta
     }
   })());
 });

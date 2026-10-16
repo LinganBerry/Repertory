@@ -21,6 +21,7 @@ Objetivo: repertorio propio, sin cuadernos, que se vea desde cualquier lugar y s
 | `teoria.js` | Pantalla \"Teoría\" (botón arriba): escalas, modos y diccionario de acordes con teclado. Solo dibuja; calcula la librería Tonal |
 | `vendor/tonal.min.js` | Librería [Tonal](https://github.com/tonaljs/tonal) 6.5.1 (MIT) copiada tal cual, con su licencia. Para actualizar: `npm pack tonal` y copiar `browser/tonal.min.js` |
 | `vendor/Tone.js` | Librería [Tone.js](https://github.com/Tonejs/Tone.js) 15.1.22 (MIT) copiada tal cual, con su licencia, para el sonido de la pantalla Teoría. Para actualizar: `npm pack tone` y copiar `build/Tone.js`. Se le fuerza el reloj `timeout` porque la política de seguridad bloquea su worker interno |
+| `vendor/piano/` | 30 muestras .mp3 (~2 MB) del piano de cola **Salamander Grand Piano** de Alexander Holm, licencia **CC BY 3.0** (hay que dar crédito; está en la pantalla Teoría y en `vendor/piano/LICENSE.txt`). Fuente: https://github.com/Tonejs/audio, carpeta `salamander`. Una sola capa de velocidad. Se guardan para uso offline la primera vez que se abre Teoría con internet |
 | `vercel.json` | Cabeceras de seguridad básicas |
 
 ## Seguridad (cómo funciona)
