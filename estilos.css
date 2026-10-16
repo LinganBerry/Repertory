@@ -77,7 +77,6 @@
   button:active { transform: scale(.93); }
   .abrir:active { transform: scale(.98); }
   .tonos { display: flex; align-items: center; gap: .6rem; margin: .5rem 0; }
-  .transp { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; margin: .5rem 0; }
   .ccuerpo p a { color: var(--accent); font-weight: 600; }
   .cpie { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .5rem 1rem; background: var(--bg); border-top: 1px solid var(--line); }
   .cpie .pos { color: var(--muted); font-size: .9rem; }
@@ -86,8 +85,6 @@
   #cancion.oculta .cpie { transform: translateY(100%); }
   .parte { transition: opacity .15s ease; cursor: pointer; }
   #cancion.enfoque .parte:not(.activa) { opacity: .35; }
-  #cancion.rueda .chip { animation: rueda .2s ease-out; }
-  @keyframes rueda { from { opacity: .2; transform: translateY(var(--dy, -6px)); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
   .marca { display: flex; align-items: center; gap: .7rem; min-width: 0; cursor: default; }
   .marca h1 { margin: 0; overflow-wrap: anywhere; }

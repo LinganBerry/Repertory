@@ -176,38 +176,6 @@
   // Separadores de acorde: espacio o guion pegado a otro acorde (F#-G-A). Un guion seguido de número (A-7) es "menor", no separador.
   const compases = prog => prog.split('|').map(g => g.trim().split(/\s+/).flatMap(t => t.split(/-(?=[A-G])/)).filter(t => t && t !== '-')).filter(g => g.length);
 
-  // --- transposición (solo en pantalla: no cambia lo guardado) ---
-  // Se transpone por intervalo con nombre de nota (G → A mueve F# a G#, no a Ab), igual que los romanos.
-  const NOMBRE_MAYOR = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
-  const NOMBRE_MENOR = ['Cm', 'C#m', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'Bbm', 'Bm'];
-  const TONOS_PLANOS = new Set(['C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Am', 'Dm', 'Gm', 'Cm', 'Fm', 'Bbm', 'Ebm']);
-  const SOSTENIDOS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-  const BEMOLES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
-  const RARAS = { Cb: 'B', Fb: 'E', 'E#': 'F', 'B#': 'C' };  // grafías que nadie escribe
-  const trans = new Map();  // canción → semitonos (se olvida al recargar la página)
-  const semis = c => trans.get(c) || 0;
-  function planTransp(tono, n) {
-    const k = nota(tono);
-    if (!k || !n) return null;
-    const menor = tono.slice(k.largo).startsWith('m');
-    const destino = (menor ? NOMBRE_MENOR : NOMBRE_MAYOR)[(clase(k) + n + 120) % 12];
-    return { n, destino, dl: (LETRAS.indexOf(destino[0]) - k.letra + 7) % 7, planos: TONOS_PLANOS.has(destino) };
-  }
-  function moverRaiz(r, plan) {
-    const x = nota(r), letra = (x.letra + plan.dl) % 7;
-    const objetivo = (clase(x) + plan.n + 120) % 12;
-    const alt = ((objetivo - PC_LETRA[letra] + 18) % 12) - 6;
-    const nombre = alt === 0 ? LETRAS[letra]
-      : Math.abs(alt) === 1 ? LETRAS[letra] + (alt > 0 ? '#' : 'b')
-      : (plan.planos ? BEMOLES : SOSTENIDOS)[objetivo];  // caso raro (doble alteración)
-    return RARAS[nombre] || nombre;
-  }
-  function mover(texto, plan) {  // acorde o tono; también el bajo de "C/E"
-    const m = plan && /^([A-G][#♯b♭]*)(.*)$/.exec(texto);
-    if (!m) return texto;
-    return moverRaiz(m[1], plan) + m[2].replace(/\/([A-G][#♯b♭]*)$/, (_, b) => '/' + moverRaiz(b, plan));
-  }
-
   // Vibración corta al tocar (Android; el iPhone no la permite y simplemente no vibra).
   const vibra = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { /* nada */ } };
   document.addEventListener('click', e => {
@@ -223,26 +191,16 @@
     caja.querySelectorAll('.parte').forEach((x, i) => x.classList.toggle('activa', i === foco));
   }
 
-  function parte(p, plan, k) {
+  function parte(p, k) {
     const hijos = [];
     compases(p.prog).forEach((g, i) => {
       if (i) hijos.push(el('span', { className: 'barra' }, '|'));
-      // El acorde se transpone; el número romano sale del original (no cambia al transponer).
-      g.forEach(a => hijos.push(el('span', { className: 'chip' }, el('b', {}, mover(a, plan)), el('i', { className: 'rom' }, romano(a, p.tono || actual.tono)))));
+      g.forEach(a => hijos.push(el('span', { className: 'chip' }, el('b', {}, a), el('i', { className: 'rom' }, romano(a, p.tono || actual.tono)))));
     });
     return el('section', { className: 'parte' + (norm(p.nombre).trim() === 'coro' ? ' coro' : ''), onclick: () => { foco = foco === k ? -1 : k; aplicarFoco(); } },
-      el('h3', {}, p.nombre || '', p.tono && el('small', {}, ' · ' + mover(p.tono, plan))),
+      el('h3', {}, p.nombre || '', p.tono && el('small', {}, ' · ' + p.tono)),
       el('div', { className: 'chips' }, ...hijos),
       p.pista && el('p', { className: 'pista' }, p.pista));
-  }
-
-  function transponer(d) {
-    const caja = $('cancion'), y = caja.scrollTop;
-    trans.set(actual, ((semis(actual) + d + 5) % 12 + 12) % 12 - 5);  // rango -5 … +6
-    mostrar();
-    caja.scrollTop = y;
-    caja.style.setProperty('--dy', d > 0 ? '-6px' : '6px');
-    caja.classList.add('rueda');
   }
 
   // Anterior / Siguiente siguen el orden y el filtro con los que abriste la canción.
@@ -258,11 +216,10 @@
 
   function mostrar() {
     const c = actual, caja = $('cancion');
-    const n = semis(c), plan = planTransp(c.tono, n);
     const partes = (c.partes || []).filter(p => p.prog);
     const pos = orden.indexOf(c);
     const enlace = /^https?:\/\//i.test(c.enlace || '') ? c.enlace : '';
-    caja.classList.remove('rueda', 'oculta');
+    caja.classList.remove('oculta');
     caja.replaceChildren(
       el('div', { className: 'cbarra' },
         el('button', { type: 'button', onclick: () => history.back() }, '← Volver'),
@@ -272,15 +229,9 @@
       el('div', { className: 'ccuerpo' },
         el('h2', {}, c.titulo),
         el('p', { className: 'a' }, [c.artista, c.nota].filter(Boolean).join(' · ')),
-        el('p', { className: 'tonos' }, pastilla(plan ? plan.destino : c.tono),
-          plan && el('span', { className: 'a' }, 'original ' + c.tono + ' · ' + (n > 0 ? '+' : '−') + Math.abs(n))),
-        nota(c.tono) && el('p', { className: 'transp noimp' },
-          el('span', { className: 'a' }, 'Transponer'),
-          el('button', { type: 'button', 'data-h': '18', onclick: () => transponer(-1) }, '−1'),
-          el('button', { type: 'button', 'data-h': '18', onclick: () => transponer(1) }, '+1'),
-          n !== 0 && el('button', { type: 'button', 'data-h': '18', onclick: () => transponer(-n) }, 'Original')),
+        el('p', { className: 'tonos' }, pastilla(c.tono)),
         enlace && el('p', { className: 'noimp' }, el('a', { href: enlace, target: '_blank', rel: 'noopener noreferrer' }, 'Escuchar referencia ↗')),
-        ...(partes.length ? partes.map((p, k) => parte(p, plan, k)) : [el('p', { className: 'vacio' }, 'Aún no hay partes ni acordes para esta canción.')]),
+        ...(partes.length ? partes.map((p, k) => parte(p, k)) : [el('p', { className: 'vacio' }, 'Aún no hay partes ni acordes para esta canción.')]),
         el('p', { className: 'noimp' }, el('button', { type: 'button', onclick: () => print() }, 'Imprimir'))),
       el('div', { className: 'cpie noimp' },
         el('button', { type: 'button', disabled: pos <= 0, onclick: () => irA(-1) }, '‹ Anterior'),
@@ -386,9 +337,8 @@
     render();
     if (EDITOR) document.head.append(el('script', { src: 'editor.js' }));
   }
-  // Versiones anteriores instalaron una copia offline (service worker). Se desinstala y se borra.
-  if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => { /* nada */ });
-  if ('caches' in window) caches.keys().then(ks => ks.forEach(k => caches.delete(k))).catch(() => { /* nada */ });
+  // Modo offline: sw.js guarda la página y las canciones en el dispositivo (con internet siempre manda lo más nuevo).
+  if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => { /* nada */ }));
   // Franja de 12 tonos (los mismos colores de las pastillas): C, C#, D … B.
   for (let i = 0; i < 12; i++) {
     const seg = el('span');

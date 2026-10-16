@@ -10,14 +10,14 @@ Objetivo: repertorio propio, sin cuadernos, que se vea desde cualquier lugar y s
 | Archivo | Para qué |
 |---|---|
 | `index.html` | Solo la estructura de la página |
-| `app.js` | Toda la lógica pública: lista, buscador, pantalla de canción, números romanos, transposición |
+| `app.js` | Toda la lógica pública: lista, buscador, pantalla de canción, números romanos |
 | `estilos.css` | Todo el diseño (colores, temas, tamaños) |
 | `editor.js` | Modo editor. Se abre **tocando 5 veces seguidas el título** (o con `?editar` al final del link) |
 | `api/canciones.js` | `GET` público (devuelve el repertorio) · `POST` protegido (guarda) |
 | `api/entrar.js` | Único lugar donde se prueba la contraseña; devuelve un pase de 30 días |
 | `lib/auth.js` | Lógica de contraseña y pases (compartida por las dos funciones) |
 | `canciones.js` | Copia de respaldo si el servidor no responde |
-| `sw.js` | Desinstala la copia offline antigua. Se puede borrar cuando ya nadie la tenga |
+| `sw.js` | Modo offline: guarda la página y las canciones en el dispositivo. Con internet siempre carga lo más nuevo; sin internet usa la copia guardada |
 | `vercel.json` | Cabeceras de seguridad básicas |
 
 ## Seguridad (cómo funciona)
@@ -79,10 +79,10 @@ Una parte por línea: `Nombre (tono): acordes // pista`
 - `|` marca el compás: `Verso: G D | Em C`. Acordes separados por espacio o guion pegado (`F#-G-A`).
 - La pista es una línea corta (máx. 200 caracteres), nunca la letra completa (derechos de autor).
 - El editor avisa en vivo de tonos inválidos, partes sin acordes, compases vacíos y acordes raros.
-- Los números romanos salen del tono de la canción (o de la parte); en tonos menores usa la escala menor natural. Transponer es solo visual: no cambia lo guardado.
+- Los números romanos salen del tono de la canción (o de la parte); en tonos menores usa la escala menor natural.
 
 ## Decisiones de diseño (no volver a discutirlas sin motivo)
-Móvil primero, sin fotos ni degradados; un solo sistema de color (el tono); dos temas (Papel y Escenario); sin letras completas; sin favoritos ni modo offline (se probaron y se quitaron); el editor es secreto (5 toques al título) y se protege en el servidor, no en la pantalla.
+Móvil primero, sin fotos ni degradados; un solo sistema de color (el tono); dos temas (Papel y Escenario); sin letras completas; sin favoritos ni transposición (a propósito: el oído se entrena sacando los tonos); modo offline con service worker (red primero, copia guardada como respaldo); el editor es secreto (5 toques al título) y se protege en el servidor, no en la pantalla.
 
 ## Si quiero ayuda de una IA
 Subir toda esta carpeta y este README, y pedir el cambio indicando el archivo. Cualquier campo nuevo implica tocar también `api/canciones.js`.
