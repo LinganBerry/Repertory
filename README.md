@@ -20,6 +20,7 @@ Objetivo: repertorio propio, sin cuadernos, que se vea desde cualquier lugar y s
 | `sw.js` | Modo offline: guarda la página y las canciones en el dispositivo. Con internet siempre carga lo más nuevo; sin internet usa la copia guardada |
 | `teoria.js` | Pantalla \"Teoría\" (botón arriba): escalas, modos y diccionario de acordes con teclado. Solo dibuja; calcula la librería Tonal |
 | `vendor/tonal.min.js` | Librería [Tonal](https://github.com/tonaljs/tonal) 6.5.1 (MIT) copiada tal cual, con su licencia. Para actualizar: `npm pack tonal` y copiar `browser/tonal.min.js` |
+| `vendor/Tone.js` | Librería [Tone.js](https://github.com/Tonejs/Tone.js) 15.1.22 (MIT) copiada tal cual, con su licencia, para el sonido de la pantalla Teoría. Para actualizar: `npm pack tone` y copiar `build/Tone.js`. Se le fuerza el reloj `timeout` porque la política de seguridad bloquea su worker interno |
 | `vercel.json` | Cabeceras de seguridad básicas |
 
 ## Seguridad (cómo funciona)

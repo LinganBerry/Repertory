@@ -32,6 +32,7 @@
   let T = null, cargando = null;
   const caja = el('div', { id: 'teoria', hidden: true });
   document.body.append(caja);
+  let sinte = null, notas_en_cola = [];
 
   // --- intervalos → grados (♭3, ♯4…) respecto a la escala mayor ---
   const partir = code => { const m = /^(\d+)([PMmdA]+)$/.exec(code); return m && { n: Number(m[1]), q: m[2] }; };
@@ -79,6 +80,41 @@
     return svg;
   }
 
+  // --- sonido: Tone.js (https://github.com/Tonejs/Tone.js, MIT) en vendor/Tone.js. Sintetizador simple, no piano real. ---
+  // Notas con octava, siempre hacia arriba desde la tónica (octava 4). Una escala termina en la octava de la tónica.
+  function alturas(notas, cerrar) {
+    const out = [];
+    for (const n of notas) {
+      let m = T.Note.midi(n + '4');
+      if (m == null) continue;
+      while (out.length && m <= out[out.length - 1]) m += 12;
+      out.push(m);
+    }
+    if (cerrar && out.length) out.push(out[0] + 12);
+    return out;
+  }
+  function parar() {
+    notas_en_cola.forEach(clearTimeout);
+    notas_en_cola = [];
+    if (sinte) sinte.releaseAll();
+  }
+  function escuchar(midis, junto) {
+    if (!window.Tone) { cargarTone().catch(() => {}); return; } // aún cargando: se precarga al abrir Teoría
+    // Tone.start() debe llamarse dentro del toque (iPhone/Safari); lo demás va después.
+    Tone.start().then(() => {
+      parar();
+      if (!sinte) {
+        sinte = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.25, sustain: 0.25, release: 0.9 } }).toDestination();
+        sinte.volume.value = -14; // 3-4 notas juntas a volumen normal saturan
+      }
+      const f = m => Tone.Frequency(m, 'midi').toFrequency();
+      if (junto) sinte.triggerAttackRelease(midis.map(f), 1.6);
+      else midis.forEach((m, i) => notas_en_cola.push(setTimeout(() => sinte.triggerAttackRelease(f(m), 0.45), i * 420)));
+    });
+  }
+  const sonar = (etiqueta, midis, junto) => el('button', { type: 'button', onclick: () => escuchar(midis, junto) }, etiqueta);
+  const reproductor = (...botones) => el('div', { className: 'tg' }, ...botones, el('button', { type: 'button', onclick: parar }, '■ Parar'));
+
   // --- piezas de interfaz ---
   const grupo = (opciones, activo, alElegir) =>
     el('div', { className: 'tg' }, ...opciones.map(([v, texto]) =>
@@ -121,6 +157,7 @@
       out.push(nota(dif.length ? 'Diferencia con la mayor: ' + dif.join(' · ') : 'Es igual a la escala mayor.'));
     }
     out.push(teclado(sc.notes, sc.notes[0]));
+    out.push(reproductor(sonar('▶ Escuchar escala', alturas(sc.notes, true), false)));
     if (!est.otra) {
       const tri = Mode.triads(est.modo, est.tonica).map(limpiarSimbolo);
       const sep = Mode.seventhChords(est.modo, est.tonica).map(limpiarSimbolo);
@@ -160,7 +197,9 @@
     if (otros.length) out.push(nota('También se escribe: ' + otros.slice(0, 6).join(', ')));
     out.push(fichas(ch.notes, grados));
     out.push(nota('Fórmula: ' + grados.join(' ') + ' (' + ch.intervals.map(nombreIntervalo).join(', ') + ')'));
+    const alt = alturas(ch.notes, false);
     out.push(teclado(ch.notes, ch.notes[0]));
+    out.push(reproductor(sonar('▶ Acorde', alt, true), sonar('▶ Arpegio', alt, false)));
     if (ch.notes.length <= 4) {
       const nombres = ['Posición fundamental', '1ª inversión', '2ª inversión', '3ª inversión'];
       ch.notes.forEach((_, i) => out.push(el('div', { className: 'parte' }, el('h3', {}, nombres[i]),
@@ -171,6 +210,7 @@
 
   // --- pantalla ---
   async function dibujar() {
+    parar();
     const y = caja.scrollTop;
     const barra = el('div', { className: 'cbarra' },
       el('button', { type: 'button', onclick: () => history.back() }, '← Volver'),
@@ -181,7 +221,7 @@
       cuerpo = [
         grupo([['escalas', 'Escalas y modos'], ['acordes', 'Acordes']], est.tab, v => { est.tab = v; dibujar(); }),
         ...(est.tab === 'escalas' ? escalas() : acordes()),
-        el('p', { className: 'a' }, 'Cálculo: librería Tonal ', el('a', { href: 'https://github.com/tonaljs/tonal', target: '_blank', rel: 'noopener noreferrer' }, 'github.com/tonaljs/tonal'), ' (MIT).')
+        el('p', { className: 'a' }, 'Cálculo: librería Tonal ', el('a', { href: 'https://github.com/tonaljs/tonal', target: '_blank', rel: 'noopener noreferrer' }, 'github.com/tonaljs/tonal'), ' (MIT) y Tone.js ', el('a', { href: 'https://github.com/Tonejs/Tone.js', target: '_blank', rel: 'noopener noreferrer' }, 'github.com/Tonejs/Tone.js'), ' (MIT) para el sonido.')
       ];
     } catch (e) {
       cuerpo = [el('p', { className: 'vacio' }, 'No se pudo cargar la teoría. Abre la página con internet una vez y vuelve a intentar.')];
@@ -199,14 +239,28 @@
       document.head.append(s);
     }));
   }
+  let cargandoTone = null;
+  function cargarTone() {
+    if (window.Tone) return Promise.resolve();
+    return cargandoTone || (cargandoTone = new Promise((ok, no) => {
+      const s = document.createElement('script');
+      s.src = '/vendor/Tone.js';
+      // Tone usaría un worker interno por blob:, que tu política de seguridad bloquea; se le pide el reloj normal.
+      s.onload = () => { try { Tone.getContext().clockSource = 'timeout'; } catch (e) { /* sigue igual */ } ok(); };
+      s.onerror = () => { cargandoTone = null; no(new Error('sin sonido')); };
+      document.head.append(s);
+    }));
+  }
   function abrir() {
     history.pushState({ teoria: true }, '');
     caja.hidden = false;
     document.body.classList.add('fija');
     caja.scrollTop = 0;
+    cargarTone().catch(() => {}); // se baja ahora para que el primer toque ya pueda sonar
     dibujar();
   }
   function cerrar() {
+    parar();
     caja.hidden = true;
     document.body.classList.remove('fija');
   }
