@@ -44,9 +44,10 @@
   .vacio { padding: 1.5rem 0; color: var(--muted); }
   #pie { color: var(--muted); font-size: .9rem; }
   hr { border: 0; border-top: 1px solid var(--line); margin: 2rem 0 1rem; }
-  .ebarra { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; border-left: 5px solid #d9a400; padding: .3rem 0 .3rem .8rem; margin: .5rem 0 1rem; }
+  .ebarra { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; border-left: 5px solid #d9a400; padding: .3rem 0 .3rem .8rem; margin: .5rem 0 1rem; }
   .ebarra b { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; }
-  .estado { flex: 1; min-width: 6rem; color: var(--muted); font-size: .9rem; }
+  .ebarra button { padding: .35rem .7rem; font-size: .95rem; }
+  .estado { flex: 1; min-width: 3rem; color: var(--muted); font-size: .9rem; }
   .estado.mal, .estado.alerta { color: #c0392b; font-weight: 700; }
   .primario { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 600; }
   .peligro { color: #c0392b; border-color: #c0392b; }
@@ -63,6 +64,7 @@
   .grupo { margin: 0 0 1.6rem; }
   .grupo h3 { margin: 0 0 .6rem; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
   .pista-ayuda { color: var(--muted); font-size: .85rem; margin: .2rem 0 .6rem; }
+  .grupo p:not(.pista-ayuda) { display: flex; flex-wrap: wrap; gap: .5rem; }
   #avisos { margin: .4rem 0; padding-left: 1.2rem; font-size: .9rem; }
   .aviso-e { color: #c0392b; font-weight: 700; }
   .aviso-a { color: var(--muted); }
@@ -92,6 +94,19 @@
   .tk-n { fill: #2a2620; stroke: #2a2620; }
   .tk-b.on, .tk-n.on { fill: #2b59c3; }
   .tk-b.raiz, .tk-n.raiz { fill: #b8432f; }
+  .tk-b.pulsa { fill: #d6cfbe; }
+  .tk-n.pulsa { fill: #5a544a; }
+  .tk-b.on.pulsa, .tk-n.on.pulsa { fill: #6f93e6; }
+  .tk-b.raiz.pulsa, .tk-n.raiz.pulsa { fill: #d4745f; }
+  .teclado { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+  .teclado rect { cursor: pointer; }
+  .tpanel { position: sticky; z-index: 2; padding: .4rem 1rem .5rem; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .tfila { display: flex; align-items: center; gap: .4rem; }
+  .tfila h2 { flex: 1; min-width: 0; margin: 0; font-size: 1.15rem; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tfila button { flex: none; padding: .35rem .65rem; font-weight: 700; }
+  .tpanel .teclado { margin: .45rem 0 .15rem; }
+  .estado-piano { margin: 0; font-size: .75rem; }
+  .estado-piano:empty { display: none; }
   .tk-t { font: 700 9px system-ui, sans-serif; fill: #fff; text-anchor: middle; pointer-events: none; }
   .ccuerpo p a { color: var(--accent); font-weight: 600; }
   .cpie { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .5rem 1rem; background: var(--bg); border-top: 1px solid var(--line); }

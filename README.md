@@ -18,7 +18,7 @@ Objetivo: repertorio propio, sin cuadernos, que se vea desde cualquier lugar y s
 | `lib/auth.js` | Lógica de contraseña y pases (compartida por las dos funciones) |
 | `canciones.js` | Copia de respaldo si el servidor no responde |
 | `sw.js` | Modo offline: guarda la página y las canciones en el dispositivo. Con internet siempre carga lo más nuevo; sin internet usa la copia guardada |
-| `teoria.js` | Pantalla \"Teoría\" (botón arriba): escalas, modos y diccionario de acordes con teclado. Solo dibuja; calcula la librería Tonal |
+| `teoria.js` | Pantalla "Teoría" (botón arriba): escalas, modos y diccionario de acordes. Arriba queda fijo el teclado con los botones de sonido; abajo eliges y ves los detalles. Las teclas son táctiles y suenan con el piano (con un poco de reverb). Solo dibuja; calcula la librería Tonal y suena con Tone.js |
 | `vendor/tonal.min.js` | Librería [Tonal](https://github.com/tonaljs/tonal) 6.5.1 (MIT) copiada tal cual, con su licencia. Para actualizar: `npm pack tonal` y copiar `browser/tonal.min.js` |
 | `vendor/Tone.js` | Librería [Tone.js](https://github.com/Tonejs/Tone.js) 15.1.22 (MIT) copiada tal cual, con su licencia, para el sonido de la pantalla Teoría. Para actualizar: `npm pack tone` y copiar `build/Tone.js`. Se le fuerza el reloj `timeout` porque la política de seguridad bloquea su worker interno |
 | `vendor/piano/` | 30 muestras .mp3 (~2 MB) del piano de cola **Salamander Grand Piano** de Alexander Holm, licencia **CC BY 3.0** (hay que dar crédito; está en la pantalla Teoría y en `vendor/piano/LICENSE.txt`). Fuente: https://github.com/Tonejs/audio, carpeta `salamander`. Una sola capa de velocidad. Se guardan para uso offline la primera vez que se abre Teoría con internet |

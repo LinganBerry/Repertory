@@ -206,20 +206,6 @@
     if (i < 0) $('f-titulo').focus();
   }
 
-  // Cada línea: Título ; Artista ; Tono   (también acepta tabulador o " - ")
-  function agregarVarias(caja, msg) {
-    const nuevas = caja.value.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
-      const [titulo, artista, tono] = l.split(/\s*[;\t]\s*|\s+-\s+/).map(s => s.trim());
-      return { titulo, artista: artista || '', tono: tono || '', nota: '', enlace: '', partes: [] };
-    });
-    if (!nuevas.length) return;
-    const malas = nuevas.filter(n => !TONOS.includes(n.tono));
-    if (malas.length) { msg.textContent = 'Falta el tono o es inválido en: ' + malas.map(n => n.titulo).join(', ') + '. No se agregó nada.'; return; }
-    lista().push(...nuevas);
-    cerrarCapa();
-    cambio();
-  }
-
   function descargarCopia() {
     const url = URL.createObjectURL(new Blob([JSON.stringify(paquete(), null, 2)], { type: 'application/json' }));
     el('a', { href: url, download: 'repertorio-copia.json' }).click();
@@ -270,21 +256,18 @@
 
   function abrirAjustes() {
     const msg = el('p', { className: 'aviso-e' });
-    const masivo = el('textarea', { rows: 5, placeholder: 'Océanos ; Hillsong ; D' });
     const archivo = el('input', { type: 'file', accept: 'application/json,.json', hidden: true, onchange: ev => leerCopia(ev, msg) });
     const dato = (k, etiqueta) => el('label', { className: 'campo' }, el('span', {}, etiqueta),
       el('input', { value: app.data[k] || '', onchange: ev => { app.data[k] = ev.target.value.trim(); cambio(); } }));
     abrirCapa('Ajustes', [
       el('div', { className: 'grupo' }, el('h3', {}, 'Página'), dato('nombre', 'Nombre'), dato('intro', 'Texto de presentación')),
-      el('div', { className: 'grupo' }, el('h3', {}, 'Agregar varias de una vez'),
-        el('p', { className: 'pista-ayuda' }, 'Una canción por línea: Título ; Artista ; Tono'), masivo,
-        el('p', {}, el('button', { type: 'button', onclick: () => agregarVarias(masivo, msg) }, 'Agregar todas'))),
       el('div', { className: 'grupo' }, el('h3', {}, 'Copia de seguridad'),
         el('p', {}, el('button', { type: 'button', onclick: descargarCopia }, 'Descargar copia'), ' ',
           el('button', { type: 'button', onclick: () => archivo.click() }, 'Importar copia'), ' ',
           el('button', { type: 'button', onclick: () => recuperarPrevio(msg) }, 'Deshacer último guardado'), archivo)),
       el('div', { className: 'grupo' }, el('h3', {}, 'Sesión'),
-        el('p', {}, el('button', { type: 'button', onclick: salir }, 'Salir del editor'), ' ',
+        el('p', { className: 'pista-ayuda' }, 'Volver a la página: sales del editor y sigues con tu sesión. Cerrar sesión: la próxima vez te pedirá la contraseña.'),
+        el('p', {}, el('button', { type: 'button', onclick: salir }, 'Volver a la página'), ' ',
           el('button', { type: 'button', onclick: cerrarSesion }, 'Cerrar sesión'))),
       msg
     ]);
@@ -294,8 +277,8 @@
     el('b', {}, 'Editor'),
     el('span', { id: 'estado', className: 'estado', 'aria-live': 'polite' }, 'Listo'),
     el('button', { id: 'b-reintentar', type: 'button', hidden: true, onclick: guardar }, 'Reintentar'),
-    el('button', { type: 'button', className: 'primario', onclick: () => abrirForm(-1) }, '+ Nueva'),
-    el('button', { type: 'button', onclick: abrirAjustes }, 'Ajustes')));
+    el('button', { type: 'button', onclick: abrirAjustes }, 'Ajustes'),
+    el('button', { type: 'button', className: 'primario', onclick: () => abrirForm(-1) }, '+ Nueva')));
 
   app.acciones = i => el('div', { className: 'acciones' }, el('button', { type: 'button', onclick: () => abrirForm(i) }, 'Editar'));
 
