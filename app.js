@@ -17,9 +17,21 @@
   // --- tema (Papel / Escenario): arranca según el modo del teléfono y se recuerda ---
   const TEMA = 'repertorio-tema';
   const guardado = () => { try { return localStorage.getItem(TEMA); } catch (e) { return null; } };
+  // Muestra a dónde vas: luna (→ Escenario, oscuro) o sol (→ Papel, claro).
+  const icono = trazos => {
+    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    for (const [k, v] of Object.entries({ viewBox: '0 0 24 24', width: 22, height: 22, fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' })) s.setAttribute(k, v);
+    trazos.forEach(d => { const p = document.createElementNS('http://www.w3.org/2000/svg', d.startsWith('c') ? 'circle' : 'path'); if (d.startsWith('c')) { p.setAttribute('cx', 12); p.setAttribute('cy', 12); p.setAttribute('r', 4); } else p.setAttribute('d', d); s.append(p); });
+    return s;
+  };
+  const LUNA = ['M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z'];
+  const SOL = ['c', 'M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4'];
   function aplicarTema(t) {
     document.documentElement.dataset.tema = t;
-    $('tema').textContent = t === 'papel' ? 'Escenario' : 'Papel';
+    const b = $('tema'), aEscenario = t === 'papel', texto = aEscenario ? 'Cambiar a modo Escenario (oscuro)' : 'Cambiar a modo Papel (claro)';
+    b.replaceChildren(icono(aEscenario ? LUNA : SOL));
+    b.setAttribute('aria-label', texto);
+    b.title = texto;
   }
   aplicarTema(guardado() || (matchMedia('(prefers-color-scheme: dark)').matches ? 'escenario' : 'papel'));
   $('tema').addEventListener('click', () => {
@@ -191,13 +203,17 @@
     caja.querySelectorAll('.parte').forEach((x, i) => x.classList.toggle('activa', i === foco));
   }
 
+  // Pista "toca una parte": se ve hasta la primera vez que enfocas una parte, luego desaparece.
+  const ENFOQUE = 'repertorio-enfoque-visto';
+  const yaVisto = () => { try { return localStorage.getItem(ENFOQUE) === '1'; } catch (e) { return false; } };
+  const marcarVisto = () => { try { localStorage.setItem(ENFOQUE, '1'); } catch (e) { /* nada */ } document.querySelectorAll('.pista-enfoque').forEach(n => n.remove()); };
   function parte(p, k) {
-    const hijos = [];
-    compases(p.prog).forEach((g, i) => {
-      if (i) hijos.push(el('span', { className: 'barra' }, '|'));
-      g.forEach(a => hijos.push(el('span', { className: 'chip' }, el('b', {}, a), el('i', { className: 'rom' }, romano(a, p.tono || actual.tono)))));
-    });
-    return el('section', { className: 'parte' + (norm(p.nombre).trim() === 'coro' ? ' coro' : ''), onclick: () => { foco = foco === k ? -1 : k; aplicarFoco(); } },
+    const gs = compases(p.prog);
+    // Cada compás va junto (no se parte entre dos líneas) y la barra | lo cierra.
+    const hijos = gs.map((g, i) => el('span', { className: 'compas' },
+      ...g.map(a => el('span', { className: 'chip' }, el('b', {}, a), el('i', { className: 'rom' }, romano(a, p.tono || actual.tono)))),
+      i < gs.length - 1 && el('span', { className: 'barra' }, '|')));
+    return el('section', { className: 'parte' + (norm(p.nombre).trim() === 'coro' ? ' coro' : ''), onclick: () => { marcarVisto(); foco = foco === k ? -1 : k; aplicarFoco(); } },
       el('h3', {}, p.nombre || '', p.tono && el('small', {}, ' · ' + p.tono)),
       el('div', { className: 'chips' }, ...hijos),
       p.pista && el('p', { className: 'pista' }, p.pista));
@@ -214,6 +230,7 @@
     $('cancion').scrollTop = 0;
   }
 
+  let obsTitulo = null;
   function mostrar() {
     const c = actual, caja = $('cancion');
     const partes = (c.partes || []).filter(p => p.prog);
@@ -231,12 +248,19 @@
         el('p', { className: 'a' }, [c.artista, c.nota].filter(Boolean).join(' · ')),
         el('p', { className: 'tonos' }, pastilla(c.tono)),
         enlace && el('p', { className: 'noimp' }, el('a', { href: enlace, target: '_blank', rel: 'noopener noreferrer' }, 'Escuchar referencia ↗')),
+        partes.length > 0 && !yaVisto() && el('p', { className: 'a noimp pista-enfoque' }, 'Toca una parte para enfocarla.'),
         ...(partes.length ? partes.map((p, k) => parte(p, k)) : [el('p', { className: 'vacio' }, 'Aún no hay partes ni acordes para esta canción.')]),
         el('p', { className: 'noimp' }, el('button', { type: 'button', onclick: () => print() }, 'Imprimir'))),
       el('div', { className: 'cpie noimp' },
         el('button', { type: 'button', disabled: pos <= 0, onclick: () => irA(-1) }, '‹ Anterior'),
         el('span', { className: 'pos' }, orden.length > 1 && pos >= 0 ? (pos + 1) + ' / ' + orden.length : ''),
         el('button', { type: 'button', disabled: pos < 0 || pos >= orden.length - 1, onclick: () => irA(1) }, 'Siguiente ›')));
+    if (obsTitulo) obsTitulo.disconnect();
+    if ('IntersectionObserver' in window) {
+      const tit = caja.querySelector('.ctitulo');
+      obsTitulo = new IntersectionObserver(([e]) => tit.classList.toggle('visto', !e.isIntersecting), { rootMargin: '-64px 0px 0px 0px' });
+      obsTitulo.observe(caja.querySelector('h2'));
+    } else caja.querySelector('.ctitulo').classList.add('visto');
     caja.style.setProperty('--z', zoom);
     topesZoom();
     aplicarFoco();

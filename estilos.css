@@ -15,8 +15,8 @@
   .busca { display: flex; align-items: center; gap: .6rem; }
   .busca input { flex: 1; min-width: 0; min-height: 48px; }
   .badge { flex: none; padding: .25rem .6rem; border: 1px solid var(--line); border-radius: 4px; font-size: .85rem; color: var(--muted); white-space: nowrap; }
-  .pastillas { display: flex; gap: .45rem; overflow-x: auto; padding: .6rem 0 .2rem; -webkit-overflow-scrolling: touch; }
-  .pastillas button { flex: none; min-width: 48px; padding: .3rem .7rem; font-weight: 700; }
+  .pastillas { display: flex; flex-wrap: wrap; gap: .45rem; padding: .6rem 0 .2rem; }
+  .pastillas button { flex: none; min-width: 44px; padding: .3rem .6rem; font-weight: 700; }
   .pastillas button[aria-pressed=true] { border: 2px solid var(--ink); text-decoration: underline; text-underline-offset: 3px; }
   .tono { display: inline-flex; align-items: center; justify-content: center; min-width: 2.6rem; padding: .35rem .6rem; border-radius: 4px; font-weight: 700; color: var(--pt); background: hsl(var(--h, 0) var(--s, 0%) var(--pl)); }
   .tono small { font-size: .65em; font-weight: 600; margin-left: 1px; }
@@ -28,6 +28,8 @@
   #cancion, #teoria { position: fixed; inset: 0; z-index: 20; overflow-y: auto; background: var(--bg); --z: 1; }
   .cbarra { position: sticky; top: 0; display: flex; gap: .4rem; padding: .5rem 1rem; background: var(--bg); border-bottom: 1px solid var(--line); }
   .ctitulo { flex: 1; min-width: 0; align-self: center; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #cancion .ctitulo { opacity: 0; transition: opacity .15s ease; }
+  #cancion .ctitulo.visto { opacity: 1; }
   .ccuerpo { max-width: 44rem; margin: 0 auto; padding: 1rem 1rem 5rem; }
   .ccuerpo h2 { font: 700 calc(1.8rem * var(--z))/1.2 var(--tit); margin: 0 0 .2rem; }
   .parte { margin: .9rem 0; padding: .6rem .8rem; border-left: 5px solid var(--line); background: var(--fila); }
@@ -36,6 +38,7 @@
   .parte h3 small { font-weight: 400; text-transform: none; }
   .chips { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
   .chip { display: inline-flex; flex-direction: column; align-items: center; padding: .3rem .7rem; border: 1px solid var(--ink); border-radius: 3px; font: 700 calc(1.3rem * var(--z))/1.2 ui-monospace, Menlo, Consolas, monospace; }
+  .compas { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
   .barra { color: var(--muted); font-size: calc(1.5rem * var(--z)); padding: 0 .15rem; }
   .pista { margin: .5rem 0 0; color: var(--muted); font-style: italic; font-size: calc(1rem * var(--z)); }
   .vacio { padding: 1.5rem 0; color: var(--muted); }
@@ -77,7 +80,8 @@
   button:active { transform: scale(.93); }
   .abrir:active { transform: scale(.98); }
   .tonos { display: flex; align-items: center; gap: .6rem; margin: .5rem 0; }
-  .acciones { display: flex; gap: .4rem; }
+  .acciones { display: flex; gap: .4rem; flex: none; }
+  #tema { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; }
   .tg { display: flex; flex-wrap: wrap; gap: .45rem; padding: .3rem 0 .6rem; }
   .tg button { min-width: 48px; padding: .3rem .7rem; font-weight: 700; }
   .tg button[aria-pressed=true] { border: 2px solid var(--ink); text-decoration: underline; text-underline-offset: 3px; }
@@ -99,7 +103,7 @@
   #cancion.enfoque .parte:not(.activa) { opacity: .35; }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
   .marca { display: flex; align-items: center; gap: .7rem; min-width: 0; cursor: default; }
-  .marca h1 { margin: 0; overflow-wrap: anywhere; }
+  .marca h1 { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: clamp(1.3rem, 6.2vw, 1.8rem); }
   .logo { flex: none; display: inline-flex; flex-direction: column; align-items: center; padding: .2rem .6rem .25rem; border: 1.5px solid var(--ink); border-radius: 4px; }
   .logo b { font: 700 1.55rem/1.1 var(--tit); }
   .logo .rom { font: 400 .7rem/1 var(--sans); font-style: normal; color: var(--muted); }
