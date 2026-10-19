@@ -1,6 +1,6 @@
 # Repertorio — manual de mantenimiento
 
-Página con las canciones que sé tocar (acordes, tono y partes). La gente solo mira; yo soy el único que edita.
+Página con canciones (acordes, tono y partes). Yo soy el administrador: edito todo. Cualquiera puede crear una cuenta y agregar/editar SUS canciones (aparecen junto a las demás con su nombre).
 Objetivo: repertorio propio, sin cuadernos, que se vea desde cualquier lugar y se pueda compartir con un link.
 
 ## Cómo está armado
@@ -14,7 +14,13 @@ Objetivo: repertorio propio, sin cuadernos, que se vea desde cualquier lugar y s
 | `estilos.css` | Todo el diseño (colores, temas, tamaños) |
 | `editor.js` | Modo editor. Se abre **tocando 5 veces seguidas el título** (o con `?editar` al final del link) |
 | `api/canciones.js` | `GET` público (devuelve el repertorio) · `POST` protegido (guarda) |
-| `api/entrar.js` | Único lugar donde se prueba la contraseña; devuelve un pase de 30 días |
+| `api/entrar.js` | Único lugar donde se prueba la contraseña del administrador; devuelve un pase de 30 días |
+| `api/cuenta.js` | Usuarios: `registrar`, `entrar` y `borrar` cuenta (pase de usuario de 30 días) |
+| `api/comunidad.js` | `POST` de canciones de usuarios: el usuario solo reemplaza SU sección; el administrador puede reemplazar la de cualquiera |
+| `lib/almacen.js` | Lectura/escritura de Blob (con escritura condicional por ETag y "crear solo si no existe") |
+| `lib/comunidad.js` | Modifica `repertorio/comunidad.json` con reintentos para que dos guardados simultáneos no se pisen |
+| `lib/limpiar.js` | Limpieza y límites de las canciones (la usan `api/canciones.js` y `api/comunidad.js`) |
+| `robots.txt` | Permite indexar la página y bloquea `/api/` |
 | `lib/auth.js` | Lógica de contraseña y pases (compartida por las dos funciones) |
 | `canciones.js` | Copia de respaldo si el servidor no responde |
 | `sw.js` | Modo offline: guarda la página y las canciones en el dispositivo. Con internet siempre carga lo más nuevo; sin internet usa la copia guardada |
@@ -23,6 +29,16 @@ Objetivo: repertorio propio, sin cuadernos, que se vea desde cualquier lugar y s
 | `vendor/Tone.js` | Librería [Tone.js](https://github.com/Tonejs/Tone.js) 15.1.22 (MIT) copiada tal cual, con su licencia, para el sonido de la pantalla Teoría. Para actualizar: `npm pack tone` y copiar `build/Tone.js`. Se le fuerza el reloj `timeout` porque la política de seguridad bloquea su worker interno |
 | `vendor/piano/` | 30 muestras .mp3 (~2 MB) del piano de cola **Salamander Grand Piano** de Alexander Holm, licencia **CC BY 3.0** (hay que dar crédito; está en la pantalla Teoría y en `vendor/piano/LICENSE.txt`). Fuente: https://github.com/Tonejs/audio, carpeta `salamander`. Una sola capa de velocidad. Se guardan para uso offline la primera vez que se abre Teoría con internet |
 | `vercel.json` | Cabeceras de seguridad básicas |
+
+## Comunidad (usuarios)
+- **Datos separados:** mis canciones siguen en `repertorio/canciones.json`; las de cada usuario en su sección de `repertorio/comunidad.json`; cada cuenta en `repertorio/cuentas/<usuario>.json`. Un usuario **nunca** escribe en mi archivo.
+- **Acceso de usuarios:** icono de persona en la cabecera (o enlace al pie) → `?cuenta`. **Acceso mío:** 5 toques al título → `?editar`.
+- **Quién edita qué:** el servidor saca el nombre del pase firmado (no de lo que mande el navegador). Un pase de usuario no sirve en `/api/canciones`. Yo puedo editar o borrar canciones de cualquiera (botón Editar en todas).
+- **Contraseñas de usuarios:** nunca se guardan; se guarda `scrypt(HMAC(SESSION_SECRET, contraseña), sal)`. **`SESSION_SECRET` es obligatoria** para registrarse.
+- **Variables opcionales en Vercel:** `CODIGO_REGISTRO` (si existe, quien se registre debe escribirlo: registro por invitación) · `NOMBRES_RESERVADOS` (lista separada por comas de nombres que nadie puede usar; ya están reservados admin, administrador, moderador…).
+- **Límites:** 150 canciones por usuario, 200 KB por guardado, 3 MB en total para la comunidad, 5 cuentas por hora por IP.
+- **Moderar:** editar/borrar canciones desde `?editar`. **Expulsar a alguien:** borrar `repertorio/cuentas/<usuario>.json` en el almacén de Vercel (su pase deja de funcionar al instante) y borrar sus canciones desde `?editar`.
+- **Aviso legal:** la pista y la nota son cortas a propósito; si alguien pega letras completas, borrarlas.
 
 ## Seguridad (cómo funciona)
 - Escribir datos exige un **pase firmado**. Se obtiene en `/api/entrar` con la contraseña (`ADMIN_PASSWORD` en Vercel).
@@ -33,7 +49,7 @@ Objetivo: repertorio propio, sin cuadernos, que se vea desde cualquier lugar y s
 - **Matar todas las sesiones:** cambiar `ADMIN_PASSWORD` o `SESSION_SECRET` en Vercel (y Redeploy).
 - Cada guardado conserva el estado anterior (`previo.json`): **Ajustes → Deshacer último guardado**. El servidor no guarda listas vacías.
 - La página no ejecuta nada que venga de los datos: todo se escribe como texto, los links solo pueden ser `http(s)`, y la política de seguridad (CSP en `vercel.json`) solo permite scripts y estilos de la propia página.
-- Es público a propósito: la lista de canciones (`GET /api/canciones`) y el código del repo.
+- Es público a propósito: la lista de canciones (`GET /api/canciones`) y el código del repo. Los hashes de contraseñas de usuarios no salen en ninguna respuesta de la API.
 
 ## Lista de seguridad (acciones mías, no de código)
 - [ ] **Verificación en dos pasos (2FA) en GitHub y en Vercel**, con códigos de recuperación guardados. Quien controle esas cuentas controla el sitio entero.
@@ -76,6 +92,7 @@ Objetivo: repertorio propio, sin cuadernos, que se vea desde cualquier lugar y s
 
 ## Formato de datos (versión 1)
 `{version, nombre, intro, actualizado, canciones:[{titulo, artista, tono, nota, enlace, partes:[{nombre, tono, prog, pista}]}]}`
+La respuesta de `GET /api/canciones` añade `autor` a las canciones de usuarios (las mías no lo llevan). `comunidad.json`: `{version, usuarios:{<usuario>:{canciones, actualizado}}}`.
 
 ## Escribir las partes (editor)
 Una parte por línea: `Nombre (tono): acordes // pista`
@@ -86,7 +103,7 @@ Una parte por línea: `Nombre (tono): acordes // pista`
 - Los números romanos salen del tono de la canción (o de la parte); en tonos menores usa la escala menor natural.
 
 ## Decisiones de diseño (no volver a discutirlas sin motivo)
-Móvil primero, sin fotos ni degradados; un solo sistema de color (el tono); dos temas (Papel y Escenario); sin letras completas; sin favoritos ni transposición (a propósito: el oído se entrena sacando los tonos); modo offline con service worker (red primero, copia guardada como respaldo); el editor es secreto (5 toques al título) y se protege en el servidor, no en la pantalla.
+Abierto a usuarios con cuenta (cada uno edita solo lo suyo; yo todo); móvil primero, sin fotos ni degradados; un solo sistema de color (el tono); dos temas (Papel y Escenario); sin letras completas; sin favoritos ni transposición (a propósito: el oído se entrena sacando los tonos); modo offline con service worker (red primero, copia guardada como respaldo); el editor es secreto (5 toques al título) y se protege en el servidor, no en la pantalla.
 
 ## Si quiero ayuda de una IA
 Subir toda esta carpeta y este README, y pedir el cambio indicando el archivo. Cualquier campo nuevo implica tocar también `api/canciones.js`.
