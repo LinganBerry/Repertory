@@ -2,7 +2,7 @@
 //  - Con internet: siempre carga y guarda lo más nuevo (los cambios del editor se ven sin pasos manuales).
 //  - Sin internet (o con señal muy mala): usa la última copia guardada de la página y de las canciones.
 // La primera visita debe ser con internet. No toca el editor ni los POST (guardar / entrar).
-const CACHE = 'repertorio-v1';
+const CACHE = 'acordes-v2';
 const BASE = ['/', '/index.html', '/estilos.css', '/app.js', '/canciones.js', '/editor.js', '/teoria.js', '/vendor/tonal.min.js', '/vendor/Tone.js'];
 const API = '/api/canciones';
 const ESPERA_MS = 4000; // si la red tarda más, se muestra la copia guardada

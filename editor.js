@@ -1,9 +1,7 @@
-// Modo editor. Dos modos:
-//  - ADMINISTRADOR (?editar, se abre tocando 5 veces el título): edita sus canciones y las de cualquier usuario.
-//    Entra con ADMIN_PASSWORD; sus canciones se guardan en /api/canciones y las de otros en /api/comunidad.
-//  - USUARIO (?cuenta, botón de la cabecera): crea su cuenta o entra con usuario y contraseña; solo edita sus propias
-//    canciones, que se guardan en /api/comunidad. Nunca toca las del administrador.
-// El servidor decide quién puede qué (pases firmados); esta pantalla solo muestra los botones que corresponden.
+// Modo editor (solo para ti). Se abre tocando 5 veces el título, o con /?editar.
+// Entras con tu contraseña: el servidor la comprueba (con límite de intentos) y te da un pase que vence a los 30 días.
+// Cada cambio se envía al servidor canción por canción: agregar, editar, mandar a la papelera, restaurar o importar.
+// Este archivo no puede borrar nada de forma definitiva: el servidor tampoco.
 (() => {
   'use strict';
 
@@ -14,22 +12,17 @@
   const TONOS = ['C', 'C#', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
     .flatMap(t => [t, t + 'm']);
   const lista = () => app.data.canciones;
+  const nuevoId = () => {
+    try { return crypto.randomUUID().replace(/-/g, '').slice(0, 16); } catch (e) { /* navegador viejo */ }
+    return Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+  };
 
   // Sesión: el servidor cambia la contraseña por un pase que vence a los 30 días. La contraseña NO se guarda.
-  const ADMIN = new URLSearchParams(location.search).has('editar');
-  const SESION = ADMIN ? 'repertorio-sesion' : 'repertorio-sesion-usuario';
+  const SESION = 'repertorio-sesion-v3';
   const leerSesion = () => { try { return sessionStorage.getItem(SESION) || localStorage.getItem(SESION) || ''; } catch (e) { return ''; } };
   const olvidarSesion = () => { try { sessionStorage.removeItem(SESION); localStorage.removeItem(SESION); } catch (e) { /* nada */ } };
   const guardarSesion = (v, fija) => { olvidarSesion(); try { (fija ? localStorage : sessionStorage).setItem(SESION, v); } catch (e) { /* nada */ } };
-  // Versiones anteriores guardaban la contraseña en el teléfono: se borra.
-  try { sessionStorage.removeItem('repertorio-clave'); localStorage.removeItem('repertorio-clave'); } catch (e) { /* nada */ }
-  let token = leerSesion(), pendiente = false;
-  if (!ADMIN && !token.startsWith('u1.')) token = '';
-  // Nombre del usuario: va dentro del pase (u1.<usuario>.<vence>.<firma>).
-  const yo = () => (!ADMIN && token ? token.split('.')[1] || '' : '');
-  // Canciones con cambios sin guardar, por autor ('' = las del administrador).
-  const sucios = new Set();
-  const puede = c => Boolean(c) && (ADMIN || (yo() !== '' && c.autor === yo()));
+  let token = leerSesion();
 
   // Partes: una por línea, "Nombre (tono): acordes // pista". Tono y pista son opcionales; | marca el compás.
   const partesATexto = ps => (ps || []).map(p => (p.nombre ? p.nombre + (p.tono ? ' (' + p.tono + ')' : '') + ': ' : '') + p.prog + (p.pista ? ' // ' + p.pista : '')).join('\n');
@@ -68,67 +61,48 @@
     return { errores, avisos };
   }
   const limpia = c => ({ ...Object.fromEntries(CAMPOS.map(k => [k, c[k] || ''])), partes: c.partes || [] });
-  const paquete = () => {
-    const d = app.data;
-    return {
-      version: 1, nombre: d.nombre || '', intro: d.intro || '',
-      actualizado: new Date().toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }),
-      canciones: d.canciones.filter(c => !c.autor).map(limpia)
-    };
-  };
 
   const estado = (texto, tipo = '') => {
     $('estado').textContent = texto;
     $('estado').className = 'estado ' + tipo;
-    $('b-reintentar').hidden = tipo !== 'mal';
   };
 
-  // Envía al servidor solo lo que cambió, por autor. Si falla, queda "Reintentar" en la barra.
-  async function enviar(autor) {
-    const propio = autor === '';   // canciones del administrador
-    const d = propio ? paquete() : null;
-    const url = propio ? '/api/canciones' : '/api/comunidad';
-    const body = propio ? { token, data: d } : { token, autor, data: { canciones: lista().filter(c => c.autor === autor).map(limpia) } };
-    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const j = await r.json().catch(() => ({}));
-    return { r, j, d, esperaLinks: (propio ? d.canciones : body.data.canciones).filter(c => c.enlace).length };
-  }
-  async function guardar() {
-    if (!token) { pendiente = true; abrirLogin(); return false; }
-    estado('Guardando…');
-    try {
-      for (const autor of [...sucios]) {
-        const { r, j, d, esperaLinks } = await enviar(autor);
-        if (r.status === 401) { pendiente = true; token = ''; olvidarSesion(); estado('No se guardó: sesión vencida o no válida.', 'mal'); abrirLogin(ADMIN ? 'Entra de nuevo con tu contraseña.' : 'Tu sesión venció. Entra de nuevo.'); return false; }
-        if (!r.ok) { pendiente = true; estado('No se guardó: ' + (j.error || 'error ' + r.status), 'mal'); return false; }
-        sucios.delete(autor);
-        if (d) app.data.actualizado = d.actualizado;
-        // Si el servidor es una versión vieja, descarta los links sin avisar: aquí se detecta.
-        if (esperaLinks && j.enlaces !== esperaLinks) { estado('Guardado, pero el servidor NO guardó los links: sube la versión nueva de la carpeta api/ a GitHub.', 'alerta'); return true; }
-      }
-      pendiente = false;
-      estado('Guardado ✓');
-      try { navigator.vibrate && navigator.vibrate([10, 25, 15]); } catch (e) { /* nada */ }
-      return true;
-    } catch (e) {
-      pendiente = true;
-      estado('Sin conexión con el servidor.', 'mal');
-      return false;
+  // --- comunicación con el servidor ---
+  // Si no hay pase (o venció), pide la contraseña (encima de lo que tengas abierto) y repite la acción solo.
+  async function llamar(body) {
+    for (let intento = 0; intento < 2; intento++) {
+      if (!token && !(await pedirLogin(intento ? 'Tu sesión venció. Entra de nuevo.' : '', Boolean(abierta)))) break;
+      let r, j;
+      try {
+        r = await fetch('/api/canciones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, token }) });
+        j = await r.json().catch(() => ({}));
+      } catch (e) { return { ok: false, status: 0, j: { error: 'Sin conexión con el servidor.' } }; }
+      if (r.status === 401) { token = ''; olvidarSesion(); continue; }
+      return { ok: r.ok, status: r.status, j };
     }
+    return { ok: false, status: 401, j: { error: 'No se pudo entrar.' } };
   }
-  const cambio = (autor = '') => { sucios.add(autor); app.render(); return guardar(); };
+  const exito = () => {
+    estado('Guardado ✓');
+    try { navigator.vibrate && navigator.vibrate([10, 25, 15]); } catch (e) { /* nada */ }
+  };
+  const recargar = async () => {
+    const r = await fetch('/api/canciones', { cache: 'no-store' });
+    if (r.ok) app.data = await r.json();
+  };
 
   // --- pantallas completas (formulario, ajustes, entrada) ---
   let abierta = null;
-  function abrirCapa(titulo, cuerpo, pie, cerrable = true) {
-    cerrarCapa();
-    abierta = el('div', { className: 'capa' },
-      el('div', { className: 'capa-t' }, el('span', {}, titulo), cerrable && el('button', { type: 'button', onclick: cerrarCapa }, 'Cerrar')),
+  function abrirCapa(titulo, cuerpo, pie, cerrable = true, apilada = false) {
+    if (!apilada) cerrarCapa();
+    const capa = el('div', { className: 'capa' },
+      el('div', { className: 'capa-t' }, el('span', {}, titulo), cerrable && el('button', { type: 'button', onclick: () => apilada ? capa.remove() : cerrarCapa() }, 'Cerrar')),
       el('div', { className: 'capa-c' }, ...cuerpo),
       pie && el('div', { className: 'capa-p' }, ...pie));
-    document.body.append(abierta);
+    document.body.append(capa);
     document.body.classList.add('fija');
-    return abierta;
+    if (!apilada) abierta = capa;
+    return capa;
   }
   function cerrarCapa() {
     if (!abierta) return;
@@ -139,95 +113,44 @@
   const salir = () => { location.href = location.pathname; };
   const sp = () => el('span', { className: 'sp' });
 
-  function abrirLogin(aviso) {
-    if (!ADMIN) return abrirLoginUsuario(aviso);
-    const msg = el('p', { className: 'aviso-e' }, aviso || '');
-    const pass = el('input', { type: 'password', autocomplete: 'current-password', placeholder: 'Contraseña' });
-    const fija = el('input', { type: 'checkbox' });
-    const boton = el('button', { type: 'button', className: 'primario' }, 'Entrar');
-    const entrar = async () => {
-      if (!pass.value) { pass.focus(); return; }
-      boton.disabled = true;
-      msg.textContent = 'Entrando…';
-      try {
-        const r = await fetch('/api/entrar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clave: pass.value }) });
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok || !j.token) { msg.textContent = j.error || 'No se pudo entrar (error ' + r.status + ').'; boton.disabled = false; return; }
-        token = j.token;
-        guardarSesion(token, fija.checked);
-        cerrarCapa();
-        estado('Listo');
-        if (pendiente) guardar();
-      } catch (err) {
-        msg.textContent = 'Sin conexión con el servidor.';
-        boton.disabled = false;
-      }
-    };
-    boton.onclick = entrar;
-    abrirCapa('Entrar al editor', [
-      el('label', { className: 'campo' }, el('span', {}, 'Contraseña'), pass),
-      el('label', { className: 'campo' }, fija, ' Recordar en este teléfono (30 días)'),
-      msg
-    ], [el('button', { type: 'button', onclick: salir }, 'Solo mirar'), sp(), boton], false);
-    pass.addEventListener('keydown', ev => { if (ev.key === 'Enter') entrar(); });
-    pass.focus();
-  }
-
-  // Entrada de usuarios: iniciar sesión o crear cuenta (mismo formulario).
-  function abrirLoginUsuario(aviso) {
-    let nueva = false;
-    const msg = el('p', { className: 'aviso-e' }, aviso || '');
-    const usuario = el('input', { autocomplete: 'username', autocapitalize: 'none', spellcheck: false, maxLength: 20, placeholder: 'Ej: maria_07' });
-    const pass = el('input', { type: 'password', autocomplete: 'current-password', placeholder: 'Contraseña' });
-    const codigo = el('input', { autocomplete: 'off', placeholder: 'Solo si te dieron uno' });
-    const campoCodigo = el('label', { className: 'campo' }, el('span', {}, 'Código de invitación (opcional)'), codigo);
-    const ayuda = el('p', { className: 'pista-ayuda' });
-    const fija = el('input', { type: 'checkbox' });
-    const boton = el('button', { type: 'button', className: 'primario' }, 'Entrar');
-    const cambiar = el('button', { type: 'button' }, 'Crear cuenta nueva');
-    const pinta = () => {
-      boton.textContent = nueva ? 'Crear cuenta' : 'Entrar';
-      cambiar.textContent = nueva ? 'Ya tengo cuenta' : 'Crear cuenta nueva';
-      campoCodigo.hidden = !nueva;
-      pass.autocomplete = nueva ? 'new-password' : 'current-password';
-      ayuda.textContent = nueva
-        ? 'Usuario: 3 a 20 caracteres (letras minúsculas sin tildes, números y _). Contraseña: mínimo 8. Tus canciones aparecen junto a las demás con tu nombre y solo tú puedes editarlas.'
-        : 'Entra para agregar y editar tus canciones. Si no tienes cuenta, créala: es gratis.';
-    };
-    cambiar.onclick = () => { nueva = !nueva; msg.textContent = ''; pinta(); };
-    const entrar = async () => {
-      if (!usuario.value.trim()) { usuario.focus(); return; }
-      if (!pass.value) { pass.focus(); return; }
-      boton.disabled = true;
-      msg.textContent = nueva ? 'Creando cuenta…' : 'Entrando…';
-      try {
-        const r = await fetch('/api/cuenta', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ accion: nueva ? 'registrar' : 'entrar', usuario: usuario.value.trim(), clave: pass.value, codigo: codigo.value.trim() }) });
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok || !j.token) { msg.textContent = j.error || 'No se pudo entrar (error ' + r.status + ').'; boton.disabled = false; return; }
-        token = j.token;
-        guardarSesion(token, fija.checked);
-        cerrarCapa();
-        rotular();
-        estado('Listo');
-        app.render();
-        if (pendiente) guardar();
-      } catch (err) {
-        msg.textContent = 'Sin conexión con el servidor.';
-        boton.disabled = false;
-      }
-    };
-    boton.onclick = entrar;
-    abrirCapa('Mis canciones', [
-      el('label', { className: 'campo' }, el('span', {}, 'Usuario'), usuario),
-      el('label', { className: 'campo' }, el('span', {}, 'Contraseña'), pass),
-      campoCodigo,
-      el('label', { className: 'campo' }, fija, ' Recordar en este teléfono (30 días)'),
-      ayuda, msg
-    ], [el('button', { type: 'button', onclick: salir }, 'Solo mirar'), cambiar, sp(), boton], false);
-    pinta();
-    pass.addEventListener('keydown', ev => { if (ev.key === 'Enter') entrar(); });
-    usuario.focus();
+  // Pide la contraseña. Devuelve una promesa: true cuando entraste.
+  let esperandoLogin = null;
+  function pedirLogin(aviso, apilada = false) {
+    if (esperandoLogin) return esperandoLogin;
+    esperandoLogin = new Promise(resolver => {
+      const msg = el('p', { className: 'aviso-e' }, aviso || '');
+      const pass = el('input', { type: 'password', autocomplete: 'current-password', placeholder: 'Contraseña' });
+      const fija = el('input', { type: 'checkbox' });
+      const boton = el('button', { type: 'button', className: 'primario' }, 'Entrar');
+      let capa;
+      const entrar = async () => {
+        if (!pass.value) { pass.focus(); return; }
+        boton.disabled = true;
+        msg.textContent = 'Entrando…';
+        try {
+          const r = await fetch('/api/entrar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clave: pass.value }) });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok || !j.token) { msg.textContent = j.error || 'No se pudo entrar (error ' + r.status + ').'; boton.disabled = false; pass.select(); return; }
+          token = j.token;
+          guardarSesion(token, fija.checked);
+          if (apilada) capa.remove(); else cerrarCapa();
+          estado('Listo');
+          resolver(true);
+        } catch (err) {
+          msg.textContent = 'Sin conexión con el servidor.';
+          boton.disabled = false;
+        }
+      };
+      boton.onclick = entrar;
+      capa = abrirCapa('Entrar al editor', [
+        el('label', { className: 'campo' }, el('span', {}, 'Contraseña'), pass),
+        el('label', { className: 'campo' }, fija, ' Recordar en este teléfono (30 días)'),
+        msg
+      ], [el('button', { type: 'button', onclick: salir }, 'Solo mirar'), sp(), boton], false, apilada);
+      pass.addEventListener('keydown', ev => { if (ev.key === 'Enter') entrar(); });
+      pass.focus();
+    }).finally(() => { esperandoLogin = null; });
+    return esperandoLogin;
   }
 
   function mostrarRevision() {
@@ -240,8 +163,7 @@
 
   function abrirForm(i) {
     const c = i >= 0 ? lista()[i] : { titulo: '', artista: '', tono: '', nota: '', enlace: '', partes: [] };
-    if (i >= 0 && !puede(c)) return;
-    const dueno = i >= 0 ? (c.autor || '') : (ADMIN ? '' : yo());   // de quién es esta canción ('' = del administrador)
+    const id = c.id || nuevoId();   // un id fijo por canción: si reintentas guardar, nunca se duplica
     const campo = (etiqueta, ctl) => el('label', { className: 'campo' }, el('span', {}, etiqueta), ctl);
     const f = (k, props = {}) => el('input', { id: 'f-' + k, value: c[k] || '', ...props });
     const tono = el('select', { id: 'f-tono' }, el('option', { value: '' }, 'Elige el tono'), ...TONOS.map(t => el('option', { value: t }, t)));
@@ -250,7 +172,8 @@
       id: 'f-partes', rows: 8, value: partesATexto(c.partes), oninput: mostrarRevision,
       placeholder: 'Intro: G D | Em C\nVerso: G D | Em C // una línea que te ubique\nCoro (D): D G | Bm A'
     });
-    const guardarForm = () => {
+    const botonGuardar = el('button', { type: 'button', className: 'primario' }, 'Guardar');
+    const guardarForm = async () => {
       const v = k => $('f-' + k).value.trim();
       const n = { titulo: v('titulo'), artista: v('artista'), tono: v('tono'), nota: v('nota'), enlace: v('enlace'), partes: textoAPartes($('f-partes').value) };
       const mal = !n.titulo ? ['f-titulo', 'Escribe el nombre de la canción.']
@@ -258,21 +181,36 @@
         : n.enlace && !/^https?:\/\/\S+$/i.test(n.enlace) ? ['f-enlace', 'El link debe empezar con http:// o https://']
         : mostrarRevision().length ? ['f-partes', 'Corrige los errores marcados en las partes.'] : null;
       if (mal) { $('f-msg').textContent = mal[1]; $(mal[0]).focus(); return; }
-      if (dueno) n.autor = dueno;
-      // Solo cuenta como repetida una igual del mismo dueño: cada quien puede tener su propia versión de una canción.
-      const repetida = lista().some((x, j) => j !== i && (x.autor || '') === dueno && norm(x.titulo) === norm(n.titulo) && norm(x.artista) === norm(n.artista));
+      const repetida = lista().some(x => x.id !== c.id && norm(x.titulo) === norm(n.titulo) && norm(x.artista) === norm(n.artista));
       if (repetida && !confirm('Ya existe una canción igual. ¿Guardarla de todos modos?')) return;
-      if (i >= 0) lista()[i] = n; else lista().push(n);
+      botonGuardar.disabled = true;
+      $('f-msg').textContent = 'Guardando…';
+      estado('Guardando…');
+      const { ok, j } = await llamar({ accion: 'guardar', cancion: { id, ...n } });
+      if (!ok) {
+        botonGuardar.disabled = false;
+        $('f-msg').textContent = 'No se guardó: ' + (j.error || 'error del servidor') + ' Tu texto sigue aquí; intenta de nuevo.';
+        estado('No se guardó', 'mal');
+        return;
+      }
+      const k = lista().findIndex(x => x.id === j.cancion.id);
+      if (k >= 0) lista()[k] = j.cancion; else lista().push(j.cancion);
       cerrarCapa();
-      cambio(dueno);
+      app.render();
+      exito();
     };
-    const borrar = () => {
-      if (!confirm(`¿Borrar "${c.titulo}"?`)) return;
-      lista().splice(i, 1);
+    botonGuardar.onclick = guardarForm;
+    const borrar = async () => {
+      if (!confirm(`¿Mandar "${c.titulo}" a la papelera? La puedes restaurar desde Ajustes.`)) return;
+      const { ok, j } = await llamar({ accion: 'borrar', id: c.id });
+      if (!ok) { $('f-msg').textContent = 'No se pudo: ' + (j.error || 'error del servidor'); return; }
+      const k = lista().findIndex(x => x.id === c.id);
+      if (k >= 0) lista().splice(k, 1);
       cerrarCapa();
-      cambio(dueno);
+      app.render();
+      exito();
     };
-    abrirCapa(i >= 0 ? 'Editar canción' + (ADMIN && c.autor ? ' de ' + c.autor : '') : 'Nueva canción', [
+    abrirCapa(i >= 0 ? 'Editar canción' : 'Nueva canción', [
       campo('Canción', f('titulo')),
       campo('Artista', f('artista')),
       campo('Tono', tono),
@@ -282,19 +220,20 @@
       el('p', { className: 'pista-ayuda' }, 'Una parte por línea: Nombre (tono): acordes // pista. El (tono) solo si la parte modula. Marca el compás con |. La pista es una línea corta: no pegues la letra de la canción (derechos de autor).'),
       el('ul', { id: 'avisos' }),
       el('p', { id: 'f-msg', className: 'aviso-e' })
-    ], [i >= 0 && el('button', { type: 'button', className: 'peligro', onclick: borrar }, 'Borrar'), sp(), el('button', { type: 'button', className: 'primario', onclick: guardarForm }, 'Guardar')]);
+    ], [i >= 0 && c.id && el('button', { type: 'button', className: 'peligro', onclick: borrar }, 'Papelera'), sp(), botonGuardar]);
     mostrarRevision();
     if (i < 0) $('f-titulo').focus();
   }
 
   function descargarCopia() {
-    const copia = ADMIN ? paquete() : { version: 1, canciones: lista().filter(c => c.autor === yo()).map(limpia) };
+    const d = app.data;
+    const copia = { version: 2, nombre: d.nombre || '', intro: d.intro || '', canciones: lista().map(c => ({ id: c.id, ...limpia(c) })) };
     const url = URL.createObjectURL(new Blob([JSON.stringify(copia, null, 2)], { type: 'application/json' }));
-    el('a', { href: url, download: ADMIN ? 'repertorio-copia.json' : 'mis-canciones.json' }).click();
+    el('a', { href: url, download: 'repertorio-copia.json' }).click();
     URL.revokeObjectURL(url);
   }
 
-  // Importar una copia (.json bajado con "Descargar copia"). Reemplaza la lista actual.
+  // Importar una copia (.json de "Descargar copia", de la versión nueva o de la vieja). Solo SUMA y ACTUALIZA: nunca quita canciones.
   async function leerCopia(ev, msg) {
     const archivo = ev.target.files[0];
     ev.target.value = '';
@@ -302,34 +241,38 @@
     let d;
     try { d = JSON.parse(await archivo.text()); } catch (err) { msg.textContent = 'El archivo no es una copia válida.'; return; }
     if (!d || !Array.isArray(d.canciones) || !d.canciones.length) { msg.textContent = 'El archivo no trae canciones. No se importó nada.'; return; }
-    aplicar(d, msg, 'del archivo');
-  }
-
-  // Reemplaza la lista actual (con confirmación). Sirve para importar una copia o recuperar la versión anterior.
-  function aplicar(d, msg, origen) {
-    if (!confirm(`Esto reemplaza tus ${lista().filter(c => !c.autor).length} canciones actuales por las ${d.canciones.length} ${origen}. Las de los usuarios no se tocan. ¿Continuar?`)) return;
-    app.data.nombre = d.nombre || app.data.nombre;
-    app.data.intro = typeof d.intro === 'string' ? d.intro : app.data.intro;
-    const ajenas = lista().filter(c => c.autor);
-    app.data.canciones = [...d.canciones.filter(c => c && typeof c === 'object' && !c.autor).map(c => {
-      const x = limpia(c);
-      x.partes = Array.isArray(c.partes) ? c.partes : [];
-      return x;
-    }), ...ajenas];
+    msg.textContent = 'Revisando la copia…';
+    const base = { accion: 'importar', canciones: d.canciones, nombre: d.nombre, intro: d.intro };
+    const sim = await llamar({ ...base, simular: true });
+    if (!sim.ok) { msg.textContent = 'No se pudo revisar: ' + (sim.j.error || 'error del servidor'); return; }
+    const r = sim.j;
+    if (!r.nuevas && !r.actualizadas) { msg.textContent = `No hay nada que importar: ${r.iguales} ya estaban iguales` + (r.omitidas ? `, ${r.omitidas} sin título o tono válido.` : '.'); return; }
+    if (!confirm(`La copia trae ${d.canciones.length} canciones.\n\nSe agregarán ${r.nuevas} nuevas y se actualizarán ${r.actualizadas}. ${r.iguales} ya están iguales.` + (r.omitidas ? ` ${r.omitidas} se omiten (sin título o tono válido).` : '') + '\n\nNo se borra ninguna canción. ¿Continuar?')) { msg.textContent = ''; return; }
+    msg.textContent = 'Importando…';
+    const real = await llamar(base);
+    if (!real.ok) { msg.textContent = 'No se importó: ' + (real.j.error || 'error del servidor'); return; }
+    await recargar();
     cerrarCapa();
-    cambio('');
+    exito();
   }
 
-  // Deshacer el último guardado: el servidor guarda el estado anterior en cada cambio.
-  async function recuperarPrevio(msg) {
-    let d;
-    try {
-      const r = await fetch('/api/canciones?previo=1', { cache: 'no-store' });
-      if (!r.ok) throw new Error('sin copia');
-      d = await r.json();
-    } catch (err) { msg.textContent = 'No hay una versión anterior guardada.'; return; }
-    if (!d || !Array.isArray(d.canciones) || !d.canciones.length) { msg.textContent = 'La versión anterior está vacía.'; return; }
-    aplicar(d, msg, 'de la versión anterior');
+  async function abrirPapelera() {
+    const { ok, j } = await llamar({ accion: 'papelera' });
+    const msg = el('p', { className: 'aviso-e' });
+    const filas = el('div', {});
+    const pintar = canciones => filas.replaceChildren(...(canciones.length ? canciones.map(c => el('p', {},
+      el('b', {}, c.titulo), c.artista ? ' · ' + c.artista + ' ' : ' ',
+      el('button', { type: 'button', onclick: async () => {
+        const r = await llamar({ accion: 'restaurar', id: c.id });
+        if (!r.ok) { msg.textContent = 'No se pudo restaurar: ' + (r.j.error || 'error del servidor'); return; }
+        lista().push(r.j.cancion);
+        app.render();
+        pintar(canciones.filter(x => x.id !== c.id));
+        exito();
+      } }, 'Restaurar'))) : [el('p', { className: 'pista-ayuda' }, 'La papelera está vacía.')]));
+    pintar(ok ? j.canciones : []);
+    if (!ok) msg.textContent = 'No se pudo leer la papelera: ' + (j.error || 'error del servidor');
+    abrirCapa('Papelera', [el('p', { className: 'pista-ayuda' }, 'Las canciones que mandas a la papelera siguen guardadas en el servidor. Aquí las restauras.'), filas, msg]);
   }
 
   function cerrarSesion() {
@@ -337,46 +280,27 @@
     salir();
   }
 
-  // Borrar la propia cuenta y todas las canciones del usuario (pide la contraseña).
-  async function borrarCuenta(msg) {
-    if (!confirm('Se borrará tu cuenta y todas tus canciones. No se puede deshacer. ¿Continuar?')) return;
-    const clave = prompt('Escribe tu contraseña para confirmar:');
-    if (!clave) return;
-    try {
-      const r = await fetch('/api/cuenta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accion: 'borrar', token, clave }) });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) { msg.textContent = j.error || 'No se pudo borrar (error ' + r.status + ').'; return; }
-      cerrarSesion();
-    } catch (e) { msg.textContent = 'Sin conexión con el servidor.'; }
-  }
-
-  function abrirAjustesUsuario() {
-    const msg = el('p', { className: 'aviso-e' });
-    abrirCapa('Ajustes', [
-      el('div', { className: 'grupo' }, el('h3', {}, 'Mis canciones'),
-        el('p', {}, el('button', { type: 'button', onclick: descargarCopia }, 'Descargar copia'))),
-      el('div', { className: 'grupo' }, el('h3', {}, 'Sesión'),
-        el('p', { className: 'pista-ayuda' }, 'Sesión iniciada como ' + yo() + '. Volver a la página no cierra tu sesión.'),
-        el('p', {}, el('button', { type: 'button', onclick: salir }, 'Volver a la página'), ' ',
-          el('button', { type: 'button', onclick: cerrarSesion }, 'Cerrar sesión'))),
-      el('div', { className: 'grupo' }, el('h3', {}, 'Cuenta'),
-        el('p', {}, el('button', { type: 'button', className: 'peligro', onclick: () => borrarCuenta(msg) }, 'Borrar mi cuenta y mis canciones'))),
-      msg
-    ]);
-  }
-
   function abrirAjustes() {
-    if (!ADMIN) return abrirAjustesUsuario();
     const msg = el('p', { className: 'aviso-e' });
     const archivo = el('input', { type: 'file', accept: 'application/json,.json', hidden: true, onchange: ev => leerCopia(ev, msg) });
     const dato = (k, etiqueta) => el('label', { className: 'campo' }, el('span', {}, etiqueta),
-      el('input', { value: app.data[k] || '', onchange: ev => { app.data[k] = ev.target.value.trim(); cambio(''); } }));
+      el('input', { value: app.data[k] || '', onchange: async ev => {
+        const antes = app.data[k] || '';
+        app.data[k] = ev.target.value.trim();
+        const { ok, j } = await llamar({ accion: 'ajustes', nombre: app.data.nombre || '', intro: app.data.intro || '' });
+        if (!ok) { app.data[k] = antes; ev.target.value = antes; msg.textContent = 'No se guardó: ' + (j.error || 'error del servidor'); return; }
+        msg.textContent = '';
+        app.render();
+        exito();
+      } }));
     abrirCapa('Ajustes', [
       el('div', { className: 'grupo' }, el('h3', {}, 'Página'), dato('nombre', 'Nombre'), dato('intro', 'Texto de presentación')),
       el('div', { className: 'grupo' }, el('h3', {}, 'Copia de seguridad'),
         el('p', {}, el('button', { type: 'button', onclick: descargarCopia }, 'Descargar copia'), ' ',
-          el('button', { type: 'button', onclick: () => archivo.click() }, 'Importar copia'), ' ',
-          el('button', { type: 'button', onclick: () => recuperarPrevio(msg) }, 'Deshacer último guardado'), archivo)),
+          el('button', { type: 'button', onclick: () => archivo.click() }, 'Importar copia'), archivo),
+        el('p', { className: 'pista-ayuda' }, 'Importar suma y actualiza canciones; nunca quita ninguna.')),
+      el('div', { className: 'grupo' }, el('h3', {}, 'Papelera'),
+        el('p', {}, el('button', { type: 'button', onclick: abrirPapelera }, 'Ver papelera'))),
       el('div', { className: 'grupo' }, el('h3', {}, 'Sesión'),
         el('p', { className: 'pista-ayuda' }, 'Volver a la página: sales del editor y sigues con tu sesión. Cerrar sesión: la próxima vez te pedirá la contraseña.'),
         el('p', {}, el('button', { type: 'button', onclick: salir }, 'Volver a la página'), ' ',
@@ -385,18 +309,14 @@
     ]);
   }
 
-  const rotular = () => { const b = $('e-titulo'); if (b) b.textContent = ADMIN ? 'Editor' : 'Mis canciones' + (yo() ? ' · ' + yo() : ''); };
   $('editor').replaceChildren(el('div', { className: 'ebarra' },
-    el('b', { id: 'e-titulo' }, ADMIN ? 'Editor' : 'Mis canciones'),
+    el('b', { id: 'e-titulo' }, 'Editor'),
     el('span', { id: 'estado', className: 'estado', 'aria-live': 'polite' }, 'Listo'),
-    el('button', { id: 'b-reintentar', type: 'button', hidden: true, onclick: guardar }, 'Reintentar'),
     el('button', { type: 'button', onclick: abrirAjustes }, 'Ajustes'),
     el('button', { type: 'button', className: 'primario', onclick: () => abrirForm(-1) }, '+ Nueva')));
 
-  // El botón "Editar" solo sale en las canciones que esta persona puede editar (el servidor lo vuelve a comprobar).
-  app.acciones = i => puede(lista()[i]) ? el('div', { className: 'acciones' }, el('button', { type: 'button', onclick: () => abrirForm(i) }, 'Editar')) : null;
+  app.acciones = i => el('div', { className: 'acciones' }, el('button', { type: 'button', onclick: () => abrirForm(i) }, 'Editar'));
 
-  rotular();
   app.render();
-  if (!token) abrirLogin();
+  if (!token) pedirLogin('');
 })();

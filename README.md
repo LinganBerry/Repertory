@@ -1,109 +1,36 @@
-# Repertorio — manual de mantenimiento
+# Acordes y Tonos
 
-Página con canciones (acordes, tono y partes). Yo soy el administrador: edito todo. Cualquiera puede crear una cuenta y agregar/editar SUS canciones (aparecen junto a las demás con su nombre).
-Objetivo: repertorio propio, sin cuadernos, que se vea desde cualquier lugar y se pueda compartir con un link.
+Repertorio personal de canciones con acordes, tonos y partes. **Una sola persona (tú) edita**; cualquiera con el enlace puede mirar.
+Sin cuentas de usuario, sin comunidad, sin registro. El editor se abre tocando 5 veces el título (o con `/?editar`) y pide tu contraseña.
 
-## Cómo está armado
-- **GitHub** (rama `main`) → **Vercel** (plan Hobby, preset "Other"): cada commit se publica solo en ~1 minuto. Sin build.
-- Sitio estático + 2 funciones en `api/`. Los datos viven en **Vercel Blob** (`repertorio/canciones.json`).
+## Cómo funciona la seguridad
+- La contraseña vive solo en Vercel (`ADMIN_PASSWORD`) y **solo el servidor la comprueba** (`api/entrar.js`).
+- **5 intentos fallidos seguidos desde una IP = bloqueo de 15 minutos.** Además, 20 fallos entre todas las IPs bloquean a todos 15 minutos (se levanta solo). El contador está en el almacén (no en memoria), así que no se reinicia entre ejecuciones de Vercel. Si el almacén falla, el servidor **no** deja pasar a nadie.
+- Con la contraseña correcta recibes un pase firmado de 30 días (`SESSION_SECRET`). La contraseña no se guarda en el teléfono.
+- **El servidor no puede borrar nada.** No existe ninguna ruta ni función de borrado. Solo puede: agregar, editar, mandar a la papelera (una marca `borrada`, restaurable), restaurar, importar (suma y actualiza, nunca quita) y cambiar nombre/intro.
+  Aclaración honesta: el token de Vercel Blob en sí tiene permisos completos sobre su almacén; la restricción la garantiza el código de este proyecto (y las pruebas), no un permiso de la plataforma.
+- Cada día, el primer cambio guarda una copia del estado anterior en `repertorio/historial/AAAA-MM-DD.json`.
 
-| Archivo | Para qué |
+## Variables de entorno (Vercel → Settings → Environment Variables)
+| Variable | Qué es |
 |---|---|
-| `index.html` | Solo la estructura de la página |
-| `app.js` | Toda la lógica pública: lista, buscador, pantalla de canción, números romanos |
-| `estilos.css` | Todo el diseño (colores, temas, tamaños) |
-| `editor.js` | Modo editor. Se abre **tocando 5 veces seguidas el título** (o con `?editar` al final del link) |
-| `api/canciones.js` | `GET` público (devuelve el repertorio) · `POST` protegido (guarda) |
-| `api/entrar.js` | Único lugar donde se prueba la contraseña del administrador; devuelve un pase de 30 días |
-| `api/cuenta.js` | Usuarios: `registrar`, `entrar` y `borrar` cuenta (pase de usuario de 30 días) |
-| `api/comunidad.js` | `POST` de canciones de usuarios: el usuario solo reemplaza SU sección; el administrador puede reemplazar la de cualquiera |
-| `lib/almacen.js` | Lectura/escritura de Blob (con escritura condicional por ETag y "crear solo si no existe") |
-| `lib/comunidad.js` | Modifica `repertorio/comunidad.json` con reintentos para que dos guardados simultáneos no se pisen |
-| `lib/limpiar.js` | Limpieza y límites de las canciones (la usan `api/canciones.js` y `api/comunidad.js`) |
-| `robots.txt` | Permite indexar la página y bloquea `/api/` |
-| `lib/auth.js` | Lógica de contraseña y pases (compartida por las dos funciones) |
-| `canciones.js` | Copia de respaldo si el servidor no responde |
-| `sw.js` | Modo offline: guarda la página y las canciones en el dispositivo. Con internet siempre carga lo más nuevo; sin internet usa la copia guardada |
-| `teoria.js` | Pantalla "Teoría" (botón arriba): escalas, modos y diccionario de acordes. Arriba queda fijo el teclado con los botones de sonido; abajo eliges y ves los detalles. Las teclas son táctiles y suenan con el piano (con un poco de reverb). Solo dibuja; calcula la librería Tonal y suena con Tone.js |
-| `vendor/tonal.min.js` | Librería [Tonal](https://github.com/tonaljs/tonal) 6.5.1 (MIT) copiada tal cual, con su licencia. Para actualizar: `npm pack tonal` y copiar `browser/tonal.min.js` |
-| `vendor/Tone.js` | Librería [Tone.js](https://github.com/Tonejs/Tone.js) 15.1.22 (MIT) copiada tal cual, con su licencia, para el sonido de la pantalla Teoría. Para actualizar: `npm pack tone` y copiar `build/Tone.js`. Se le fuerza el reloj `timeout` porque la política de seguridad bloquea su worker interno |
-| `vendor/piano/` | 30 muestras .mp3 (~2 MB) del piano de cola **Salamander Grand Piano** de Alexander Holm, licencia **CC BY 3.0** (hay que dar crédito; está en la pantalla Teoría y en `vendor/piano/LICENSE.txt`). Fuente: https://github.com/Tonejs/audio, carpeta `salamander`. Una sola capa de velocidad. Se guardan para uso offline la primera vez que se abre Teoría con internet |
-| `vercel.json` | Cabeceras de seguridad básicas |
+| `ADMIN_PASSWORD` | Tu contraseña. **Mínimo 12 caracteres** (el servidor se niega si es más corta). Una frase de 4 palabras sirve. |
+| `SESSION_SECRET` | Texto aleatorio de 32+ caracteres: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `BLOB_READ_WRITE_TOKEN` | La pone Vercel sola al conectar un almacén Blob. |
 
-## Comunidad (usuarios)
-- **Datos separados:** mis canciones siguen en `repertorio/canciones.json`; las de cada usuario en su sección de `repertorio/comunidad.json`; cada cuenta en `repertorio/cuentas/<usuario>.json`. Un usuario **nunca** escribe en mi archivo.
-- **Acceso de usuarios:** icono de persona en la cabecera (o enlace al pie) → `?cuenta`. **Acceso mío:** 5 toques al título → `?editar`.
-- **Quién edita qué:** el servidor saca el nombre del pase firmado (no de lo que mande el navegador). Un pase de usuario no sirve en `/api/canciones`. Yo puedo editar o borrar canciones de cualquiera (botón Editar en todas).
-- **Contraseñas de usuarios:** nunca se guardan; se guarda `scrypt(HMAC(SESSION_SECRET, contraseña), sal)`. **`SESSION_SECRET` es obligatoria** para registrarse.
-- **Variables opcionales en Vercel:** `CODIGO_REGISTRO` (si existe, quien se registre debe escribirlo: registro por invitación) · `NOMBRES_RESERVADOS` (lista separada por comas de nombres que nadie puede usar; ya están reservados admin, administrador, moderador…).
-- **Límites:** 150 canciones por usuario, 200 KB por guardado, 3 MB en total para la comunidad, 5 cuentas por hora por IP.
-- **Moderar:** editar/borrar canciones desde `?editar`. **Expulsar a alguien:** borrar `repertorio/cuentas/<usuario>.json` en el almacén de Vercel (su pase deja de funcionar al instante) y borrar sus canciones desde `?editar`.
-- **Aviso legal:** la pista y la nota son cortas a propósito; si alguien pega letras completas, borrarlas.
+> **IMPORTANTE:** este proyecto debe usar **su propio almacén Blob nuevo**. El proyecto viejo guarda en la misma ruta (`repertorio/canciones.json`) con otro formato; si compartieran almacén, se pisarían.
+> Usa contraseña y `SESSION_SECRET` **nuevos**, distintos a los del proyecto viejo.
 
-## Seguridad (cómo funciona)
-- Escribir datos exige un **pase firmado**. Se obtiene en `/api/entrar` con la contraseña (`ADMIN_PASSWORD` en Vercel).
-- El teléfono guarda solo el pase (vence a los 30 días), **nunca la contraseña**. "Recordar" viene desmarcado.
-- El pase se firma con `SESSION_SECRET` (texto aleatorio de 32+ caracteres en Vercel), separado de la contraseña: robar un pase no ayuda a adivinarla.
-- La contraseña debe tener **12 caracteres o más**; si es más corta, el servidor se niega a funcionar y lo dice.
-- 5 contraseñas malas desde una misma IP → bloqueo de 15 minutos (ayuda, pero no es infalible en Vercel: la defensa real es una contraseña larga y aleatoria).
-- **Matar todas las sesiones:** cambiar `ADMIN_PASSWORD` o `SESSION_SECRET` en Vercel (y Redeploy).
-- Cada guardado conserva el estado anterior (`previo.json`): **Ajustes → Deshacer último guardado**. El servidor no guarda listas vacías.
-- La página no ejecuta nada que venga de los datos: todo se escribe como texto, los links solo pueden ser `http(s)`, y la política de seguridad (CSP en `vercel.json`) solo permite scripts y estilos de la propia página.
-- Es público a propósito: la lista de canciones (`GET /api/canciones`) y el código del repo. Los hashes de contraseñas de usuarios no salen en ninguna respuesta de la API.
+## Publicar (proyecto aparte, sin tocar el viejo)
+1. GitHub: crea un repositorio **privado** nuevo y sube esta carpeta (sin `node_modules`).
+2. Vercel: *Add New → Project* → importa ese repo (Framework: *Other*). Crea un almacén **Blob** nuevo (pestaña Storage) y conéctalo a este proyecto. Agrega `ADMIN_PASSWORD` y `SESSION_SECRET`. Deploy.
+3. Abre `https://TU-URL/?editar`, entra, *Ajustes → Importar copia* y elige tu `repertorio-copia.json`.
+4. Verifica: `node scripts/comparar.mjs repertorio-copia.json https://TU-URL 2` debe decir `0 diferencias`.
+5. Opcional: `node scripts/generar-respaldo.mjs repertorio-copia.json` y sube el `canciones.js` resultante.
 
-## Lista de seguridad (acciones mías, no de código)
-- [ ] **Verificación en dos pasos (2FA) en GitHub y en Vercel**, con códigos de recuperación guardados. Quien controle esas cuentas controla el sitio entero.
-- [ ] `ADMIN_PASSWORD` larga (16+ caracteres o 5 palabras sin relación), única, en un gestor de contraseñas.
-- [ ] `SESSION_SECRET` creada en Vercel (aleatoria, 32+ caracteres, generada por el gestor de contraseñas).
-- [ ] Nunca subir contraseñas ni archivos `.env` al repo (el repo es público).
-- [ ] Fijar la versión de `@vercel/blob` (ver el número instalado en el log de un despliegue de Vercel y quitar el `^` en `package.json`).
-- [ ] Si el plan lo permite: regla de límite de peticiones para `/api/entrar` en el Firewall de Vercel.
-- [ ] Descargar una copia de seguridad cada cierto tiempo (Ajustes → Descargar copia).
+## Pruebas (no necesitan internet ni Vercel)
+- `npm test` → servidor: límite de intentos, agregar/editar/papelera, importación, sin rutas de borrado.
+- `npm i --no-save jsdom && npm run test:e2e` → navegador simulado: entrar, agregar canción "desde el teléfono" y verla desde la "PC".
 
-## Cambios que puedo hacer solo
-| Quiero… | Dónde |
-|---|---|
-| Cambiar nombre o texto de la página | Editor → **Ajustes → Página** |
-| Cambiar la contraseña | Vercel → proyecto → Settings → Environment Variables → `ADMIN_PASSWORD` (mín. 12 caracteres) → después **Redeploy** (Deployments → ⋯ → Redeploy) |
-| Colores de los temas | `estilos.css`, bloques `:root[data-tema=papel]` y `:root[data-tema=escenario]` (variables `--bg`, `--ink`, `--muted`…) |
-| Color de las pastillas de tono | `app.js`, función `colorear` (`NOTAS[m[1]] * 30` = matiz; `'34%'` = intensidad) |
-| Logo (ficha con letra) e icono de la pestaña | Salen solos de la primera letra del nombre: Editor → Ajustes → Página. La franja de colores está en `app.js` (buscar `Franja de 12 tonos`) y su estilo en `estilos.css` (`#franja`) |
-| Nº de toques para abrir el editor | `app.js`, buscar `toques.length >= 5` (y `3000` = segundos de ventana) |
-| Límites del tamaño de letra | `app.js`, buscar `.85` y `1.9` (aparecen en 3 sitios: `zoom`, `topesZoom`, `cambiarZoom`) |
-| Tonos que se pueden elegir | `editor.js`, lista `TONOS` |
-| Tiempo de vida del pase | `lib/auth.js`, constante `DIAS` |
-| Agregar un campo a cada canción (ej. "BPM") | 4 sitios: `editor.js` (`CAMPOS` y el formulario en `abrirForm`) · `api/canciones.js` (`limpiar()`, si no, el servidor lo descarta) · `app.js` (`mostrar()`, donde se dibuja) · este README |
-| Deshacer un cambio que rompió algo | GitHub → archivo → History → copiar la versión anterior. O Vercel → Deployments → un despliegue anterior → Promote / Instant Rollback |
-| Deshacer mi último guardado | Editor → Ajustes → **Deshacer último guardado** |
-| Restaurar mis canciones | Editor → Ajustes → **Importar copia** (con el `.json` de "Descargar copia") |
-| Dominio propio | Vercel → proyecto → Settings → Domains |
-
-**Copia de seguridad:** descárgala desde Ajustes cada cierto tiempo (por ejemplo, después de cargar muchas canciones). Todo vive en un solo lugar.
-
-## Si algo falla
-| Síntoma | Qué mirar |
-|---|---|
-| Barra roja "No se guardó…" | Lee el mensaje: contraseña corta/ausente en Vercel, sesión vencida (entra de nuevo) o sin conexión (botón Reintentar) |
-| "El servidor NO guardó los links" | `api/canciones.js` en GitHub es una versión vieja: reemplázalo |
-| No entra con la contraseña correcta | ¿Tiene 12+ caracteres? ¿Hubo 5 fallos seguidos (espera 15 min)? ¿Falta `api/entrar.js` o `lib/auth.js` en GitHub? |
-| Cambié algo y la página no cambia | Espera ~1 minuto, revisa en Vercel que el último despliegue diga **Ready**, y recarga |
-| La página se ve rota o sin estilos tras un cambio en `vercel.json` | Borra la línea `Content-Security-Policy` de `vercel.json` y vuelve a desplegar; luego avisa |
-| Página en blanco | Vercel → Deployments → ver el error; deshacer el último cambio |
-
-## Formato de datos (versión 1)
-`{version, nombre, intro, actualizado, canciones:[{titulo, artista, tono, nota, enlace, partes:[{nombre, tono, prog, pista}]}]}`
-La respuesta de `GET /api/canciones` añade `autor` a las canciones de usuarios (las mías no lo llevan). `comunidad.json`: `{version, usuarios:{<usuario>:{canciones, actualizado}}}`.
-
-## Escribir las partes (editor)
-Una parte por línea: `Nombre (tono): acordes // pista`
-- `(tono)` y `// pista` son opcionales; el tono solo si la parte modula.
-- `|` marca el compás: `Verso: G D | Em C`. Acordes separados por espacio o guion pegado (`F#-G-A`).
-- La pista es una línea corta (máx. 200 caracteres), nunca la letra completa (derechos de autor).
-- El editor avisa en vivo de tonos inválidos, partes sin acordes, compases vacíos y acordes raros.
-- Los números romanos salen del tono de la canción (o de la parte); en tonos menores usa la escala menor natural.
-
-## Decisiones de diseño (no volver a discutirlas sin motivo)
-Abierto a usuarios con cuenta (cada uno edita solo lo suyo; yo todo); móvil primero, sin fotos ni degradados; un solo sistema de color (el tono); dos temas (Papel y Escenario); sin letras completas; sin favoritos ni transposición (a propósito: el oído se entrena sacando los tonos); modo offline con service worker (red primero, copia guardada como respaldo); el editor es secreto (5 toques al título) y se protege en el servidor, no en la pantalla.
-
-## Si quiero ayuda de una IA
-Subir toda esta carpeta y este README, y pedir el cambio indicando el archivo. Cualquier campo nuevo implica tocar también `api/canciones.js`.
+## Archivos
+`api/canciones.js` (leer y guardar) · `api/entrar.js` (contraseña) · `lib/` (auth, almacén, intentos, limpieza) · `app.js` (página) · `editor.js` (editor) · `teoria.js` + `vendor/` (teoría y piano) · `sw.js` (modo sin internet) · `scripts/` · `test/`.

@@ -1,8 +1,12 @@
 {
-  "name": "repertorio",
+  "name": "acordes-y-tonos",
   "private": true,
   "type": "module",
+  "scripts": {
+    "test": "node --import ./test/registrar.mjs test/probar.mjs && node test/comparar-prueba.mjs",
+    "test:e2e": "node --import ./test/registrar.mjs test/e2e.mjs"
+  },
   "dependencies": {
-    "@vercel/blob": "^2.8.0"
+    "@vercel/blob": "2.8.1"
   }
 }

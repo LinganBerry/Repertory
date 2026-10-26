@@ -2,7 +2,7 @@
   'use strict';
 
   const PARAMS = new URLSearchParams(location.search);
-  const EDITOR = PARAMS.has('editar') || PARAMS.has('cuenta');   // ?editar = administrador · ?cuenta = usuarios
+  const EDITOR = PARAMS.has('editar');   // ?editar = modo editor (pide tu contraseña)
   const NOTAS = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
 
   // Nombre por defecto de la página (si en Ajustes → Página no hay otro). Debe coincidir con <title> de index.html.
@@ -59,7 +59,7 @@
     return fila[b.length];
   };
   const puntaje = (c, palabras) => {
-    const textos = fichas(c.titulo + ' ' + c.artista + ' ' + (c.autor || ''));
+    const textos = fichas(c.titulo + ' ' + c.artista);
     let total = 0;
     for (const w of palabras) {
       const tolerancia = w.length <= 3 ? 0 : w.length <= 6 ? 1 : 2;
@@ -248,7 +248,7 @@
         el('button', { type: 'button', id: 'zmas', 'aria-label': 'Letra más grande', onclick: () => cambiarZoom(.15) }, 'A+')),
       el('div', { className: 'ccuerpo' },
         el('h2', {}, c.titulo),
-        el('p', { className: 'a' }, [c.artista, c.nota, c.autor && 'por ' + c.autor].filter(Boolean).join(' · ')),
+        el('p', { className: 'a' }, [c.artista, c.nota].filter(Boolean).join(' · ')),
         el('p', { className: 'tonos' }, pastilla(c.tono)),
         enlace && el('p', { className: 'noimp' }, el('a', { href: enlace, target: '_blank', rel: 'noopener noreferrer' }, 'Escuchar referencia ↗')),
         partes.length > 0 && !yaVisto() && el('p', { className: 'a noimp pista-enfoque' }, 'Toca una parte para enfocarla.'),
@@ -310,21 +310,19 @@
     const cuerpo = el('button', { type: 'button', className: 'abrir', onclick: () => abrirCancion(c) },
       el('span', { className: 't' }, c.titulo),
       c.artista && el('span', { className: 'a' }, c.artista),
-      c.nota && el('span', { className: 'a' }, c.nota),
-      c.autor && el('span', { className: 'a autor' }, 'por ' + c.autor));
+      c.nota && el('span', { className: 'a' }, c.nota));
     return [el('div', { className: 'fila' + (c === ultima ? ' ultima' : '') }, cuerpo, pastilla(c.tono), EDITOR && app.acciones && app.acciones(i))];
   }
 
   function render() {
-    document.title = (data.nombre || NOMBRE) + ' · Repertorio de canciones con acordes y tonos';
+    document.title = data.nombre || NOMBRE;
     $('titulo').textContent = data.nombre || NOMBRE;
     // La letra de la ficha y del icono de la pestaña salen de la primera letra del nombre (Ajustes → Página).
     const ini = ((data.nombre || NOMBRE).match(/[0-9A-Za-zÀ-ÿ]/) || ['R'])[0].toUpperCase();
     $('logo-l').textContent = ini;
     $('icono').href = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#2a2620"/><text x="16" y="24" font-size="22" text-anchor="middle" fill="#faf6ee" font-family="Georgia,serif" font-weight="700">${ini}</text></svg>`);
     $('intro').textContent = data.intro || '';
-    $('pie').replaceChildren(...[data.actualizado ? 'Actualizado: ' + data.actualizado + '. ' : '',
-      !EDITOR && el('button', { type: 'button', className: 'enlace', onclick: irCuenta }, 'Agrega tus propias canciones')].filter(Boolean));
+    $('pie').textContent = data.actualizado ? 'Actualizado: ' + data.actualizado + '.' : '';
     pastillas();
     const rows = visibles();
     $('cuenta').textContent = `${rows.length} de ${data.canciones.length}`;
@@ -343,13 +341,6 @@
     toques = toques.filter(x => t - x < 3000).concat(t);
     if (!EDITOR && toques.length >= 5) location.search = '?editar';
   });
-
-  // Entrada para los usuarios: icono de persona en la cabecera (y enlace al pie). Dentro del editor no hace falta.
-  const personas = icono(['M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z', 'M4 21a8 8 0 0 1 16 0']);
-  const irCuenta = () => { location.search = '?cuenta'; };
-  const bCuenta = $('cuenta-btn');
-  if (EDITOR) bCuenta.hidden = true;
-  else { bCuenta.replaceChildren(personas); bCuenta.addEventListener('click', irCuenta); }
 
   $('q').addEventListener('input', e => { vista.q = e.target.value; render(); });
 

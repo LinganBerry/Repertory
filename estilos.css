@@ -133,9 +133,3 @@
     #cancion { position: static; overflow: visible; }
     .parte { break-inside: avoid; }
   }
-
-/* --- Comunidad: autor de cada canción, botón de cuenta y enlace del pie --- */
-.a.autor { font-style: italic; }
-#cuenta-btn { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 0 .6rem; }
-#cuenta-btn[hidden] { display: none; }
-button.enlace { background: none; border: 0; padding: .4rem 0; color: var(--accent, inherit); text-decoration: underline; font: inherit; cursor: pointer; min-height: 44px; }

@@ -1,5 +1,2 @@
 User-agent: *
-Allow: /
-Disallow: /api/
-
-Sitemap: https://repertorio-piano.vercel.app/sitemap.xml
+Disallow: /
