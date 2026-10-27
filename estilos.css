@@ -4,14 +4,14 @@
   * { box-sizing: border-box; }
   body { font: 17px/1.4 var(--sans); max-width: 44rem; margin: 0 auto; padding: 1.2rem 1rem 4rem; color: var(--ink); background: var(--bg); }
   html { background: var(--bg); }
-  header { display: flex; justify-content: space-between; align-items: center; gap: .8rem; }
+  header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem .8rem; }
   h1 { font: 700 1.8rem/1.2 var(--tit); margin: 0 0 .3rem; }
   #intro { color: var(--muted); margin: 0 0 1rem; }
   input, select, textarea, button { font: inherit; color: var(--ink); }
   input, select, textarea { font-size: 16px; padding: .55rem .7rem; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); }
   button { min-height: 44px; padding: .4rem .9rem; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); cursor: pointer; }
   :is(input, select, textarea, button, a, .parte[tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  #cancion:focus, #teoria:focus, .capa:focus { outline: none; }
+  #cancion:focus, #teoria:focus, #practica:focus, .capa:focus { outline: none; }
   #barra { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: .5rem 0 .6rem; border-bottom: 1px solid var(--line); }
   .busca { display: flex; align-items: center; gap: .6rem; }
   .busca input { flex: 1; min-width: 0; min-height: 48px; }
@@ -26,7 +26,7 @@
   .t { display: block; font: 700 1.2rem/1.25 var(--tit); }
   .a { display: block; font-size: .9rem; color: var(--muted); }
   body.fija { overflow: hidden; }
-  #cancion, #teoria { position: fixed; inset: 0; z-index: 20; overflow-y: auto; background: var(--bg); --z: 1; }
+  #cancion, #teoria, #practica { position: fixed; inset: 0; z-index: 20; overflow-y: auto; background: var(--bg); --z: 1; }
   .cbarra { position: sticky; top: 0; display: flex; gap: .4rem; padding: calc(.5rem + env(safe-area-inset-top, 0px)) max(1rem, env(safe-area-inset-right, 0px)) .5rem max(1rem, env(safe-area-inset-left, 0px)); background: var(--bg); border-bottom: 1px solid var(--line); }
   .ctitulo { flex: 1; min-width: 0; align-self: center; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #cancion .ctitulo { opacity: 0; transition: opacity .15s ease; }
@@ -136,6 +136,35 @@
     .parte { break-inside: avoid; }
     .aviso-red, .saltar { display: none; }
   }
+
+  /* --- Practicar --- */
+  @font-face { font-family: "Atril Notas"; src: url("vendor/atril-notas.woff2") format("woff2"); font-display: block; }
+  #practica .parte { cursor: default; }
+  .pr-grupo { margin: 1.4rem 0 .2rem; font: 700 1.1rem var(--tit); }
+  .pr-datos { margin: 0 0 .3rem; }
+  .pr-pct { font-weight: 400; color: var(--muted); }
+  .pr-sesion { text-align: center; }
+  .pr-visual { max-width: 26rem; margin: .5rem auto 1rem; color: var(--ink); }
+  .pentagrama, .pteclado { display: block; width: 100%; height: auto; }
+  .pr-pedido { margin: 0 0 .5rem; font-size: 1.6rem; }
+  .pk-b { fill: #fffdf8; stroke: #2a2620; stroke-width: 1; }
+  .pk-n { fill: #2a2620; }
+  .pk-b.pk-on, .pk-n.pk-on { fill: #2b59c3; }
+  .pk-b.pk-ok, .pk-n.pk-ok { fill: #3f9b4a; }
+  .pk-b.pk-mal, .pk-n.pk-mal { fill: #c4432f; }
+  .pteclado [data-midi][role=button] { cursor: pointer; }
+  .pteclado [data-midi]:focus-visible { stroke: var(--accent); stroke-width: 3; outline: none; }
+  .pr-resp { max-width: 26rem; margin: 0 auto; }
+  .pr-letras { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; }
+  .pr-letras button { min-width: 3.2rem; min-height: 52px; font-size: 1.2rem; font-weight: 700; }
+  .pr-mod { justify-content: center; }
+  .pr-feedback { margin: 1rem auto 0; max-width: 26rem; padding: .5rem .8rem; border-left: 5px solid var(--line); background: var(--fila); font-weight: 700; }
+  .pr-feedback p { margin: .3rem 0; }
+  .pr-feedback.ok { border-left-color: #3f9b4a; }
+  .pr-feedback.mal { border-left-color: var(--peligro); }
+  #practica summary { cursor: pointer; font-weight: 700; padding: .3rem 0; }
+  #practica .campo { display: block; margin: .6rem 0; text-align: left; }
+  #practica .campo input[type=password] { width: 100%; }
 
   /* --- accesibilidad y uso en cualquier pantalla --- */
   .saltar { position: absolute; left: -999px; top: 0; z-index: 50; padding: .6rem 1rem; background: var(--ink); color: var(--bg); }

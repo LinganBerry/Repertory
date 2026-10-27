@@ -366,7 +366,7 @@
     if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
     const t = e.target, escribiendo = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
     if (document.querySelector('.capa')) return;
-    const teoriaAbierta = !!document.querySelector('#teoria:not([hidden])');
+    const teoriaAbierta = !!document.querySelector('#teoria:not([hidden]), #practica:not([hidden])');
     if (e.key === 'Escape' && (actual || teoriaAbierta)) { history.back(); return; }
     if (escribiendo) return;
     if (actual) {

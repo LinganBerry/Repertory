@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --import ./test/registrar.mjs test/probar.mjs && node test/comparar-prueba.mjs && node test/sw-prueba.mjs",
+    "test": "node --import ./test/registrar.mjs test/probar.mjs && node test/comparar-prueba.mjs && node test/sw-prueba.mjs && node test/notacion-prueba.mjs",
     "test:e2e": "node --import ./test/registrar.mjs test/e2e.mjs",
     "contraste": "node scripts/contraste.mjs"
   },

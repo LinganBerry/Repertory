@@ -10,6 +10,14 @@ Sin cuentas de usuario, sin comunidad, sin registro. El editor se abre tocando 5
 - **Sin señal:** se muestra la última copia guardada **y un aviso arriba**; al volver la señal se actualiza sola. Abre la página con internet al menos una vez en cada dispositivo.
 - **Teoría** (botón arriba): escalas y modos, diccionario de acordes y **Tonalidades** (armadura, relativa, acordes con su función T/SD/D, dominantes secundarios, cadencia I–IV–V–I para oír). El piano y la librería de teoría se descargan la primera vez que abres Teoría y después quedan guardados.
 
+## Practicar (ejercicios para estudiar sin salir de la página)
+- Botón **Practicar** (arriba). Una pregunta por pantalla, sin adornos. Sesiones de 10 o 20 preguntas.
+- **Lectura de notas:** pentagrama en clave de sol, fa, do en tercera (alto) y do en cuarta (tenor); 5 niveles (líneas, espacios, completo, líneas adicionales, alteraciones). **Teclado:** nombrar la tecla marcada y tocar la tecla de una nota. Nombres con letras (C D E…).
+- **Responder:** toca los botones o escribe la letra (A–G); `#` o `+` sube, `-` baja, `0` natural; `Enter` o `Espacio` para seguir; `Esc` para salir (si ya respondiste 3 o más, la sesión se guarda).
+- **Lo que más fallas sale más.** Al final ves aciertos, tiempo, tus fallos y "Para repasar".
+- **Progreso:** se guarda en el dispositivo. Si entras con tu contraseña del editor (dentro de Practicar), se sincroniza con tus otros dispositivos mediante `api/progreso.js` (las últimas 500 sesiones; solo agrega, no hay forma de borrar desde la web). Si no entras, queda solo en ese dispositivo y se sube cuando entres.
+- **Fuente del pentagrama:** `vendor/atril-notas.woff2`, un subconjunto de la fuente Bravura (Steinberg, licencia SIL OFL 1.1; ver `vendor/OFL-Bravura.txt`).
+
 ## Cómo funciona la seguridad
 - La contraseña vive solo en Vercel (`ADMIN_PASSWORD`) y **solo el servidor la comprueba** (`api/entrar.js`).
 - **5 intentos fallidos seguidos desde una IP = bloqueo de 15 minutos.** Además, 20 fallos entre todas las IPs bloquean a todos 15 minutos (se levanta solo). El contador está en el almacén (no en memoria), así que no se reinicia entre ejecuciones de Vercel. Si el almacén falla, el servidor **no** deja pasar a nadie.
@@ -36,10 +44,10 @@ Sin cuentas de usuario, sin comunidad, sin registro. El editor se abre tocando 5
 5. Opcional: `node scripts/generar-respaldo.mjs repertorio-copia.json` y sube el `canciones.js` resultante.
 
 ## Pruebas (no necesitan internet ni Vercel)
-- `npm test` → 33 pruebas: servidor (límite de intentos, pases, agregar/editar/papelera, importación, copia del día, guardados simultáneos, sin rutas de borrado), scripts, contraste de colores AA y modo sin conexión (`sw.js`).
-- `npm i --no-save jsdom@30 && npm run test:e2e` → 6 pruebas en un navegador simulado: entrar, agregar una canción "desde el teléfono", verla y abrirla "desde la PC" con teclado, Teoría > Tonalidades y el aviso sin conexión.
+- `npm test` → 49 pruebas: servidor (límite de intentos, pases, agregar/editar/papelera, importación, copia del día, guardados simultáneos, sin rutas de borrado), scripts, contraste de colores AA, modo sin conexión (`sw.js`) y la lógica de Practicar (preguntas, claves, niveles, estadísticas, dibujo del pentagrama).
+- `npm i --no-save jsdom@30 && npm run test:e2e` → 10 pruebas en un navegador simulado: entrar, agregar una canción "desde el teléfono", verla y abrirla "desde la PC" con teclado, Teoría > Tonalidades, el aviso sin conexión y Practicar (sesiones, teclado, progreso sincronizado entre dos dispositivos).
 - `npm run contraste` → tabla de contraste de todos los pares de colores de `estilos.css`.
 - Límites: usan un almacén falso en memoria (no el Blob real de Vercel) y jsdom no dibuja ni suena. Falta probar en navegadores reales y medir con Lighthouse.
 
 ## Archivos
-`api/canciones.js` (leer y guardar) · `api/entrar.js` (contraseña) · `lib/` (auth, almacén, intentos, limpieza) · `app.js` (página) · `editor.js` (editor) · `teoria.js` + `vendor/` (teoría y piano) · `sw.js` (modo sin internet) · `manifest.webmanifest` + `icono-*.png` (instalar como app) · `scripts/` (comparar, generar respaldo, contraste) · `test/`.
+`api/canciones.js` (leer y guardar) · `api/entrar.js` (contraseña) · `lib/` (auth, almacén, intentos, limpieza) · `app.js` (página) · `editor.js` (editor) · `teoria.js` + `vendor/` (teoría y piano) · `notacion.js` + `practicar.js` (ejercicios) · `api/progreso.js` + `lib/progreso.js` (progreso sincronizado) · `sw.js` (modo sin internet) · `manifest.webmanifest` + `icono-*.png` (instalar como app) · `scripts/` (comparar, generar respaldo, contraste) · `test/`.
