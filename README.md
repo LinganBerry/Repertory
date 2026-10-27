@@ -3,6 +3,13 @@
 Repertorio personal de canciones con acordes, tonos y partes. **Una sola persona (tú) edita**; cualquiera con el enlace puede mirar.
 Sin cuentas de usuario, sin comunidad, sin registro. El editor se abre tocando 5 veces el título (o con `/?editar`) y pide tu contraseña.
 
+## Uso en vivo (teléfono, tablet, laptop, PC)
+- Abre el enlace, escribe en el buscador (o pulsa **/** en PC) y toca la canción. Sin cuentas ni pasos extra.
+- **Atajos en PC/tablet con teclado:** `/` busca · `←` `→` canción anterior/siguiente · `+` `-` tamaño de letra · `Esc` volver. Toca (o `Enter`) una parte para enfocarla.
+- **Instalar como app:** en Android/Chrome o en PC (Chrome/Edge) usa *Instalar app*. Se abre sin barra del navegador.
+- **Sin señal:** se muestra la última copia guardada **y un aviso arriba**; al volver la señal se actualiza sola. Abre la página con internet al menos una vez en cada dispositivo.
+- **Teoría** (botón arriba): escalas y modos, diccionario de acordes y **Tonalidades** (armadura, relativa, acordes con su función T/SD/D, dominantes secundarios, cadencia I–IV–V–I para oír). El piano y la librería de teoría se descargan la primera vez que abres Teoría y después quedan guardados.
+
 ## Cómo funciona la seguridad
 - La contraseña vive solo en Vercel (`ADMIN_PASSWORD`) y **solo el servidor la comprueba** (`api/entrar.js`).
 - **5 intentos fallidos seguidos desde una IP = bloqueo de 15 minutos.** Además, 20 fallos entre todas las IPs bloquean a todos 15 minutos (se levanta solo). El contador está en el almacén (no en memoria), así que no se reinicia entre ejecuciones de Vercel. Si el almacén falla, el servidor **no** deja pasar a nadie.
@@ -22,15 +29,17 @@ Sin cuentas de usuario, sin comunidad, sin registro. El editor se abre tocando 5
 > Usa contraseña y `SESSION_SECRET` **nuevos**, distintos a los del proyecto viejo.
 
 ## Publicar (proyecto aparte, sin tocar el viejo)
-1. GitHub: crea un repositorio **privado** nuevo y sube esta carpeta (sin `node_modules`).
+1. GitHub: crea un repositorio nuevo (privado o público: no hay secretos en el código, viven en Vercel) y sube esta carpeta completa, **incluidas `test/` y `scripts/`** (sin `node_modules`).
 2. Vercel: *Add New → Project* → importa ese repo (Framework: *Other*). Crea un almacén **Blob** nuevo (pestaña Storage) y conéctalo a este proyecto. Agrega `ADMIN_PASSWORD` y `SESSION_SECRET`. Deploy.
 3. Abre `https://TU-URL/?editar`, entra, *Ajustes → Importar copia* y elige tu `repertorio-copia.json`.
 4. Verifica: `node scripts/comparar.mjs repertorio-copia.json https://TU-URL 2` debe decir `0 diferencias`.
 5. Opcional: `node scripts/generar-respaldo.mjs repertorio-copia.json` y sube el `canciones.js` resultante.
 
 ## Pruebas (no necesitan internet ni Vercel)
-- `npm test` → servidor: límite de intentos, agregar/editar/papelera, importación, sin rutas de borrado.
-- `npm i --no-save jsdom && npm run test:e2e` → navegador simulado: entrar, agregar canción "desde el teléfono" y verla desde la "PC".
+- `npm test` → 33 pruebas: servidor (límite de intentos, pases, agregar/editar/papelera, importación, copia del día, guardados simultáneos, sin rutas de borrado), scripts, contraste de colores AA y modo sin conexión (`sw.js`).
+- `npm i --no-save jsdom@30 && npm run test:e2e` → 6 pruebas en un navegador simulado: entrar, agregar una canción "desde el teléfono", verla y abrirla "desde la PC" con teclado, Teoría > Tonalidades y el aviso sin conexión.
+- `npm run contraste` → tabla de contraste de todos los pares de colores de `estilos.css`.
+- Límites: usan un almacén falso en memoria (no el Blob real de Vercel) y jsdom no dibuja ni suena. Falta probar en navegadores reales y medir con Lighthouse.
 
 ## Archivos
-`api/canciones.js` (leer y guardar) · `api/entrar.js` (contraseña) · `lib/` (auth, almacén, intentos, limpieza) · `app.js` (página) · `editor.js` (editor) · `teoria.js` + `vendor/` (teoría y piano) · `sw.js` (modo sin internet) · `scripts/` · `test/`.
+`api/canciones.js` (leer y guardar) · `api/entrar.js` (contraseña) · `lib/` (auth, almacén, intentos, limpieza) · `app.js` (página) · `editor.js` (editor) · `teoria.js` + `vendor/` (teoría y piano) · `sw.js` (modo sin internet) · `manifest.webmanifest` + `icono-*.png` (instalar como app) · `scripts/` (comparar, generar respaldo, contraste) · `test/`.

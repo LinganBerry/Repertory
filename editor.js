@@ -11,6 +11,8 @@
   const CAMPOS = ['titulo', 'artista', 'tono', 'nota', 'enlace'];
   const TONOS = ['C', 'C#', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
     .flatMap(t => [t, t + 'm']);
+  // Mismos límites que lib/limpiar.js (el servidor corta lo que pase de aquí; test/probar.mjs comprueba que coinciden).
+  const LIM = { titulo: 200, artista: 200, nota: 300, enlace: 300, partes: 30, nombre: 60, prog: 500, pista: 200 };
   const lista = () => app.data.canciones;
   const nuevoId = () => {
     try { return crypto.randomUUID().replace(/-/g, '').slice(0, 16); } catch (e) { /* navegador viejo */ }
@@ -39,6 +41,7 @@
   const ACORDE = /^(?:maj|min|dim|aug|sus|add|alt|M|m|o|ø|°|\+|-|\d|[#♯b♭]|[(),]|\/[A-G][#♯b♭]*|\/)*$/;
   function revisar(texto) {
     const errores = [], avisos = [];
+    if (texto.split('\n').filter(l => l.trim()).length > LIM.partes) errores.push('Máximo ' + LIM.partes + ' partes por canción.');
     texto.split('\n').forEach((linea, n) => {
       const l = linea.trim();
       if (!l) return;
@@ -50,13 +53,15 @@
       if (m && !TONOS.includes(m[1].trim())) errores.push(donde + 'el tono "' + m[1] + '" no es válido (ej: C, F#m, Bb).');
       const prog = (i < 0 ? cuerpo : cuerpo.slice(i + 1)).trim();
       if (!prog) { errores.push(donde + 'no hay acordes.'); return; }
+      if (prog.length > LIM.prog) errores.push(donde + 'los acordes pasan de ' + LIM.prog + ' caracteres (' + prog.length + '); divídelos en dos partes.');
+      if (i >= 0 && cuerpo.slice(0, i).trim().length > LIM.nombre) avisos.push(donde + 'el nombre de la parte pasa de ' + LIM.nombre + ' caracteres; se recortará.');
       if (prog.split('|').some(g => !g.trim())) avisos.push(donde + 'hay un compás vacío (un | de más, al inicio, al final o repetido).');
       const raros = prog.split(/[\s|]+/).flatMap(t => t.split(/-(?=[A-G])/)).filter(t => t && t !== '-' && t !== 'N.C.').filter(t => {
         const r = /^[A-G][#♯b♭]*/.exec(t);
         return !r || !ACORDE.test(t.slice(r[0].length));
       });
       if (raros.length) avisos.push(donde + 'acorde no reconocido: ' + [...new Set(raros)].join(', ') + '.');
-      if (resto.join('//').trim().length > 200) avisos.push(donde + 'la pista pasa de 200 caracteres; se recortará al guardar.');
+      if (resto.join('//').trim().length > LIM.pista) avisos.push(donde + 'la pista pasa de ' + LIM.pista + ' caracteres; se recortará al guardar.');
     });
     return { errores, avisos };
   }
@@ -92,23 +97,31 @@
   };
 
   // --- pantallas completas (formulario, ajustes, entrada) ---
-  let abierta = null;
+  let abierta = null, ultimoBoton = null;
+  document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('button'); if (b) ultimoBoton = b; }, true);
   function abrirCapa(titulo, cuerpo, pie, cerrable = true, apilada = false) {
     if (!apilada) cerrarCapa();
-    const capa = el('div', { className: 'capa' },
+    const previo = ultimoBoton && ultimoBoton.isConnected ? ultimoBoton : document.activeElement;
+    const capa = el('div', { className: 'capa', tabIndex: -1, 'aria-modal': 'true', 'aria-label': titulo, rol: 'dialog',
+      onkeydown: ev => { if (ev.key === 'Escape' && cerrable) { ev.stopPropagation(); apilada ? capa.remove() : cerrarCapa(); } } },
       el('div', { className: 'capa-t' }, el('span', {}, titulo), cerrable && el('button', { type: 'button', onclick: () => apilada ? capa.remove() : cerrarCapa() }, 'Cerrar')),
       el('div', { className: 'capa-c' }, ...cuerpo),
       pie && el('div', { className: 'capa-p' }, ...pie));
     document.body.append(capa);
     document.body.classList.add('fija');
-    if (!apilada) abierta = capa;
+    if (!apilada) { abierta = capa; abierta.previo = previo; }
+    else capa.previo = previo;
+    capa.focus({ preventScroll: true });
     return capa;
   }
   function cerrarCapa() {
     if (!abierta) return;
+    const previo = abierta.previo;
     abierta.remove();
     abierta = null;
     if ($('cancion').hidden) document.body.classList.remove('fija');
+    const destino = previo && previo.isConnected && previo !== document.body ? previo : $('editor').querySelector('button');
+    if (destino) destino.focus({ preventScroll: true });
   }
   const salir = () => { location.href = location.pathname; };
   const sp = () => el('span', { className: 'sp' });
@@ -165,11 +178,11 @@
     const c = i >= 0 ? lista()[i] : { titulo: '', artista: '', tono: '', nota: '', enlace: '', partes: [] };
     const id = c.id || nuevoId();   // un id fijo por canción: si reintentas guardar, nunca se duplica
     const campo = (etiqueta, ctl) => el('label', { className: 'campo' }, el('span', {}, etiqueta), ctl);
-    const f = (k, props = {}) => el('input', { id: 'f-' + k, value: c[k] || '', ...props });
+    const f = (k, props = {}) => el('input', { id: 'f-' + k, value: c[k] || '', maxLength: LIM[k], ...props });
     const tono = el('select', { id: 'f-tono' }, el('option', { value: '' }, 'Elige el tono'), ...TONOS.map(t => el('option', { value: t }, t)));
     tono.value = c.tono || '';
     const partes = el('textarea', {
-      id: 'f-partes', rows: 8, value: partesATexto(c.partes), oninput: mostrarRevision,
+      id: 'f-partes', rows: 8, value: partesATexto(c.partes), oninput: mostrarRevision, 'aria-describedby': 'avisos',
       placeholder: 'Intro: G D | Em C\nVerso: G D | Em C // una línea que te ubique\nCoro (D): D G | Bm A'
     });
     const botonGuardar = el('button', { type: 'button', className: 'primario' }, 'Guardar');
@@ -315,7 +328,7 @@
     el('button', { type: 'button', onclick: abrirAjustes }, 'Ajustes'),
     el('button', { type: 'button', className: 'primario', onclick: () => abrirForm(-1) }, '+ Nueva')));
 
-  app.acciones = i => el('div', { className: 'acciones' }, el('button', { type: 'button', onclick: () => abrirForm(i) }, 'Editar'));
+  app.acciones = i => el('div', { className: 'fila-acciones' }, el('button', { type: 'button', onclick: () => abrirForm(i) }, 'Editar'));
 
   app.render();
   if (!token) pedirLogin('');

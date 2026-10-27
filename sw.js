@@ -2,8 +2,9 @@
 //  - Con internet: siempre carga y guarda lo más nuevo (los cambios del editor se ven sin pasos manuales).
 //  - Sin internet (o con señal muy mala): usa la última copia guardada de la página y de las canciones.
 // La primera visita debe ser con internet. No toca el editor ni los POST (guardar / entrar).
-const CACHE = 'acordes-v2';
-const BASE = ['/', '/index.html', '/estilos.css', '/app.js', '/canciones.js', '/editor.js', '/teoria.js', '/vendor/tonal.min.js', '/vendor/Tone.js'];
+const CACHE = 'acordes-v3';
+// Tone.js, Tonal y las muestras del piano NO se precargan: se guardan la primera vez que abres Teoría (con internet).
+const BASE = ['/', '/index.html', '/estilos.css', '/app.js', '/canciones.js', '/editor.js', '/teoria.js', '/manifest.webmanifest', '/icono-192.png'];
 const API = '/api/canciones';
 const ESPERA_MS = 4000; // si la red tarda más, se muestra la copia guardada
 
@@ -21,6 +22,12 @@ self.addEventListener('activate', e => {
     await self.clients.claim();
   })());
 });
+
+// Lo que sale de la copia guardada lleva X-Copia: 1 para que la página avise "estás viendo una copia".
+const marcada = g => {
+  const h = new Headers(g.headers); h.set('X-Copia', '1');
+  return new Response(g.body, { status: g.status, statusText: g.statusText, headers: h });
+};
 
 const guardable = url => url.origin === location.origin && (!url.pathname.startsWith('/api/') || (url.pathname === API && !url.search));
 
@@ -40,7 +47,7 @@ self.addEventListener('fetch', e => {
       return guardar(await Promise.race([red, new Promise((_, no) => setTimeout(no, ESPERA_MS))]));
     } catch (err) {
       const g = await copia();
-      if (g) return g;                                          // red lenta o sin internet: copia guardada
+      if (g) return marcada(g);                                 // red lenta o sin internet: copia guardada
       return red.then(guardar).catch(() => Response.error());   // sin copia: esperar a la red lo que haga falta
     }
   })());

@@ -1,4 +1,4 @@
-// Pantalla "Teoría": escalas, modos y diccionario de acordes.
+// Pantalla "Teoría": escalas, modos, diccionario de acordes y tonalidades (armadura, relativos y funciones).
 // La teoría la calcula la librería Tonal (https://github.com/tonaljs/tonal, licencia MIT),
 // incluida tal cual en vendor/tonal.min.js. Aquí solo se dibuja. Nada de esto toca el servidor.
 (() => {
@@ -28,9 +28,10 @@
   const ROM = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
   const CALIDAD = { P: 'justa', M: 'mayor', m: 'menor', d: 'disminuida', A: 'aumentada', dd: 'doble disminuida', AA: 'doble aumentada' };
 
-  const est = { tab: 'escalas', tonica: 'C', modo: 'ionian', otra: '', tipo: 'maj7' };
+  const est = { tab: 'escalas', tonica: 'C', modo: 'ionian', otra: '', tipo: 'maj7', cual: 'mayor' };
   let T = null, cargando = null;
-  const caja = el('div', { id: 'teoria', hidden: true });
+  const caja = el('div', { id: 'teoria', hidden: true, tabIndex: -1, 'aria-modal': 'true', 'aria-label': 'Teoría' });
+  caja.setAttribute('role', 'dialog');
   document.body.append(caja);
   const VOLUMEN_PIANO = -2; // dB; medido: un acorde de 6 notas llega a 0.82 de 1.0 sin esto, así que queda margen
   let notas_en_cola = [];
@@ -61,7 +62,7 @@
     const cRaiz = T.Note.chroma(raiz);
     const clase = (c, base) => base + (por.has(c) ? ' on' : '') + (c === cRaiz ? ' raiz' : '');
     const blancas = [0, 2, 4, 5, 7, 9, 11], negras = [[1, 0], [3, 1], [6, 3], [8, 4], [10, 5]];
-    const svg = sv('svg', { viewBox: `0 0 ${W * 14} ${H}`, class: 'teclado', role: 'img', 'aria-label': 'Teclado con las notas ' + notas.join(' ') });
+    const svg = sv('svg', { viewBox: `0 0 ${W * 14} ${H}`, class: 'teclado', role: 'img', 'aria-label': 'Teclado con las notas ' + notas.join(' ') + '. Para oírlas usa los botones de sonido.' });
     const etiquetas = [];
     for (let o = 0; o < 2; o++) {
       blancas.forEach((c, i) => {
@@ -143,6 +144,15 @@
       else midis.forEach((m, i) => notas_en_cola.push(setTimeout(() => { inst.triggerAttackRelease(f(m), 0.6, undefined, 0.8); pulsar(m, 380); }, i * 420)));
     });
   }
+  function escucharAcordes(lista) {
+    if (!window.Tone) { cargarTone().then(crearPiano).catch(() => {}); return; }
+    Tone.start().then(() => {
+      parar();
+      const inst = instrumento(), f = m => Tone.Frequency(m, 'midi').toFrequency();
+      lista.forEach((midis, i) => notas_en_cola.push(setTimeout(() => { inst.triggerAttackRelease(midis.map(f), 1.5, undefined, 0.8); midis.forEach(m => pulsar(m, 850)); }, i * 1000)));
+    });
+  }
+  const sonarAcordes = (etiqueta, lista) => el('button', { type: 'button', onclick: () => escucharAcordes(lista) }, etiqueta);
   const sonar = (etiqueta, midis, junto) => el('button', { type: 'button', onclick: () => escuchar(midis, junto) }, etiqueta);
 
   // --- piezas de interfaz ---
@@ -230,24 +240,85 @@
     return { titulo: sim, notas: ch.notes, raiz: ch.notes[0], botones: [sonar('▶ Acorde', alt, true), sonar('▶ Arpegio', alt, false)], controles, detalles };
   }
 
+
+  // --- Tonalidades: armadura, relativos, acordes del campo armónico y sus funciones ---
+  const SOSTENIDOS = ['F', 'C', 'G', 'D', 'A', 'E', 'B'], BEMOLES = ['B', 'E', 'A', 'D', 'G', 'C', 'F'];
+  function armadura(alt) {
+    if (!alt) return 'Sin alteraciones: todas las notas son naturales (teclas blancas).';
+    const n = Math.abs(alt), sost = alt > 0, nombre = sost ? (n === 1 ? 'sostenido' : 'sostenidos') : (n === 1 ? 'bemol' : 'bemoles');
+    if (n > 7) return n + ' ' + nombre + ': es una tonalidad teórica (más de 7 alteraciones). En la práctica se escribe con su enarmónica.';
+    return n + ' ' + nombre + ': ' + (sost ? SOSTENIDOS : BEMOLES).slice(0, n).map(x => x + (sost ? '♯' : '♭')).join(' ');
+  }
+  // Número romano de un grado: minúscula si el acorde es menor o disminuido (° = disminuido).
+  function romano(grado, acorde) {
+    const m = /^([b#]*)([IV]+)$/.exec(grado);
+    if (!m) return grado;
+    const q = T.Chord.get(acorde).quality;
+    const base = (q === 'Minor' || q === 'Diminished') ? m[2].toLowerCase() : m[2];
+    return m[1].replace(/b/g, '♭').replace(/#/g, '♯') + base + (q === 'Diminished' ? '°' : q === 'Augmented' ? '+' : '');
+  }
+  const FUNCION = { T: 'Tónica: reposo', SD: 'Subdominante: se aleja', D: 'Dominante: tensión que pide volver' };
+  function tonalidades() {
+    const { Key, Chord, Note } = T, menor = est.cual === 'menor';
+    const controles = [
+      el('p', { className: 'a' }, 'Tónica'),
+      grupo(TONICAS.map(t => [t, t]), est.tonica, v => { est.tonica = v; dibujar(); }),
+      el('p', { className: 'a' }, 'Tonalidad'),
+      grupo([['mayor', 'Mayor'], ['menor', 'Menor']], est.cual, v => { est.cual = v; dibujar(); })
+    ];
+    const k = menor ? Key.minorKey(est.tonica) : Key.majorKey(est.tonica);
+    const c = menor ? k.natural : k;
+    if (!c || !c.scale || !c.scale.length) return { controles, detalles: [el('p', { className: 'vacio' }, 'No se pudo calcular esa tonalidad.')] };
+    const relativa = menor ? k.relativeMajor : k.minorRelative;
+    const relativaTxt = menor ? relativa + ' mayor' : relativa + 'm (menor)';
+    const alt = menor ? Key.majorKey(relativa).alteration : k.alteration;
+    const dom = Note.transpose(est.tonica, '5P'), sub = Note.transpose(est.tonica, '4P');
+    const detalles = [
+      nota(armadura(alt)),
+      nota('Relativa: ' + relativaTxt + ' (comparten armadura). Paralela: ' + est.tonica + (menor ? ' mayor' : ' menor') + ' (misma tónica, otra armadura).'),
+      nota('Una quinta arriba: ' + dom + ' · una quinta abajo (cuarta arriba): ' + sub + '. Así se mueve el círculo de quintas.'),
+      fichas(c.scale, c.grades.map(g => g.replace(/b/g, '♭').replace(/#/g, '♯')))
+    ];
+    const tri = c.triads;
+    detalles.push(el('div', { className: 'parte' }, el('h3', {}, 'Acordes de la tonalidad (' + (menor ? 'menor natural' : 'mayor') + ')'),
+      el('div', { className: 'chips' }, ...tri.map((a, i) => el('span', { className: 'chip' }, el('b', {}, a), el('i', { className: 'rom' }, romano(c.grades[i], a)), el('span', { className: 'fn' }, c.chordsHarmonicFunction[i]))))));
+    detalles.push(nota('T = tónica (reposo) · SD = subdominante (se aleja) · D = dominante (tensión que pide volver). En esta tonalidad, ' + tri[0] + ' es reposo, ' + tri[3] + ' se aleja y ' + tri[4] + ' pide resolver.'));
+    const sec = (c.secondaryDominants || []).map((d, i) => d && i !== 0 ? d + ' → ' + tri[i] : '').filter(Boolean);
+    if (sec.length) detalles.push(el('div', { className: 'parte' }, el('h3', {}, 'Dominantes secundarios'),
+      el('div', { className: 'chips' }, ...sec.map(t => el('span', { className: 'chip' }, el('b', {}, t)))),
+      nota('Cada uno es el acorde de séptima que "apunta" al segundo; se usa para dar impulso hacia ese acorde.')));
+    if (menor) detalles.push(el('div', { className: 'parte' }, el('h3', {}, 'Otras formas de la escala menor'),
+      nota('Armónica (7º grado subido): ' + k.harmonic.scale.join(' ')), nota('Melódica (subiendo): ' + k.melodic.scale.join(' ')),
+      nota('Por eso en menor el acorde V suele ser mayor: ' + dom + '.')));
+    const acorde = a => alturas(Chord.get(a).notes, false);
+    const cad = menor ? [tri[0], tri[3], dom, tri[0]] : [tri[0], tri[3], tri[4], tri[0]];
+    const botones = [sonar('▶ Escala', alturas(c.scale, true), false),
+      sonarAcordes(menor ? '▶ i–iv–V–i' : '▶ I–IV–V–I', cad.map(acorde))];
+    return { titulo: est.tonica + ' ' + est.cual, notas: c.scale, raiz: c.scale[0], botones, controles, detalles };
+  }
+
   // --- pantalla ---
+  let gen = 0;
   async function dibujar() {
     parar();
-    const y = caja.scrollTop;
+    const mi = ++gen, y = caja.scrollTop;
+    const enfocables = () => [...caja.querySelectorAll('button, select, a')];
+    const idxFoco = enfocables().indexOf(document.activeElement);
     const barra = el('div', { className: 'cbarra' },
-      el('button', { type: 'button', onclick: () => history.back() }, '← Volver'),
+      el('button', { type: 'button', title: 'Volver (Esc)', onclick: () => history.back() }, '← Volver'),
       el('span', { className: 'ctitulo' }, 'Teoría'));
     let panel = null, cuerpo;
     try {
       await cargarTonal();
-      const r = est.tab === 'escalas' ? escalas() : acordes();
+      if (mi !== gen) return;                      // se pidió otro dibujo mientras cargaba: gana el último
+      const r = est.tab === 'escalas' ? escalas() : est.tab === 'acordes' ? acordes() : tonalidades();
       // Arriba (fijo): título, botones de sonido y teclado. Abajo: lo que eliges y los detalles.
       if (r.notas) panel = el('div', { className: 'tpanel' },
         el('div', { className: 'tfila' }, el('h2', {}, r.titulo), ...r.botones, el('button', { type: 'button', 'aria-label': 'Parar', onclick: parar }, '■')),
         teclado(r.notas, r.raiz),
         el('p', { className: 'a estado-piano' }, estadoPiano()));
       cuerpo = [
-        grupo([['escalas', 'Escalas y modos'], ['acordes', 'Acordes']], est.tab, v => { est.tab = v; dibujar(); }),
+        grupo([['escalas', 'Escalas y modos'], ['acordes', 'Acordes'], ['tonalidades', 'Tonalidades']], est.tab, v => { est.tab = v; dibujar(); }),
         ...r.controles, ...r.detalles,
         el('p', { className: 'a' }, 'Cálculo: librería Tonal ', el('a', { href: 'https://github.com/tonaljs/tonal', target: '_blank', rel: 'noopener noreferrer' }, 'github.com/tonaljs/tonal'), ' (MIT) y Tone.js ', el('a', { href: 'https://github.com/Tonejs/Tone.js', target: '_blank', rel: 'noopener noreferrer' }, 'github.com/Tonejs/Tone.js'), ' (MIT) para el sonido. Piano: Salamander Grand Piano de Alexander Holm, ', el('a', { href: 'https://creativecommons.org/licenses/by/3.0/', target: '_blank', rel: 'noopener noreferrer' }, 'CC BY 3.0'), '.')
       ];
@@ -257,6 +328,7 @@
     caja.replaceChildren(...[barra, panel, el('div', { className: 'ccuerpo' }, ...cuerpo)].filter(Boolean));
     if (panel) panel.style.top = barra.offsetHeight + 'px';
     caja.scrollTop = y;
+    if (idxFoco >= 0) { const n = enfocables()[idxFoco]; if (n) n.focus({ preventScroll: true }); }   // el foco no se pierde al redibujar
   }
   function cargarTonal() {
     if (window.Tonal) { T = window.Tonal; return Promise.resolve(T); }
@@ -280,9 +352,12 @@
       document.head.append(s);
     }));
   }
+  let origenFoco = null;
   function abrir() {
+    origenFoco = $('teoria-btn');
     history.pushState({ teoria: true }, '');
     caja.hidden = false;
+    caja.focus({ preventScroll: true });
     document.body.classList.add('fija');
     caja.scrollTop = 0;
     cargarTone().then(crearPiano).catch(() => {}); // se baja ahora para que el primer toque ya pueda sonar
@@ -292,6 +367,9 @@
     parar();
     caja.hidden = true;
     document.body.classList.remove('fija');
+    const o = origenFoco && origenFoco.isConnected ? origenFoco : $('teoria-btn');
+    if (o) setTimeout(() => o.focus({ preventScroll: true }), 0);   // tras quitar el "inert" del fondo
+    origenFoco = null;
   }
   window.addEventListener('popstate', () => { if (!caja.hidden) cerrar(); });
   $('teoria-btn').addEventListener('click', abrir);

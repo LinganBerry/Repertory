@@ -12,10 +12,14 @@
   const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const el = (tag, props = {}, ...kids) => {
     const n = document.createElement(tag);
-    for (const [k, v] of Object.entries(props)) k.includes('-') ? n.setAttribute(k, v) : (n[k] = v);
+    for (const [k, v] of Object.entries(props)) k === 'rol' ? n.setAttribute('role', v) : k.includes('-') ? n.setAttribute(k, v) : (n[k] = v);
     n.append(...kids.flat().filter(k => k != null && k !== false));
     return n;
   };
+
+  // Mientras hay una capa abierta (canción, Teoría, editor) el fondo no recibe foco ni toques.
+  const sincronizarFondo = () => { const f = $('app'); if (f) f.inert = document.body.classList.contains('fija'); };
+  new MutationObserver(sincronizarFondo).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
   // --- tema (Papel / Escenario): arranca según el modo del teléfono y se recuerda ---
   const TEMA = 'repertorio-tema';
@@ -35,6 +39,8 @@
     b.replaceChildren(icono(aEscenario ? LUNA : SOL));
     b.setAttribute('aria-label', texto);
     b.title = texto;
+    const meta = document.querySelector('meta[name=theme-color]');
+    if (meta) meta.content = t === 'papel' ? '#faf6ee' : '#1c1c1e';
   }
   aplicarTema(guardado() || (matchMedia('(prefers-color-scheme: dark)').matches ? 'escenario' : 'papel'));
   $('tema').addEventListener('click', () => {
@@ -203,7 +209,7 @@
   function aplicarFoco() {
     const caja = $('cancion');
     caja.classList.toggle('enfoque', foco >= 0);
-    caja.querySelectorAll('.parte').forEach((x, i) => x.classList.toggle('activa', i === foco));
+    caja.querySelectorAll('.parte').forEach((x, i) => { x.classList.toggle('activa', i === foco); x.setAttribute('aria-pressed', String(i === foco)); });
   }
 
   // Pista "toca una parte": se ve hasta la primera vez que enfocas una parte, luego desaparece.
@@ -216,7 +222,10 @@
     const hijos = gs.map((g, i) => el('span', { className: 'compas' },
       ...g.map(a => el('span', { className: 'chip' }, el('b', {}, a), el('i', { className: 'rom' }, romano(a, p.tono || actual.tono)))),
       i < gs.length - 1 && el('span', { className: 'barra' }, '|')));
-    return el('section', { className: 'parte' + (norm(p.nombre).trim() === 'coro' ? ' coro' : ''), onclick: () => { marcarVisto(); foco = foco === k ? -1 : k; aplicarFoco(); } },
+    const alternar = () => { marcarVisto(); foco = foco === k ? -1 : k; aplicarFoco(); };
+    return el('section', { className: 'parte' + (norm(p.nombre).trim() === 'coro' ? ' coro' : ''), tabIndex: 0, rol: 'button', 'aria-pressed': 'false',
+      'aria-label': 'Enfocar parte ' + (p.nombre || (k + 1)), onclick: alternar,
+      onkeydown: e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); alternar(); } } },
       el('h3', {}, p.nombre || '', p.tono && el('small', {}, ' · ' + p.tono)),
       el('div', { className: 'chips' }, ...hijos),
       p.pista && el('p', { className: 'pista' }, p.pista));
@@ -240,9 +249,11 @@
     const pos = orden.indexOf(c);
     const enlace = /^https?:\/\//i.test(c.enlace || '') ? c.enlace : '';
     caja.classList.remove('oculta');
+    ultimoY = 0;
+    caja.setAttribute('aria-label', c.titulo);
     caja.replaceChildren(
       el('div', { className: 'cbarra' },
-        el('button', { type: 'button', onclick: () => history.back() }, '← Volver'),
+        el('button', { type: 'button', title: 'Volver (Esc)', onclick: () => history.back() }, '← Volver'),
         el('span', { className: 'ctitulo' }, c.titulo),
         el('button', { type: 'button', id: 'zmenos', 'aria-label': 'Letra más chica', onclick: () => cambiarZoom(-.15) }, 'A−'),
         el('button', { type: 'button', id: 'zmas', 'aria-label': 'Letra más grande', onclick: () => cambiarZoom(.15) }, 'A+')),
@@ -255,9 +266,9 @@
         ...(partes.length ? partes.map((p, k) => parte(p, k)) : [el('p', { className: 'vacio' }, 'Aún no hay partes ni acordes para esta canción.')]),
         el('p', { className: 'noimp' }, el('button', { type: 'button', onclick: () => print() }, 'Imprimir'))),
       el('div', { className: 'cpie noimp' },
-        el('button', { type: 'button', disabled: pos <= 0, onclick: () => irA(-1) }, '‹ Anterior'),
+        el('button', { type: 'button', title: 'Anterior (←)', disabled: pos <= 0, onclick: () => irA(-1) }, '‹ Anterior'),
         el('span', { className: 'pos' }, orden.length > 1 && pos >= 0 ? (pos + 1) + ' / ' + orden.length : ''),
-        el('button', { type: 'button', disabled: pos < 0 || pos >= orden.length - 1, onclick: () => irA(1) }, 'Siguiente ›')));
+        el('button', { type: 'button', title: 'Siguiente (→)', disabled: pos < 0 || pos >= orden.length - 1, onclick: () => irA(1) }, 'Siguiente ›')));
     if (obsTitulo) obsTitulo.disconnect();
     if ('IntersectionObserver' in window) {
       const tit = caja.querySelector('.ctitulo');
@@ -290,12 +301,15 @@
     topesZoom();
   }
 
-  function abrirCancion(c) {
+  let origenFoco = null;
+  function abrirCancion(c, origen) {
+    origenFoco = origen || document.activeElement;
     actual = ultima = c;
     orden = visibles().map(r => r.c);
     foco = -1;
     history.pushState({ cancion: true }, '');
     mostrar();
+    $('cancion').focus({ preventScroll: true });
     pantallaEncendida();
   }
   function cerrarCancion() {
@@ -303,11 +317,14 @@
     $('cancion').hidden = true;
     document.body.classList.remove('fija');
     soltarPantalla();
+    sincronizarFondo();
+    if (origenFoco && origenFoco.isConnected) origenFoco.focus({ preventScroll: true });
+    origenFoco = null;
   }
   window.addEventListener('popstate', () => { if (actual) cerrarCancion(); });
 
   function fila({ c, i }) {
-    const cuerpo = el('button', { type: 'button', className: 'abrir', onclick: () => abrirCancion(c) },
+    const cuerpo = el('button', { type: 'button', className: 'abrir', onclick: e => abrirCancion(c, e.currentTarget) },
       el('span', { className: 't' }, c.titulo),
       c.artista && el('span', { className: 'a' }, c.artista),
       c.nota && el('span', { className: 'a' }, c.nota));
@@ -344,6 +361,22 @@
 
   $('q').addEventListener('input', e => { vista.q = e.target.value; render(); });
 
+  // Atajos de teclado (PC y tablet con teclado). No actúan si escribes en un campo o hay una ventana del editor abierta.
+  document.addEventListener('keydown', e => {
+    if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+    const t = e.target, escribiendo = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+    if (document.querySelector('.capa')) return;
+    const teoriaAbierta = !!document.querySelector('#teoria:not([hidden])');
+    if (e.key === 'Escape' && (actual || teoriaAbierta)) { history.back(); return; }
+    if (escribiendo) return;
+    if (actual) {
+      if (e.key === 'ArrowLeft') { irA(-1); e.preventDefault(); }
+      else if (e.key === 'ArrowRight') { irA(1); e.preventDefault(); }
+      else if (e.key === '+' || e.key === '=') cambiarZoom(.15);
+      else if (e.key === '-') cambiarZoom(-.15);
+    } else if (e.key === '/' && !teoriaAbierta) { e.preventDefault(); $('q').focus(); $('q').select(); }
+  });
+
   // Interfaz que usa editor.js (solo se carga con ?editar)
   const app = window.RepertorioApp = {
     el, norm, render,
@@ -353,17 +386,31 @@
   };
 
   // Datos en el servidor (/api/canciones); si no responde, la copia incluida (canciones.js).
-  async function cargar() {
-    $('cuenta').textContent = '…';
-    let d = window.REPERTORIO;
+  let copia = false, editorCargado = false;
+  const avisoRed = () => {
+    const a = $('sin-red');
+    a.hidden = !copia;
+    a.textContent = copia ? 'Sin conexión o conexión lenta: se muestra la copia guardada en este dispositivo' + (data.actualizado ? ' (actualizada: ' + data.actualizado + ')' : '') + '. Se actualiza sola al volver la señal.' : '';
+  };
+  async function cargar(inicial = true) {
+    if (inicial) $('cuenta').textContent = '…';
+    let d = window.REPERTORIO, deCopia = false;
     try {
       const r = await fetch('/api/canciones', { cache: 'no-store' });
-      if (r.ok) d = await r.json();
-    } catch (e) { /* sin servidor: se usa la copia del sitio */ }
+      if (r.ok) { d = await r.json(); deCopia = r.headers.get('X-Copia') === '1'; }
+    } catch (e) { deCopia = true; /* sin red: se usa la copia guardada o la del sitio */ }
+    if (!inicial && deCopia) return;               // reintento que sigue sin red: no se toca nada
     data = normalizar(d);
+    copia = deCopia;
+    if (actual) { const nueva = data.canciones.find(c => c.id && c.id === actual.id); if (nueva) actual = ultima = nueva; }
     render();
-    if (EDITOR) document.head.append(el('script', { src: 'editor.js' }));
+    avisoRed();
+    if (EDITOR && !editorCargado) { editorCargado = true; document.head.append(el('script', { src: 'editor.js' })); }
   }
+  // Si estabas viendo la copia, al volver la señal (o al volver a la pestaña) se intenta traer lo más nuevo.
+  const reintentar = () => { if (copia && !EDITOR) cargar(false); };
+  addEventListener('online', reintentar);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) reintentar(); });
   // Modo offline: sw.js guarda la página y las canciones en el dispositivo (con internet siempre manda lo más nuevo).
   if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => { /* nada */ }));
   // Franja de 12 tonos (los mismos colores de las pastillas): C, C#, D … B.
