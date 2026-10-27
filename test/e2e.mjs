@@ -16,6 +16,7 @@ const { JSDOM, VirtualConsole, requestInterceptor } = jsdom.JSDOM ? jsdom : jsdo
 const { memoria } = await import('./blob-falso.mjs');
 const canciones = await import('../api/canciones.js');
 const entrar = await import('../api/entrar.js');
+const progreso = await import('../api/progreso.js');
 
 const RAIZ = fileURLToPath(new URL('..', import.meta.url));
 // Sirve los archivos del proyecto como si fueran el sitio publicado (y omite Tone.js, que necesita audio real).
@@ -47,6 +48,7 @@ async function navegador(busqueda = '', red = {}) {
         let r;
         if (u.pathname === '/api/canciones') r = opts.method === 'POST' ? await canciones.POST(req()) : await canciones.GET();
         else if (u.pathname === '/api/entrar') r = await entrar.POST(req());
+        else if (u.pathname === '/api/progreso') r = await progreso.POST(req());
         else return new Response('no existe', { status: 404 });
         if (red.copia && r.ok) { const h = new Headers(r.headers); h.set('X-Copia', '1'); return new Response(await r.text(), { status: r.status, headers: h }); }
         return r;
@@ -66,7 +68,7 @@ const sinErrores = n => assert.deepEqual(n.errores, [], 'errores de JavaScript e
 test('estructura de index.html: etiquetas, un solo h1, OG, manifest y salto al contenido', async () => {
   const html = await readFile(join(RAIZ, 'index.html'), 'utf8');
   assert.equal((html.match(/<h1\b/g) || []).length, 1);
-  for (const f of [/<html lang="es"/, /name="description"/, /property="og:image" content="https:\/\/[^"]+\/og\.png"/, /rel="manifest"/, /rel="apple-touch-icon"/, /class="saltar"/, /id="q"[^>]*aria-label=/, /viewport-fit=cover/, /noindex/])
+  for (const f of [/<html lang="es"/, /name="description"/, /property="og:image" content="https:\/\/[^"]+\/og\.png"/, /rel="manifest"/, /rel="apple-touch-icon"/, /class="saltar"/, /id="practica-btn"/, /src="notacion\.js"/, /src="practicar\.js"/, /id="q"[^>]*aria-label=/, /viewport-fit=cover/, /noindex/])
     assert.match(html, f, String(f));
   assert.doesNotMatch(html, /\sstyle=/, 'sin estilos en línea (la CSP los bloquea)');
   const m = JSON.parse(await readFile(join(RAIZ, 'manifest.webmanifest'), 'utf8'));
@@ -200,4 +202,140 @@ test('SIN CONEXIÓN: muestra el aviso de copia y lo quita al volver la señal', 
   const caido = await navegador('', { caido: true });          // sin red y sin copia guardada: usa canciones.js
   assert.equal(caido.$('sin-red').hidden, false);
   sinErrores(caido); caido.cerrar();
+});
+
+// --- Practicar ---
+const PASE = process.env.ADMIN_PASSWORD;
+async function abrirPractica(n) {
+  n.w.RepertorioPractica.CFG.pausa = 0;                       // sin esperas en las pruebas
+  const btn = n.$('practica-btn'); btn.focus(); btn.click();
+  await esperar(() => !n.$('practica').hidden && n.$('practica').querySelector('.pr-tema'), 'pantalla de Practicar');
+  return n.$('practica');
+}
+const pregunta = n => n.w.RepertorioPractica.estadoSesion().preg;
+async function contestar(n, bien, { teclado = false } = {}) {
+  const ses = n.w.RepertorioPractica.estadoSesion(), p = ses.preg, i = ses.i;
+  if (p.tipo === 'pentagrama') {
+    const letra = bien ? p.respuesta.l : n.w.Notacion.LETRAS[(n.w.Notacion.LETRAS.indexOf(p.respuesta.l) + 3) % 7];
+    if (p.respuesta.a !== undefined && n.d.querySelector('[data-mod]') && bien) n.d.querySelector(`[data-mod="${p.respuesta.a}"]`).click();
+    n.d.querySelector(`[data-letra="${letra}"]`).click();
+  } else if (p.tipo === 'teclado') {
+    n.d.querySelector(`[data-pc="${bien ? p.respuesta.pc : (p.respuesta.pc + 1) % 12}"]`)?.click() || n.w.RepertorioPractica.responder({ pc: (p.respuesta.pc + 1) % 12 });
+  } else {
+    const m = 12 * 5 + (bien ? p.respuesta.pc : (p.respuesta.pc + 1) % 12);
+    n.d.querySelector(`#practica rect[data-midi="${m}"]`).dispatchEvent(new n.w.MouseEvent('click', { bubbles: true }));
+  }
+  await esperar(() => n.w.RepertorioPractica.estadoSesion()?.i > i || !n.w.RepertorioPractica.estadoSesion(), 'que se registre la respuesta');
+}
+async function sesionCompleta(n, total, fallos) {
+  for (let i = 0; i < total; i++) {
+    await esperar(() => n.w.RepertorioPractica.estadoSesion()?.preg && n.w.RepertorioPractica.estadoSesion().fase === 'pregunta', 'siguiente pregunta');
+    await contestar(n, i >= fallos);
+    if (n.w.RepertorioPractica.estadoSesion()?.fase === 'feedback' && n.$('pr-sig')) n.$('pr-sig').click();
+  }
+}
+
+test('PRACTICAR (teléfono): sesión de 10 preguntas en clave de sol, resultado y guardado local', async () => {
+  memoria.clear();
+  const n = await navegador();
+  const cuerpo = await abrirPractica(n);
+  assert.equal(cuerpo.getAttribute('role'), 'dialog'); assert.equal(n.d.activeElement, cuerpo); assert.equal(n.$('app').inert, true);
+  assert.match(cuerpo.textContent, /solo en este dispositivo/i);
+  assert.doesNotMatch(cuerpo.textContent, /Entrar0|^0|\b0Pentagrama/, 'no se cuelan ceros en la pantalla');
+  [...n.d.querySelectorAll('[data-tema="sol"] button')].find(b => /Empezar · 10/.test(b.textContent)).click();
+  await esperar(() => n.w.RepertorioPractica.estadoSesion()?.preg, 'primera pregunta');
+  assert.ok(n.d.querySelector('#practica svg.pentagrama'), 'se ve el pentagrama');
+  assert.equal(n.d.querySelectorAll('#practica [data-letra]').length, 7);
+  await sesionCompleta(n, 10, 2);
+  await esperar(() => n.$('pr-resultado'), 'pantalla de resultado');
+  assert.match(n.$('pr-resultado').textContent, /8 de 10 · 80%/);
+  assert.equal(n.d.activeElement, n.$('pr-resultado'));
+  assert.match(n.$('practica').textContent, /Fallos de esta sesión/);
+  const { pend } = n.w.RepertorioPractica.datos;
+  assert.equal(pend.length, 1); assert.equal(pend[0].n, 10); assert.equal(pend[0].a, 8); assert.equal(pend[0].t, 'sol');
+  assert.ok(JSON.parse(n.w.localStorage.getItem('repertorio-practica-v1')).pend.length === 1, 'quedó guardado en el dispositivo');
+  assert.equal(memoria.has('repertorio/progreso.json'), false, 'sin contraseña no se sube nada');
+  sinErrores(n); n.cerrar();
+});
+
+test('PRACTICAR: entrar con la contraseña sincroniza, y otro dispositivo ve el mismo progreso', async () => {
+  memoria.clear();
+  const a = await navegador('');
+  await abrirPractica(a);
+  [...a.d.querySelectorAll('[data-tema="fa"] button')].find(b => /Empezar · 10/.test(b.textContent)).click();
+  await esperar(() => a.w.RepertorioPractica.estadoSesion()?.preg, 'sesión en clave de fa');
+  await sesionCompleta(a, 10, 0);
+  await esperar(() => a.$('pr-resultado'), 'resultado');
+  assert.match(a.$('pr-resultado').textContent, /10 de 10 · 100%/);
+  [...a.d.querySelectorAll('#practica button')].find(b => b.textContent === 'Otro ejercicio').click();
+  await esperar(() => a.d.querySelector('#practica details'), 'formulario de entrada');
+  a.d.querySelector('#pr-pass').value = PASE; a.d.querySelector('#practica details .primario').click();
+  await esperar(() => /Sincronizado/.test(a.$('pr-estado')?.textContent || ''), 'estado sincronizado');
+  assert.equal(a.w.RepertorioPractica.datos.pend.length, 0);
+  const guardado = JSON.parse(memoria.get('repertorio/progreso.json').texto);
+  assert.equal(guardado.sesiones.length, 1); assert.equal(guardado.sesiones[0].t, 'fa');
+  sinErrores(a); a.cerrar();
+
+  const b = await navegador('');                              // "la laptop": otro navegador, sin nada guardado
+  assert.equal(b.w.RepertorioPractica.todas().length, 0);
+  await abrirPractica(b);
+  b.d.querySelector('#practica details summary').click();
+  b.d.querySelector('#pr-pass').value = PASE; b.d.querySelector('#practica details .primario').click();
+  await esperar(() => /Sincronizado/.test(b.$('pr-estado')?.textContent || '') && /Hoy: 10 preguntas/.test(b.$('practica').textContent), 'el otro dispositivo ve las 10 preguntas de hoy');
+  assert.match(b.$('practica').textContent, /Racha: 1 día/);
+  assert.match(b.d.querySelector('[data-tema="fa"]').textContent, /100%/);
+  sinErrores(b); b.cerrar();
+});
+
+test('PRACTICAR: teclado del ordenador (letras, # y -), alteraciones y salir con Esc guarda la sesión a medias', async () => {
+  memoria.clear();
+  const n = await navegador('');
+  await abrirPractica(n);
+  [...n.d.querySelectorAll('[data-tema="sol"] .tg button')].find(b => /^5 /.test(b.textContent)).click();
+  await esperar(() => n.d.querySelector('[data-tema="sol"] [aria-pressed="true"]')?.textContent.startsWith('5'), 'nivel 5 elegido');
+  [...n.d.querySelectorAll('[data-tema="sol"] button')].find(b => /Empezar · 20/.test(b.textContent)).click();
+  await esperar(() => n.w.RepertorioPractica.estadoSesion()?.preg, 'pregunta con alteraciones');
+  assert.ok(n.d.querySelector('[data-mod]'), 'aparecen los botones de alteración');
+  for (let i = 0; i < 4; i++) {
+    await esperar(() => n.w.RepertorioPractica.estadoSesion().fase === 'pregunta', 'turno de responder');
+    const p = pregunta(n);
+    n.tecla(n.d, p.respuesta.a === 1 ? '#' : p.respuesta.a === -1 ? '-' : '0');
+    assert.equal(n.d.querySelector(`[data-mod="${p.respuesta.a}"]`).getAttribute('aria-pressed'), 'true');
+    n.tecla(n.d, p.respuesta.l.toLowerCase());
+    await esperar(() => n.w.RepertorioPractica.estadoSesion().hechas.length === i + 1, 'respuesta por teclado');
+    assert.equal(n.w.RepertorioPractica.estadoSesion().hechas[i][1], 1, 'la respuesta por teclado es correcta: ' + p.item);
+  }
+  n.tecla(n.d, 'Escape');
+  await esperar(() => n.$('practica').hidden, 'Esc cierra Practicar');
+  assert.equal(n.w.RepertorioPractica.datos.pend.length, 1, 'se guardó la sesión a medias');
+  assert.equal(n.w.RepertorioPractica.datos.pend[0].n, 4);
+  assert.equal(n.$('app').inert, false);
+  await esperar(() => n.d.activeElement === n.$('practica-btn'), 'el foco vuelve al botón Practicar');
+  sinErrores(n); n.cerrar();
+});
+
+test('PRACTICAR: teclado de piano (nombrar la tecla y tocar la tecla)', async () => {
+  memoria.clear();
+  const n = await navegador('');
+  await abrirPractica(n);
+  [...n.d.querySelectorAll('[data-tema="teclado"] button')].find(b => /Empezar · 10/.test(b.textContent)).click();
+  await esperar(() => n.w.RepertorioPractica.estadoSesion()?.preg, 'pregunta de teclado');
+  assert.equal(n.d.querySelectorAll('#practica rect.pk-on').length, 1, 'hay una tecla marcada');
+  await contestar(n, false);
+  assert.ok(n.d.querySelector('#practica .pr-feedback.mal'), 'se muestra el fallo'); assert.match(n.d.querySelector('.pr-feedback').textContent, /Era /);
+  n.d.querySelector('#pr-sig').click();
+  await esperar(() => n.w.RepertorioPractica.estadoSesion().fase === 'pregunta', 'siguiente');
+  await contestar(n, true);
+  n.cerrar();
+  const m = await navegador('');
+  await abrirPractica(m);
+  [...m.d.querySelectorAll('[data-tema="tecla"] button')].find(b => /Empezar · 10/.test(b.textContent)).click();
+  await esperar(() => m.w.RepertorioPractica.estadoSesion()?.preg, 'pregunta de tocar tecla');
+  assert.equal(m.d.querySelectorAll('#practica rect[data-midi][tabindex="0"]').length, 24, 'las 24 teclas se alcanzan con el teclado');
+  await contestar(m, false);
+  assert.ok(m.d.querySelector('#practica rect.pk-mal') && m.d.querySelector('#practica rect.pk-ok'), 'se marca la tocada (roja) y la correcta (verde)');
+  m.d.querySelector('#pr-sig').click();
+  await esperar(() => m.w.RepertorioPractica.estadoSesion().fase === 'pregunta', 'siguiente');
+  await contestar(m, true);
+  sinErrores(m); m.cerrar();
 });

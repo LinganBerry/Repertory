@@ -10,6 +10,8 @@ process.env.SESSION_SECRET = SECRETO;
 const { memoria, registro } = await import('./blob-falso.mjs');
 const canciones = await import('../api/canciones.js');
 const entrar = await import('../api/entrar.js');
+const progreso = await import('../api/progreso.js');
+const { limpiarSesion, MAX_SESIONES } = await import('../lib/progreso.js');
 const auth = await import('../lib/auth.js');
 const { LIMITES } = await import('../lib/limpiar.js');
 
@@ -163,7 +165,7 @@ test('no existe ninguna acción de borrado definitivo', async () => {
 });
 
 test('el código no importa ni define funciones de borrado del almacén', async () => {
-  const archivos = ['lib/almacen.js', 'lib/auth.js', 'lib/intentos.js', 'lib/limpiar.js', 'api/canciones.js', 'api/entrar.js'];
+  const archivos = ['lib/almacen.js', 'lib/auth.js', 'lib/intentos.js', 'lib/limpiar.js', 'lib/progreso.js', 'api/canciones.js', 'api/entrar.js', 'api/progreso.js'];
   for (const a of archivos) {
     const src = await readFile(new URL('../' + a, import.meta.url), 'utf8');
     const imp = /import\s*\{([^}]*)\}\s*from\s*'@vercel\/blob'/.exec(src);
@@ -235,4 +237,65 @@ test('los límites de editor.js coinciden con los del servidor', async () => {
   const m = /const LIM = (\{[^}]*\})/.exec(src);
   assert.ok(m, 'editor.js debe declarar LIM');
   assert.deepEqual(new Function('return ' + m[1])(), LIMITES);
+});
+
+// --- progreso de práctica ---
+const sesion = (extra = {}) => ({ id: 'abc' + Math.random().toString(36).slice(2, 12), t: 'sol', l: 1, f: '2026-10-27', n: 3, a: 2, ms: 9000, q: [['sol:E4', 1, 2000], ['sol:G4', 0, 5000], ['sol:B4', 1, 2000]], ...extra });
+const enviar = async (token, sesiones) => json(await post(progreso, { token, accion: 'sesiones', sesiones }));
+
+test('progreso: sin pase no se lee ni se guarda nada', async () => {
+  limpiarTodo();
+  for (const accion of ['leer', 'sesiones']) assert.equal((await post(progreso, { token: 'malo', accion, sesiones: [sesion()] })).status, 401);
+  assert.equal(memoria.has('repertorio/progreso.json'), false);
+});
+
+test('progreso: guarda sesiones válidas, las devuelve y no repite una con el mismo id', async () => {
+  limpiarTodo();
+  const token = await pase();
+  const s = sesion();
+  const r1 = await enviar(token, [s]);
+  assert.equal(r1.status, 200); assert.equal(r1.guardadas, 1);
+  const r2 = await enviar(token, [s, sesion()]);
+  assert.equal(r2.guardadas, 1, 'la repetida no se vuelve a guardar'); assert.equal(r2.total, 2);
+  const leido = await json(await post(progreso, { token, accion: 'leer' }));
+  assert.equal(leido.sesiones.length, 2);
+  assert.deepEqual(leido.sesiones[0], limpiarSesion(s));
+});
+
+test('progreso: rechaza sesiones inválidas sin guardar nada', async () => {
+  limpiarTodo();
+  const token = await pase();
+  const malas = [sesion({ id: 'x' }), sesion({ t: 'Tema Raro!' }), sesion({ f: '2026-13-45' }), sesion({ n: 0 }), sesion({ a: 9 }), sesion({ l: 0 }), sesion({ ms: -1 }),
+    sesion({ q: [['sol:E4', 2, 100]] }), sesion({ q: [['<script>', 1, 100]] }), sesion({ q: 'no' }), sesion({ q: Array.from({ length: 101 }, () => ['sol:E4', 1, 10]) }), null, 'texto'];
+  for (const m of malas) assert.equal((await enviar(token, [m])).status, 400, JSON.stringify(m)?.slice(0, 60));
+  assert.equal((await enviar(token, [])).status, 400);
+  assert.equal((await enviar(token, Array.from({ length: 21 }, () => sesion()))).status, 400);
+  assert.equal(memoria.has('repertorio/progreso.json'), false);
+});
+
+test('progreso: conserva solo las últimas ' + 500 + ' sesiones', async () => {
+  limpiarTodo();
+  const token = await pase();
+  const todas = Array.from({ length: MAX_SESIONES + 30 }, (_, i) => sesion({ id: 'sesion' + String(i).padStart(5, '0') }));
+  for (let i = 0; i < todas.length; i += 20) assert.equal((await enviar(token, todas.slice(i, i + 20))).status, 200);
+  const { sesiones } = await json(await post(progreso, { token, accion: 'leer' }));
+  assert.equal(sesiones.length, MAX_SESIONES);
+  assert.equal(sesiones.at(-1).id, 'sesion' + String(MAX_SESIONES + 29).padStart(5, '0'), 'la más reciente se conserva');
+  assert.equal(sesiones[0].id, 'sesion' + String(30).padStart(5, '0'), 'las más antiguas salen primero');
+});
+
+test('progreso: 8 envíos simultáneos no pierden ninguna sesión', async () => {
+  limpiarTodo();
+  const token = await pase();
+  const rs = await Promise.all(Array.from({ length: 8 }, () => enviar(token, [sesion()])));
+  assert.ok(rs.every(r => r.status === 200));
+  assert.equal((await json(await post(progreso, { token, accion: 'leer' }))).sesiones.length, 8);
+});
+
+test('progreso: acción desconocida y cuerpo grande', async () => {
+  limpiarTodo();
+  const token = await pase();
+  assert.equal((await post(progreso, { token, accion: 'borrar' })).status, 400);
+  assert.equal((await post(progreso, 'a'.repeat(200_001))).status, 413);
+  assert.equal((await post(progreso, '{roto')).status, 400);
 });
