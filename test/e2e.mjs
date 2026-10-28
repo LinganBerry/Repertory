@@ -215,11 +215,11 @@ async function abrirPractica(n) {
 const pregunta = n => n.w.RepertorioPractica.estadoSesion().preg;
 async function contestar(n, bien, { teclado = false } = {}) {
   const ses = n.w.RepertorioPractica.estadoSesion(), p = ses.preg, i = ses.i;
-  if (p.tipo === 'pentagrama') {
+  if (p.tipo === 'pentagrama' || p.tipo === 'escala') {
     const letra = bien ? p.respuesta.l : n.w.Notacion.LETRAS[(n.w.Notacion.LETRAS.indexOf(p.respuesta.l) + 3) % 7];
     if (p.respuesta.a !== undefined && n.d.querySelector('[data-mod]') && bien) n.d.querySelector(`[data-mod="${p.respuesta.a}"]`).click();
     n.d.querySelector(`[data-letra="${letra}"]`).click();
-  } else if (p.tipo === 'oido') {
+  } else if (p.tipo === 'oido' || p.tipo === 'armadura' || p.tipo === 'cuantas') {
     const otro = n.w.Notacion.botones(ses.tema, ses.nivel).opciones.find(o => o.id !== p.respuesta.id).id;
     n.d.querySelector(`[data-op="${bien ? p.respuesta.id : otro}"]`).click();
   } else if (p.tipo === 'teclado') {
@@ -426,4 +426,39 @@ test('AUDIO compartido (RepertorioAudio) con un Tone simulado: espera al piano, 
   await new Promise(r => setTimeout(r, 200));
   assert.equal(sonidos.length, 1, 'solo suena la última petición'); assert.ok(Math.abs(sonidos[0].freqs[0] - 523.25) < 0.01);
   sinErrores(n); n.cerrar();
+});
+
+test('PRACTICAR (armaduras y escalas): dibuja la armadura, acepta respuestas, explica los fallos y guarda la sesión', async () => {
+  memoria.clear();
+  const n = await navegador('');
+  await abrirPractica(n);
+  await empezarTema(n, 'arm-sol', 10, 2);
+  assert.equal(n.d.querySelectorAll('#practica svg.pentagrama').length, 1, 'se dibuja la armadura');
+  assert.equal(n.d.querySelectorAll('#practica [data-op]').length, 9, 'nivel 2: 9 tonalidades mayores');
+  assert.match(n.d.querySelector('.pr-pedido').textContent, /tonalidad mayor/);
+  await contestar(n, false);
+  assert.match(n.d.querySelector('.pr-feedback').textContent, /Era .*\(.*\).*dijiste/s);
+  n.$('pr-sig').click();
+  await esperar(() => n.w.RepertorioPractica.estadoSesion().fase === 'pregunta', 'siguiente');
+  const opciones = n.w.Notacion.botones('arm-sol', 2).opciones, p = pregunta(n);
+  n.tecla(n.d, String(opciones.findIndex(o => o.id === p.respuesta.id) + 1));
+  await esperar(() => n.w.RepertorioPractica.estadoSesion().hechas.length === 2, 'respuesta con el número');
+  assert.equal(n.w.RepertorioPractica.estadoSesion().hechas[1][1], 1);
+  sinErrores(n); n.cerrar();
+
+  const n2 = await navegador('');
+  await abrirPractica(n2);
+  await empezarTema(n2, 'arm-num', 10);
+  assert.equal(n2.d.querySelector('#practica svg'), null); assert.match(n2.d.querySelector('.pr-pedido').textContent, /¿Cuántas alteraciones lleva .+ mayor\?/);
+  await contestar(n2, true); sinErrores(n2); n2.cerrar();
+
+  const n3 = await navegador('');
+  await abrirPractica(n3);
+  await empezarTema(n3, 'escala', 10, 3);
+  assert.match(n3.d.querySelector('.pr-pedido').textContent, /grado de .+ mayor/); assert.ok(n3.d.querySelector('[data-mod]'), 'con selector de alteración');
+  await contestar(n3, true);
+  await esperar(() => n3.w.RepertorioPractica.estadoSesion().fase === 'pregunta', 'siguiente');
+  await contestar(n3, false);
+  assert.match(n3.d.querySelector('.pr-feedback').textContent, /Era .*\(.* .*\).*dijiste/s);
+  sinErrores(n3); n3.cerrar();
 });

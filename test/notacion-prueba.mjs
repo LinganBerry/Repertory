@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile, stat } from 'node:fs/promises';
+import { limpiarSesion } from '../lib/progreso.js';
 
 const ctx = { console }; ctx.window = ctx; vm.createContext(ctx);
 vm.runInContext(await readFile(new URL('../notacion.js', import.meta.url), 'utf8'), ctx);
@@ -29,6 +30,7 @@ test('niveles: cada candidato cae donde dice el nivel y no hay dobles alteracion
     const c = N.candidatos(id, nv.id);
     assert.ok(c.length >= (T.tipo === 'oido' ? 2 : 3), `${id} nivel ${nv.id} tiene pocas opciones`);
     if (T.tipo === 'oido') for (const x of c) assert.ok(nv.ids.includes(x.id));
+    else if (['armadura', 'cuantas', 'escala'].includes(T.tipo)) for (const x of c) assert.ok(Math.abs(x.f) <= nv.max, `${id}/${nv.id}: ${x.item}`);
     else if (T.tipo === 'pentagrama') for (const x of c) {
       assert.ok(nv.pos.includes(N.posicion(id, x.nota)), `${id}/${nv.id}: ${N.nombre(x.nota)}`);
       assert.ok(Math.abs(x.nota.a) <= 1);
@@ -49,6 +51,12 @@ test('preguntas: 300 por tema y nivel, siempre válidas, con respuesta correcta 
         assert.ok(N.comprobar(p, { l: p.nota.l, a: p.nota.a }));
         assert.ok(!N.comprobar(p, { l: N.LETRAS[(N.LETRAS.indexOf(p.nota.l) + 1) % 7], a: p.nota.a }), 'otra letra es incorrecta');
         if (p.nota.a) assert.ok(!N.comprobar(p, { l: p.nota.l, a: 0 }), 'sin la alteración es incorrecto');
+      } else if (p.tipo === 'escala') {
+        assert.ok(N.comprobar(p, { l: p.respuesta.l, a: p.respuesta.a })); assert.ok(!N.comprobar(p, { l: p.respuesta.l, a: p.respuesta.a + 1 }), 'otra alteración es incorrecta');
+        assert.ok(!N.comprobar(p, { l: N.LETRAS[(N.LETRAS.indexOf(p.respuesta.l) + 1) % 7], a: p.respuesta.a }));
+      } else if (p.tipo === 'armadura' || p.tipo === 'cuantas') {
+        assert.ok(N.comprobar(p, { id: p.respuesta.id })); assert.ok(!N.comprobar(p, { id: String(p.f + 1) }));
+        assert.ok(N.botones(id, nv.id).opciones.some(o => o.id === p.respuesta.id), 'la respuesta correcta está entre los botones');
       } else if (p.tipo === 'oido') {
         assert.ok(N.comprobar(p, { id: p.respuesta.id })); assert.ok(!N.comprobar(p, { id: 'otro' }));
       } else {
@@ -162,4 +170,69 @@ test('oído: botones de respuesta y nombres de notas', () => {
   assert.equal(N.botones('int-asc', 4).opciones.length, 12);
   const a = N.botones('acordes', 3); assert.deepEqual(JSON.parse(JSON.stringify(a.opciones.map(o => o.texto))), ['Mayor 7ª', 'Dominante 7ª', 'Menor 7ª', 'Semidisminuido']);
   assert.equal(N.nombreMidi(60), 'C4'); assert.equal(N.nombreMidi(61), 'C#4'); assert.equal(N.nombreMidi(69), 'A4'); assert.equal(N.nombreMidi(48), 'C3');
+});
+
+// --- Bloque 3: armaduras y escalas escritas ---
+const TABLA_MAYORES = { '-6': 'Gb', '-5': 'Db', '-4': 'Ab', '-3': 'Eb', '-2': 'Bb', '-1': 'F', 0: 'C', 1: 'G', 2: 'D', 3: 'A', 4: 'E', 5: 'B', 6: 'F#' };
+const TABLA_MENORES = { '-6': 'Ebm', '-5': 'Bbm', '-4': 'Fm', '-3': 'Cm', '-2': 'Gm', '-1': 'Dm', 0: 'Am', 1: 'Em', 2: 'Bm', 3: 'F#m', 4: 'C#m', 5: 'G#m', 6: 'D#m' };
+
+test('armaduras: la tónica mayor y la menor relativa de cada armadura (tabla escrita a mano)', () => {
+  for (const f of Object.keys(TABLA_MAYORES)) {
+    assert.equal(N.nombreTon(Number(f), 'M'), TABLA_MAYORES[f], 'mayor ' + f);
+    assert.equal(N.nombreTon(Number(f), 'm'), TABLA_MENORES[f], 'menor ' + f);
+  }
+  assert.equal(N.nombreTon(-2, 'M', true), 'B♭'); assert.equal(N.nombreLargo(6, 'm'), 'D♯ menor');
+  assert.equal(N.textoAlt(0), '0'); assert.equal(N.textoAlt(3), '3♯'); assert.equal(N.textoAlt(-2), '2♭');
+  assert.equal(N.letrasAlt(3), 'F♯ C♯ G♯'); assert.equal(N.letrasAlt(-2), 'B♭ E♭'); assert.equal(N.letrasAlt(0), 'sin alteraciones');
+});
+
+test('escalas: cada escala mayor y menor natural tiene los semitonos correctos y siete letras distintas', () => {
+  const pc = x => (N.PC[x.l] + x.a + 12) % 12;
+  for (let f = -6; f <= 6; f++) for (const [modo, patron] of [['M', [2, 2, 1, 2, 2, 2, 1]], ['m', [2, 1, 2, 2, 1, 2, 2]]]) {
+    const esc = [1, 2, 3, 4, 5, 6, 7, 8].map(g => N.gradoDeEscala(f, modo, g)), t = N.tonica(f, modo);
+    assert.deepEqual(esc.map(x => x.l).slice(0, 7).sort(), [...N.LETRAS].sort(), `letras ${f}${modo}`);
+    assert.deepEqual({ l: esc[0].l, a: esc[0].a }, { l: t.l, a: t.a });
+    assert.deepEqual(esc.slice(1).map((x, i) => (pc(x) - pc(esc[i]) + 12) % 12), patron, `semitonos ${modo} ${f}`);
+    for (const x of esc) assert.ok(Math.abs(x.a) <= 1, 'sin dobles alteraciones');
+  }
+  assert.equal(N.nombre(N.gradoDeEscala(6, 'M', 7), false), 'E#'); assert.equal(N.nombre(N.gradoDeEscala(-6, 'M', 4), false), 'Cb');
+});
+
+test('niveles de armadura: botones en el orden de la línea de quintas y preguntas con sus datos', () => {
+  const b = (t, nv) => JSON.parse(JSON.stringify(N.botones(t, nv)));
+  assert.deepEqual(b('arm-sol', 1).opciones.map(o => o.texto), ['B♭', 'F', 'C', 'G', 'D']);
+  assert.equal(b('arm-sol', 3).opciones.length, 13); assert.equal(b('arm-fa', 4).opciones.length, 9);
+  assert.deepEqual(b('arm-fa', 5).opciones.map(o => o.texto).slice(0, 3), ['E♭m', 'B♭m', 'Fm']);
+  assert.deepEqual(b('arm-num', 2).opciones.map(o => o.texto), ['4♭', '3♭', '2♭', '1♭', '0', '1♯', '2♯', '3♯', '4♯']);
+  assert.deepEqual(b('escala', 1), { tipo: 'letras', letras: ['C', 'D', 'E', 'F', 'G', 'A', 'B'], alteraciones: true });
+  const p = N.crearPregunta('escala', 3, { items: {} }, semilla(3), null);
+  assert.match(p.pedido, /^¿Qué nota es el [2-7]º grado de .+ mayor\?$/); assert.match(p.detalle, /^\(.+\)$/);
+  assert.match(N.crearPregunta('arm-num', 4, { items: {} }, semilla(4), null).pedido, /menor\?$/);
+  assert.match(N.crearPregunta('escala', 5, { items: {} }, semilla(4), null).pedido, /menor natural\?$/);
+});
+
+test('armadura SVG: 5 líneas, clave, tantos signos como alteraciones, todos dentro del pentagrama y sin chocar', () => {
+  for (const clave of ['sol', 'fa']) for (let f = -6; f <= 6; f++) {
+    const svg = N.svgArmadura(clave, f);
+    assert.equal((svg.match(/<line /g) || []).length, 5); assert.ok(svg.includes(N.CLAVES[clave].glifo));
+    assert.equal((svg.match(/\uE262/g) || []).length, f > 0 ? f : 0); assert.equal((svg.match(/\uE260/g) || []).length, f < 0 ? -f : 0);
+    const xs = [...svg.matchAll(/<text x="(\d+)"[^>]*>[\uE260\uE262]/g)].map(m => Number(m[1]));
+    for (let i = 1; i < xs.length; i++) assert.ok(xs[i] - xs[i - 1] >= 12, 'signos separados');
+    assert.ok(!svg.includes('style='), 'sin estilos en línea');
+  }
+  for (const clave of ['sol', 'fa']) for (const k of ['s', 'b']) for (const pos of N.POS_ARMADURA[clave][k]) assert.ok(pos >= 0 && pos <= 9, `${clave} ${k} ${pos}`);
+  // las posiciones salen de las notas reales: sostenidos F C G D A E y bemoles B E A D G C, en la octava que cae dentro del pentagrama
+  const dentro = (clave, letras, pos) => letras.forEach((l, i) => assert.equal(((pos[i] + N.CLAVES[clave].base) % 7 + 7) % 7, N.LETRAS.indexOf(l), `${clave} ${l}`));
+  for (const clave of ['sol', 'fa']) { dentro(clave, ['F', 'C', 'G', 'D', 'A', 'E'], N.POS_ARMADURA[clave].s); dentro(clave, ['B', 'E', 'A', 'D', 'G', 'C'], N.POS_ARMADURA[clave].b); }
+  assert.throws(() => N.svgArmadura('sol', 7)); assert.throws(() => N.svgArmadura('do', 1));
+});
+
+test('rótulos y servidor: los ejercicios nuevos se muestran bien y el servidor acepta sus sesiones', () => {
+  assert.equal(N.rotulo('as:Bb'), 'Armadura B♭'); assert.equal(N.rotulo('af:F#m'), 'Armadura F♯m'); assert.equal(N.rotulo('an:Eb'), 'Alteraciones de E♭');
+  assert.equal(N.rotulo('eg:Bb.6'), 'B♭ · grado 6'); assert.equal(N.rotulo('sol:E4'), 'E4'); assert.equal(N.rotulo('ia:3m'), '3m');
+  const rng = semilla(9);
+  for (const tema of ['arm-sol', 'arm-fa', 'arm-num', 'escala']) for (const nv of N.TEMAS[tema].niveles) {
+    const q = Array.from({ length: 40 }, () => [N.crearPregunta(tema, nv.id, { items: {} }, rng, null).item, 1, 900]);
+    assert.ok(limpiarSesion({ id: 'abcdef123456', t: tema, l: nv.id, f: '2026-10-28', n: 40, a: 40, ms: 36000, q }), `${tema}/${nv.id}: el servidor rechazaría la sesión`);
+  }
 });

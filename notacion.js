@@ -67,6 +67,43 @@
     { id: 3, nombre: 'Séptimas', ids: ['maj7', 'dom7', 'm7', 'm7b5'] },
     { id: 4, nombre: 'Todos', ids: ACORDES.map(a => a.id) }
   ];
+  // --- armaduras y escalas escritas ---
+  // La armadura se cuenta en quintas: f > 0 son sostenidos y f < 0 bemoles (0 = C mayor / A menor). En la "línea de quintas"
+  // F C G D A E B, la tónica mayor está en la posición f y la menor relativa 3 quintas más arriba. Se llega hasta 6 alteraciones:
+  // la 7ª (C♯ / C♭) casi no se usa y su posición en clave de fa no está verificada.
+  const QUINTAS = ['F', 'C', 'G', 'D', 'A', 'E', 'B'];
+  const ORDEN_SOST = QUINTAS, ORDEN_BEM = ['B', 'E', 'A', 'D', 'G', 'C', 'F'];
+  const tonica = (f, modo) => { const p = f + (modo === 'm' ? 3 : 0); return nota(QUINTAS[(((p + 1) % 7) + 7) % 7], Math.floor((p + 1) / 7), 0); };
+  const nombreTon = (f, modo, lindo) => { const t = tonica(f, modo); return (lindo ? bonito(t) : t.l + ALT[t.a]) + (modo === 'm' ? 'm' : ''); };
+  const nombreLargo = (f, modo) => bonito(tonica(f, modo)) + (modo === 'm' ? ' menor' : ' mayor');
+  const altEnArmadura = (f, letra) => (f > 0 && ORDEN_SOST.slice(0, f).includes(letra) ? 1 : f < 0 && ORDEN_BEM.slice(0, -f).includes(letra) ? -1 : 0);
+  const gradoDeEscala = (f, modo, grado) => { const l = LETRAS[(LETRAS.indexOf(tonica(f, modo).l) + grado - 1) % 7]; return nota(l, altEnArmadura(f, l), 0); };
+  const textoAlt = f => (f === 0 ? '0' : Math.abs(f) + (f > 0 ? '♯' : '♭'));
+  const letrasAlt = f => (f === 0 ? 'sin alteraciones' : (f > 0 ? ORDEN_SOST.slice(0, f) : ORDEN_BEM.slice(0, -f)).map(l => l + (f > 0 ? '♯' : '♭')).join(' '));
+  const NIVELES_TONALIDAD = [
+    { id: 1, nombre: 'Mayores hasta 2', modo: 'M', max: 2 },
+    { id: 2, nombre: 'Mayores hasta 4', modo: 'M', max: 4 },
+    { id: 3, nombre: 'Mayores hasta 6', modo: 'M', max: 6 },
+    { id: 4, nombre: 'Menores hasta 4', modo: 'm', max: 4 },
+    { id: 5, nombre: 'Menores hasta 6', modo: 'm', max: 6 }
+  ];
+  const GRADOS = [2, 3, 4, 5, 6, 7];
+  // Posición (0 = línea inferior) de cada sostenido / bemol en la armadura, en el orden en que se escriben.
+  const POS_ARMADURA = {
+    sol: { s: [8, 5, 9, 6, 3, 7], b: [4, 7, 3, 6, 2, 5] },
+    fa: { s: [6, 3, 7, 4, 1, 5], b: [2, 5, 1, 4, 0, 3] }
+  };
+  // Cómo se muestra un ejercicio en "Para repasar" y en los fallos.
+  function rotulo(item) {
+    const i = item.indexOf(':');
+    if (i < 0) return item;
+    const pre = item.slice(0, i), r = item.slice(i + 1), bello = x => x.replace(/^([A-G])#/, '$1♯').replace(/^([A-G])b/, '$1♭');
+    if (pre === 'as' || pre === 'af') return 'Armadura ' + bello(r);
+    if (pre === 'an') return 'Alteraciones de ' + bello(r);
+    if (pre === 'eg') { const [t, g] = r.split('.'); return bello(t) + ' · grado ' + g; }
+    return r;
+  }
+
   const SOST = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   const nombreMidi = m => SOST[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
 
@@ -78,7 +115,11 @@
     'int-asc': { grupo: 'Oído', nombre: 'Intervalos que suben', tipo: 'oido', modo: 'asc', prefijo: 'ia', niveles: NIVELES_INTERVALOS, datos: INTERVALOS },
     'int-desc': { grupo: 'Oído', nombre: 'Intervalos que bajan', tipo: 'oido', modo: 'desc', prefijo: 'id', niveles: NIVELES_INTERVALOS, datos: INTERVALOS },
     'int-arm': { grupo: 'Oído', nombre: 'Intervalos a la vez', tipo: 'oido', modo: 'arm', prefijo: 'ih', niveles: NIVELES_INTERVALOS, datos: INTERVALOS },
-    acordes: { grupo: 'Oído', nombre: 'Acordes', tipo: 'oido', modo: 'acorde', prefijo: 'ac', niveles: NIVELES_ACORDES, datos: ACORDES }
+    acordes: { grupo: 'Oído', nombre: 'Acordes', tipo: 'oido', modo: 'acorde', prefijo: 'ac', niveles: NIVELES_ACORDES, datos: ACORDES },
+    'arm-sol': { grupo: 'Armaduras y escalas', nombre: 'Armadura → tonalidad (clave de sol)', tipo: 'armadura', clave: 'sol', prefijo: 'as', niveles: NIVELES_TONALIDAD },
+    'arm-fa': { grupo: 'Armaduras y escalas', nombre: 'Armadura → tonalidad (clave de fa)', tipo: 'armadura', clave: 'fa', prefijo: 'af', niveles: NIVELES_TONALIDAD },
+    'arm-num': { grupo: 'Armaduras y escalas', nombre: 'Tonalidad → alteraciones', tipo: 'cuantas', prefijo: 'an', niveles: NIVELES_TONALIDAD },
+    escala: { grupo: 'Armaduras y escalas', nombre: 'Nota de una escala', tipo: 'escala', prefijo: 'eg', niveles: NIVELES_TONALIDAD }
   };
 
   // --- estadísticas (a partir de las sesiones guardadas) ---
@@ -127,6 +168,8 @@
     const N = T.niveles.find(n => n.id === nivel);
     if (!N) throw new Error('Nivel desconocido: ' + nivel);
     if (T.tipo === 'oido') return N.ids.map(id => ({ item: T.prefijo + ':' + id, id, dato: T.datos.find(d => d.id === id) }));
+    if (T.tipo === 'armadura' || T.tipo === 'cuantas') return rango(-N.max, N.max).map(f => ({ item: T.prefijo + ':' + nombreTon(f, N.modo), f }));
+    if (T.tipo === 'escala') return rango(-N.max, N.max).flatMap(f => GRADOS.map(g => ({ item: T.prefijo + ':' + nombreTon(f, N.modo) + '.' + g, f, g })));
     if (T.tipo === 'pentagrama') {
       const out = [];
       for (const pos of N.pos) {
@@ -148,6 +191,13 @@
       cands = cands.map(c => ({ ...c })); // 1 de cada 3 candidatos es natural: se reparte 33 % / 67 %
     }
     const c = elegir(cands, est, rng, evitar);
+    if (T.tipo === 'armadura' || T.tipo === 'cuantas' || T.tipo === 'escala') {
+      const NV = T.niveles.find(n => n.id === nivel), modo = NV.modo, f = c.f, largo = nombreLargo(f, modo);
+      if (T.tipo === 'armadura') return { tema, nivel, tipo: 'armadura', item: c.item, clave: T.clave, f, pedido: modo === 'M' ? '¿Qué tonalidad mayor es?' : '¿Qué tonalidad menor es?', respuesta: { id: String(f) }, etiqueta: nombreTon(f, modo, true), detalle: '(' + textoAlt(f) + (f ? ': ' + letrasAlt(f) : '') + ')' };
+      if (T.tipo === 'cuantas') return { tema, nivel, tipo: 'cuantas', item: c.item, f, pedido: '¿Cuántas alteraciones lleva ' + largo + '?', respuesta: { id: String(f) }, etiqueta: textoAlt(f), detalle: '(' + letrasAlt(f) + ')', contexto: nombreTon(f, modo, true) };
+      const g = gradoDeEscala(f, modo, c.g), escala = [1, 2, 3, 4, 5, 6, 7].map(x => bonito(gradoDeEscala(f, modo, x))).join(' ');
+      return { tema, nivel, tipo: 'escala', item: c.item, f, grado: c.g, pedido: '¿Qué nota es el ' + c.g + 'º grado de ' + largo + (modo === 'm' ? ' natural' : '') + '?', respuesta: { l: g.l, a: g.a }, etiqueta: bonito(g), detalle: '(' + escala + ')', contexto: nombreTon(f, modo, true) + ' · ' + c.g + 'º' };
+    }
     if (T.tipo === 'oido') {
       const d = c.dato, n = d.n;
       const r = T.modo === 'asc' || T.modo === 'arm' ? 48 + Math.floor(rng() * 25) : T.modo === 'desc' ? 60 + Math.floor(rng() * 25) : 48 + Math.floor(rng() * 20);
@@ -164,13 +214,16 @@
   }
   function comprobar(preg, resp) {
     if (preg.tipo === 'oido') return resp.id === preg.respuesta.id;
-    if (preg.tipo === 'pentagrama') return resp.l === preg.respuesta.l && (resp.a || 0) === preg.respuesta.a;
+    if (preg.tipo === 'armadura' || preg.tipo === 'cuantas') return resp.id === preg.respuesta.id;
+    if (preg.tipo === 'pentagrama' || preg.tipo === 'escala') return resp.l === preg.respuesta.l && (resp.a || 0) === preg.respuesta.a;
     return ((resp.pc % 12) + 12) % 12 === preg.respuesta.pc;
   }
   // Botones de respuesta que corresponden a (tema, nivel).
   function botones(tema, nivel) {
     const T = TEMAS[tema], N = T.niveles.find(n => n.id === nivel);
     if (T.tipo === 'oido') return { tipo: 'opciones', opciones: N.ids.map(id => { const d = T.datos.find(x => x.id === id); return { id, texto: T.modo === 'acorde' ? d.nombre : id, titulo: d.nombre }; }) };
+    if (T.tipo === 'armadura' || T.tipo === 'cuantas') return { tipo: 'opciones', opciones: rango(-N.max, N.max).map(f => (T.tipo === 'armadura' ? { id: String(f), texto: nombreTon(f, N.modo, true), titulo: nombreLargo(f, N.modo) } : { id: String(f), texto: textoAlt(f), titulo: letrasAlt(f) })) };
+    if (T.tipo === 'escala') return { tipo: 'letras', letras: LETRAS.slice(), alteraciones: true };
     if (T.tipo === 'pentagrama') return { tipo: 'letras', letras: LETRAS.slice(), alteraciones: !!N.alt };
     if (T.tipo === 'tecla') return { tipo: 'ninguno' };
     const pcs = N.pcs.every(p => !esNegra(p)) ? NATURALES_PC : N.pcs.every(esNegra) ? NEGRAS_PC : rango(0, 11);
@@ -193,6 +246,16 @@
     partes.push(`<text x="${X}" y="${yPos(pos)}" font-size="${S * 4}" ${fuente} fill="currentColor" text-anchor="middle" aria-hidden="true">\uE0A2</text>`);
     return `<svg xmlns="http://www.w3.org/2000/svg" class="pentagrama" viewBox="0 0 260 150" role="img" aria-label="${C.nombre}: una nota en el pentagrama">${partes.join('')}</svg>`;
   }
+  // Pentagrama con clave y armadura (sin nota). f > 0 sostenidos, f < 0 bemoles, hasta 6.
+  function svgArmadura(clave, f) {
+    const C = CLAVES[clave], P = POS_ARMADURA[clave][f > 0 ? 's' : 'b'], partes = [];
+    if (!Number.isInteger(f) || Math.abs(f) > P.length) throw new Error('Armadura no admitida: ' + f);
+    for (const p of [0, 2, 4, 6, 8]) partes.push(`<line x1="8" y1="${yPos(p)}" x2="252" y2="${yPos(p)}" stroke="currentColor" stroke-width="1.2"/>`);
+    partes.push(`<text x="16" y="${yPos(C.linea)}" font-size="${S * 4}" ${fuente} fill="currentColor" aria-hidden="true">${C.glifo}</text>`);
+    const glifo = f > 0 ? '\uE262' : '\uE260', paso = f > 0 ? 14 : 12;
+    for (let i = 0; i < Math.abs(f); i++) partes.push(`<text x="${62 + i * paso}" y="${yPos(P[i])}" font-size="${S * 4}" ${fuente} fill="currentColor" aria-hidden="true">${glifo}</text>`);
+    return `<svg xmlns="http://www.w3.org/2000/svg" class="pentagrama" viewBox="0 0 260 150" role="img" aria-label="${C.nombre}: una armadura">${partes.join('')}</svg>`;
+  }
   // Teclado de 2 octavas (C4–B5). opciones: { marcar: [midi], interactivo, clases: { midi: 'pk-ok' | 'pk-mal' } }
   function svgTeclado(op = {}) {
     const W = 22, H = 100, NW = 13, NH = 62, blancas = [], negras = [];
@@ -209,6 +272,6 @@
   }
 
   const api = { LETRAS, PC, CLAVES, TEMAS, NIVELES_PENTAGRAMA, NIVELES_TECLADO, NOMBRES_PC, nota, indice, deIndice, midi, nombre, bonito, esNegra,
-    posicion, notaEnPos, nombreMidi, INTERVALOS, ACORDES, estadisticas, precision, racha, peso, candidatos, crearPregunta, comprobar, botones, svgPentagrama, svgTeclado };
+    posicion, notaEnPos, nombreMidi, INTERVALOS, ACORDES, NIVELES_TONALIDAD, POS_ARMADURA, tonica, nombreTon, nombreLargo, altEnArmadura, gradoDeEscala, textoAlt, letrasAlt, rotulo, svgArmadura, estadisticas, precision, racha, peso, candidatos, crearPregunta, comprobar, botones, svgPentagrama, svgTeclado };
   raiz.Notacion = api;
 })(typeof window !== 'undefined' ? window : globalThis);

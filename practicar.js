@@ -80,7 +80,7 @@
     clearTimeout(temporizador); ses = null; mod = 0; pantalla = 'inicio'; window.RepertorioAudio?.detener();
     const est = N.estadisticas(todas()), lista = todas();
     const hoyN = lista.filter(s => s.f === hoy()).reduce((x, s) => x + s.n, 0), racha = N.racha(lista, hoy());
-    const debiles = Object.entries(est.items).filter(([k, i]) => /^(sol|fa|tec|tecla|ia|id|ih|ac):/.test(k) && i.v >= 3 && i.a / i.v < 0.8).sort((a, b) => a[1].a / a[1].v - b[1].a / b[1].v).slice(0, 3);
+    const debiles = Object.entries(est.items).filter(([k, i]) => /^(sol|fa|tec|tecla|ia|id|ih|ac|as|af|an|eg):/.test(k) && i.v >= 3 && i.a / i.v < 0.8).sort((a, b) => a[1].a / a[1].v - b[1].a / b[1].v).slice(0, 3);
     const pass = el('input', { type: 'password', autocomplete: 'current-password', placeholder: 'Contraseña', id: 'pr-pass', 'aria-label': 'Contraseña del editor' });
     const rec = el('input', { type: 'checkbox', id: 'pr-rec' });
     const msg = el('p', { className: 'aviso-e', id: 'pr-msg' });
@@ -105,7 +105,7 @@
         el('p', {}, el('button', { type: 'button', className: 'primario', onclick: entrar }, 'Entrar')), msg),
       conPase && el('p', {}, el('button', { type: 'button', onclick: sincronizar }, 'Sincronizar ahora'), ' ', el('button', { type: 'button', onclick: () => { olvidarToken(); sync = { estado: datos.pend.length ? 'pendiente' : 'local' }; pintarInicio(); } }, 'Cerrar sesión')));
     const repaso = debiles.length ? el('div', { className: 'parte' }, el('h3', {}, 'Para repasar'),
-      el('div', { className: 'chips' }, ...debiles.map(([item, i]) => el('span', { className: 'chip' }, el('b', {}, item.replace(/^[a-z]+:/, '')), el('i', { className: 'rom' }, pct(i.a / i.v)))))) : null;
+      el('div', { className: 'chips' }, ...debiles.map(([item, i]) => el('span', { className: 'chip' }, el('b', {}, N.rotulo(item)), el('i', { className: 'rom' }, pct(i.a / i.v)))))) : null;
     const grupos = {};
     for (const [id, T] of Object.entries(N.TEMAS)) (grupos[T.grupo] || (grupos[T.grupo] = [])).push([id, T]);
     const tarjetas = Object.entries(grupos).map(([g, temas]) => el('section', {}, el('h2', { className: 'pr-grupo' }, g),
@@ -159,6 +159,8 @@
     let visual;
     if (p.tipo === 'pentagrama') visual = nodoSvg(N.svgPentagrama(p.clave, p.nota));
     else if (p.tipo === 'teclado') visual = nodoSvg(N.svgTeclado({ marcar: [p.midi], clases: feedback ? { [p.midi]: feedback.ok ? 'pk-ok' : 'pk-mal' } : {} }));
+    else if (p.tipo === 'armadura') visual = nodoSvg(N.svgArmadura(p.clave, p.f));
+    else if (p.tipo === 'cuantas' || p.tipo === 'escala') visual = null;
     else if (p.tipo === 'oido') visual = el('div', { className: 'pr-oido' },
       el('p', { className: 'pr-pedido' }, PREGUNTA_OIDO[N.TEMAS[ses.tema].modo]),
       el('button', { type: 'button', className: 'primario pr-oir', id: 'pr-oir', onclick: () => reproducir() }, '🔊 Escuchar otra vez (R)'),
@@ -169,7 +171,9 @@
       if (feedback && !feedback.ok && feedback.tocada != null) clases[feedback.tocada] = 'pk-mal';
       visual = nodoSvg(N.svgTeclado({ interactivo: !feedback, clases }));
     }
-    const area = el('div', { className: 'pr-visual' }, p.tipo === 'tecla' ? el('p', { className: 'pr-pedido', 'aria-live': 'polite' }, 'Toca la tecla: ', el('b', {}, N.NOMBRES_PC[p.respuesta.pc].replace(/#/g, '♯').replace(/b/g, '♭'))) : null, visual);
+    const pedido = p.tipo === 'tecla' ? el('p', { className: 'pr-pedido', 'aria-live': 'polite' }, 'Toca la tecla: ', el('b', {}, N.NOMBRES_PC[p.respuesta.pc].replace(/#/g, '♯').replace(/b/g, '♭')))
+      : p.pedido ? el('p', { className: 'pr-pedido', 'aria-live': 'polite' }, p.pedido) : null;
+    const area = el('div', { className: 'pr-visual' }, pedido, visual);
     let respuestas = null;
     if (b.tipo === 'letras') {
       respuestas = el('div', { className: 'pr-resp' },
@@ -205,10 +209,10 @@
     const p = ses.preg, ok = N.comprobar(p, resp), ms = Math.min(120000, Math.max(0, Math.round(performance.now() - ses.tq)));
     ses.fase = 'feedback'; ses.i++; ses.hechas.push([p.item, ok ? 1 : 0, ms]);
     const T = N.TEMAS[ses.tema];
-    const dicho = p.tipo === 'oido' ? T.datos.find(d => d.id === resp.id).nombre : p.tipo === 'pentagrama' ? N.bonito({ l: resp.l, a: resp.a || 0 }) : N.NOMBRES_PC[((resp.pc % 12) + 12) % 12].replace(/#/g, '♯').replace(/b/g, '♭');
+    const dicho = p.tipo === 'oido' ? T.datos.find(d => d.id === resp.id).nombre : (p.tipo === 'armadura' || p.tipo === 'cuantas') ? N.botones(ses.tema, ses.nivel).opciones.find(o => o.id === resp.id).texto : (p.tipo === 'pentagrama' || p.tipo === 'escala') ? N.bonito({ l: resp.l, a: resp.a || 0 }) : N.NOMBRES_PC[((resp.pc % 12) + 12) % 12].replace(/#/g, '♯').replace(/b/g, '♭');
     const era = p.tipo === 'pentagrama' ? N.bonito(p.nota) : p.etiqueta.replace(/#/g, '♯').replace(/b/g, '♭');
-    if (!ok) ses.errores.push({ item: p.item, era, dicho });
-    const detalle = p.tipo === 'oido' ? ' (' + p.notas.map(N.nombreMidi).join(T.modo === 'asc' || T.modo === 'desc' ? ' → ' : ' + ').replace(/#/g, '♯') + ')' : '';
+    if (!ok) ses.errores.push({ item: p.item, era: p.contexto ? p.contexto + ': ' + era : era, dicho });
+    const detalle = p.tipo === 'oido' ? ' (' + p.notas.map(N.nombreMidi).join(T.modo === 'asc' || T.modo === 'desc' ? ' → ' : ' + ').replace(/#/g, '♯') + ')' : p.detalle ? ' ' + p.detalle : '';
     pintarPregunta({ ok, texto: 'Era ' + era + detalle + (p.tipo === 'tecla' ? '' : ' · dijiste ' + dicho), tocada: resp.midi });
     if (ok) temporizador = setTimeout(() => siguiente(), CFG.pausa);
   }
@@ -234,7 +238,7 @@
         el('h2', { id: 'pr-resultado', tabIndex: -1 }, s ? `${s.a} de ${s.n} · ${pct(s.a / s.n)}` : 'Sin respuestas'),
         s && el('p', { className: 'a' }, `Tiempo: ${mmss(s.ms)} · ${Math.round(s.ms / s.n / 100) / 10} s por pregunta`),
         cfg.errores.length ? el('div', { className: 'parte' }, el('h3', {}, 'Fallos de esta sesión'), el('div', { className: 'chips' }, ...cfg.errores.map(e => el('span', { className: 'chip' }, el('b', {}, e.era), el('i', { className: 'rom' }, 'dijiste ' + e.dicho))))) : el('p', {}, 'Sin fallos. 👏'),
-        repasar.length ? el('div', { className: 'parte' }, el('h3', {}, 'Para repasar'), el('div', { className: 'chips' }, ...repasar.map(([k, i]) => el('span', { className: 'chip' }, el('b', {}, k.replace(/^[a-z]+:/, '')), el('i', { className: 'rom' }, pct(i.a / i.v)))))) : null,
+        repasar.length ? el('div', { className: 'parte' }, el('h3', {}, 'Para repasar'), el('div', { className: 'chips' }, ...repasar.map(([k, i]) => el('span', { className: 'chip' }, el('b', {}, N.rotulo(k)), el('i', { className: 'rom' }, pct(i.a / i.v)))))) : null,
         el('p', {}, el('button', { type: 'button', className: 'primario', id: 'pr-repetir', onclick: () => empezar(cfg.tema, cfg.nivel, cfg.total) }, 'Repetir'), ' ',
           el('button', { type: 'button', onclick: () => { pintarInicio(); } }, 'Otro ejercicio')),
         el('p', { className: 'a', id: 'pr-estado', 'aria-live': 'polite' }, TEXTO_ESTADO[sync.estado] || '')));
