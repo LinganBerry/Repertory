@@ -483,3 +483,46 @@ test('PRACTICAR (lecciones): cada tema tiene su botón, la lección se abre, vue
   assert.equal(n.w.RepertorioPractica.estadoSesion().tema, 'int-arm');
   sinErrores(n); n.cerrar();
 });
+
+test('PRACTICAR (sesión diaria): mezcla temas, se guarda por tema y termina al acabarse el tiempo; las estadísticas la reflejan', async () => {
+  memoria.clear();
+  const n = await navegador('');
+  await abrirPractica(n); audioFalso(n);
+  const P = n.w.RepertorioPractica;
+  assert.equal(P.CFG.minutos, 15);
+  n.$('pr-diaria-ir').click();
+  await esperar(() => P.estadoSesion()?.preg, 'primera pregunta diaria');
+  const vistos = new Set(); let respondidas = 0;
+  for (let i = 0; i < 30; i++) {
+    await esperar(() => P.estadoSesion()?.preg && P.estadoSesion().fase === 'pregunta', 'siguiente pregunta');
+    vistos.add(P.estadoSesion().tema);
+    assert.match(n.d.querySelector('#practica .cbarra').textContent, /Diaria · \d+:\d\d · \d+/);
+    await contestar(n, i % 4 !== 0); respondidas++;
+    if (P.estadoSesion()?.fase === 'feedback' && n.$('pr-sig')) n.$('pr-sig').click();
+  }
+  assert.ok(vistos.size >= 4, 'se mezclan temas: ' + [...vistos]);
+  await esperar(() => P.estadoSesion()?.preg && P.estadoSesion().fase === 'pregunta', 'última pregunta');
+  P.CFG.minutos = 0;                                           // se acaba el tiempo: tras esta respuesta, termina
+  await contestar(n, true); respondidas++;
+  if (P.estadoSesion()?.fase === 'feedback' && n.$('pr-sig')) n.$('pr-sig').click();
+  await esperar(() => n.$('pr-resultado'), 'resultado');
+  assert.match(n.$('pr-resultado').textContent, new RegExp(`de ${respondidas} ·`));
+  assert.ok(n.d.querySelector('#practica .parte h3') && /Por tema/.test(n.d.querySelector('#practica').textContent));
+  const pend = P.datos.pend;
+  assert.ok(pend.length >= vistos.size && pend.every(s => n.w.Notacion.TEMAS[s.t]), 'una sesión guardada por cada tema que salió');
+  assert.equal(pend.reduce((x, s) => x + s.n, 0), respondidas); assert.equal(new Set(pend.map(s => s.id)).size, pend.length);
+  // estadísticas
+  [...n.d.querySelectorAll('#practica button')].find(b => /Otro ejercicio/.test(b.textContent)).click();
+  await esperar(() => n.$('pr-stats-ir'), 'inicio'); n.$('pr-stats-ir').click();
+  await esperar(() => n.$('pr-stats'), 'estadísticas');
+  const txt = n.$('practica').textContent;
+  assert.match(n.$('pr-stats').textContent, new RegExp(`^${respondidas} preguntas ·`)); assert.match(txt, /Últimos 7 días/); assert.match(txt, /Por tema/); assert.match(txt, /Puntos débiles/);
+  [...n.d.querySelectorAll('#practica button')].find(b => /← Practicar/.test(b.textContent)).click();
+  await esperar(() => n.d.querySelector('#practica .pr-tema'), 'vuelve a Practicar');
+  sinErrores(n); n.cerrar();
+
+  const v = await navegador('');                               // sin historial: las estadísticas lo dicen y no fallan
+  await abrirPractica(v); v.$('pr-stats-ir').click();
+  await esperar(() => v.$('pr-stats'), 'estadísticas vacías'); assert.equal(v.$('pr-stats').textContent, 'Aún no hay práctica');
+  sinErrores(v); v.cerrar();
+});

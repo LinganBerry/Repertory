@@ -236,3 +236,39 @@ test('rótulos y servidor: los ejercicios nuevos se muestran bien y el servidor 
     assert.ok(limpiarSesion({ id: 'abcdef123456', t: tema, l: nv.id, f: '2026-10-28', n: 40, a: 40, ms: 36000, q }), `${tema}/${nv.id}: el servidor rechazaría la sesión`);
   }
 });
+
+// --- Bloque 5: sesión diaria y resumen ---
+test('sesión diaria: reparte entre temas, prefiere lo débil y lo olvidado, y nunca repite el tema anterior', () => {
+  const rng = semilla(21), temas = Object.keys(N.TEMAS), nivelDe = () => 1;
+  // todo dominado y practicado hoy, salvo "fa" (débil) y "tecla" (hace 6 días)
+  const sesiones = temas.map(t => ({ id: 'x' + t, t, l: 1, f: t === 'tecla' ? '2026-10-22' : '2026-10-28', n: 10, a: t === 'fa' ? 3 : 10, ms: 1, q: [] }));
+  const est = N.estadisticas(sesiones), cuenta = {};
+  let previo = null;
+  for (let i = 0; i < 6000; i++) {
+    const r = N.elegirTemaDiario(est, sesiones, '2026-10-28', nivelDe, rng, previo);
+    assert.notEqual(r.tema, previo); assert.ok(N.TEMAS[r.tema].niveles.some(n => n.id === r.nivel));
+    previo = r.tema; cuenta[r.tema] = (cuenta[r.tema] || 0) + 1;
+  }
+  assert.equal(Object.keys(cuenta).length, temas.length, 'salen todos los temas');
+  const normal = cuenta.sol;
+  assert.ok(cuenta.fa > 2.5 * normal, `débil: fa=${cuenta.fa} sol=${normal}`);
+  assert.ok(cuenta.tecla > 1.4 * normal, `olvidado: tecla=${cuenta.tecla} sol=${normal}`);
+  // un tema sin historial pesa más que uno dominado; un nivel inexistente cae al 1
+  const sin = N.estadisticas([]), c2 = {}; for (let i = 0; i < 3000; i++) { const r = N.elegirTemaDiario(est, sesiones.filter(s => s.t !== 'acordes'), '2026-10-28', () => 99, rng, null); c2[r.tema] = (c2[r.tema] || 0) + 1; assert.equal(r.nivel, 1); }
+  assert.ok(c2.acordes > c2.sol);
+  assert.ok(N.elegirTemaDiario(sin, [], '2026-10-28', nivelDe, rng, null).tema);
+});
+
+test('resumen de 7 días, puntos débiles y más lentos', () => {
+  const s = (id, f, n, a) => ({ id, t: 'sol', l: 1, f, n, a, ms: 1000 * n, q: [] });
+  const sem = N.resumenSemana([s('a1', '2026-10-28', 10, 8), s('a2', '2026-10-28', 5, 5), s('a3', '2026-10-22', 4, 1), s('a4', '2026-10-21', 9, 9)], '2026-10-28');
+  assert.equal(sem.length, 7); assert.equal(sem[0].f, '2026-10-22'); assert.equal(sem[6].f, '2026-10-28');
+  assert.deepEqual({ ...sem[6] }, { f: '2026-10-28', n: 15, a: 13 }); assert.deepEqual({ ...sem[0] }, { f: '2026-10-22', n: 4, a: 1 }); assert.equal(sem[3].n, 0, 'el 21 queda fuera');
+  assert.equal(N.resumenSemana([], '2026-03-01')[0].f, '2026-02-23', 'cruza el fin de mes');
+  const est = { items: { 'sol:E4': { v: 10, a: 5, ms: 20000 }, 'as:Bb': { v: 4, a: 1, ms: 4000 }, 'sol:G4': { v: 20, a: 19, ms: 90000 }, 'eg:D.6': { v: 2, a: 0, ms: 1000 }, 'fa:C3': { v: 5, a: 4, ms: 5000 } } };
+  const d = N.debiles(est);
+  assert.deepEqual([...d.map(x => x.item)], ['as:Bb', 'sol:E4'], 'solo ≥3 intentos y <80 %, el peor primero');
+  assert.equal(d[0].rotulo, 'Armadura B♭'); assert.equal(d[0].acierto, 0.25);
+  assert.deepEqual([...N.lentos(est, 2).map(x => x.item)], ['sol:G4', 'sol:E4']); assert.equal(N.lentos(est, 2)[0].seg, 4.5);
+  assert.equal(N.debiles({ items: {} }).length, 0); assert.equal(N.lentos({ items: {} }).length, 0);
+});

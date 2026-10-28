@@ -15,7 +15,7 @@
   // Texto SVG de notacion.js (hecho solo con números y símbolos propios) -> nodo, sin innerHTML.
   const nodoSvg = texto => document.importNode(new DOMParser().parseFromString(texto, 'image/svg+xml').documentElement, true);
 
-  const CFG = { pausa: 650 };                                     // ms antes de pasar sola a la siguiente tras un acierto
+  const CFG = { pausa: 650, minutos: 15 };                                     // ms antes de pasar sola a la siguiente tras un acierto
   const SESION = 'repertorio-sesion-v3', GUARDADO = 'repertorio-practica-v1', PREF = 'repertorio-practica-pref';
   const leer = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } };
   const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sin espacio: no pasa nada grave */ } };
@@ -119,9 +119,33 @@
           el('p', {}, el('button', { type: 'button', className: 'primario', onclick: () => empezar(id, nv, 10) }, 'Empezar · 10'), ' ', el('button', { type: 'button', onclick: () => empezar(id, nv, 20) }, 'Empezar · 20'),
             window.Lecciones && window.Lecciones.dePorTema(id) ? [' ', el('button', { type: 'button', className: 'b-leccion', onclick: () => pintarLeccion(id) }, '📖 Lección')] : null));
       })));
+    const diaria = el('div', { className: 'parte', id: 'pr-diaria' }, el('h3', {}, 'Sesión diaria'),
+      el('p', {}, 'Mezcla de todos los temas, ' + CFG.minutos + ' minutos. Sale más lo que menos dominas y lo que hace más tiempo que no practicas.'),
+      el('p', {}, el('button', { type: 'button', className: 'primario', id: 'pr-diaria-ir', onclick: () => empezarDiaria() }, 'Empezar sesión diaria · ' + CFG.minutos + ' min'), ' ',
+        el('button', { type: 'button', id: 'pr-stats-ir', onclick: () => pintarEstadisticas() }, '📊 Estadísticas')));
     caja.replaceChildren(barra(el('button', { type: 'button', title: 'Volver (Esc)', onclick: () => history.back() }, '← Volver'), 'Practicar'),
-      el('div', { className: 'ccuerpo' }, estado, repaso, ...tarjetas,
+      el('div', { className: 'ccuerpo' }, estado, diaria, repaso, ...tarjetas,
         el('p', { className: 'a' }, 'Atajos: letras A–G para responder · # o + sube, - baja · Enter o Espacio para seguir · Esc para salir.')));
+  }
+
+  // --- estadísticas ---
+  function pintarEstadisticas() {
+    clearTimeout(temporizador); ses = null; pantalla = 'estadisticas'; window.RepertorioAudio?.detener();
+    const lista = todas(), est = N.estadisticas(lista), semana = N.resumenSemana(lista, hoy()), deb = N.debiles(est, 8), len = N.lentos(est, 5);
+    const total = lista.reduce((x, s) => x + s.n, 0), aciertos = lista.reduce((x, s) => x + s.a, 0);
+    const dia = f => new Date(f + 'T12:00:00').toLocaleDateString('es', { weekday: 'short', day: 'numeric' });
+    const filas = Object.entries(est.temas).map(([k, t]) => { const i = k.lastIndexOf(':'), tema = k.slice(0, i), nivel = Number(k.slice(i + 1)); return { tema, nivel, t }; })
+      .filter(x => N.TEMAS[x.tema]).sort((a, b) => Object.keys(N.TEMAS).indexOf(a.tema) - Object.keys(N.TEMAS).indexOf(b.tema) || a.nivel - b.nivel);
+    caja.replaceChildren(barra(el('button', { type: 'button', title: 'Volver a Practicar', onclick: () => pintarInicio() }, '← Practicar'), 'Estadísticas'),
+      el('div', { className: 'ccuerpo' },
+        el('h2', { id: 'pr-stats', tabIndex: -1 }, total ? `${total} preguntas · ${pct(aciertos / total)}` : 'Aún no hay práctica'),
+        !total && el('p', {}, 'Haz una sesión y aquí verás tu progreso.'),
+        total ? el('div', { className: 'parte' }, el('h3', {}, 'Últimos 7 días'), el('div', { className: 'chips' }, ...semana.map(d => el('span', { className: 'chip' }, el('b', {}, dia(d.f)), el('i', { className: 'rom' }, d.n ? d.n + ' · ' + pct(d.a / d.n) : '—'))))) : null,
+        filas.length ? el('div', { className: 'parte' }, el('h3', {}, 'Por tema'), el('ul', { className: 'pr-puntos' }, ...filas.map(x => el('li', {}, `${N.TEMAS[x.tema].nombre} · nivel ${x.nivel}: ${pct(N.precision(est, x.tema, x.nivel))} reciente · ${x.t.n} preguntas`)))) : null,
+        deb.length ? el('div', { className: 'parte' }, el('h3', {}, 'Puntos débiles'), el('div', { className: 'chips' }, ...deb.map(d => el('span', { className: 'chip' }, el('b', {}, d.rotulo), el('i', { className: 'rom' }, pct(d.acierto) + ' · ' + d.intentos + ' int.'))))) : null,
+        len.length ? el('div', { className: 'parte' }, el('h3', {}, 'Los más lentos'), el('div', { className: 'chips' }, ...len.map(d => el('span', { className: 'chip' }, el('b', {}, d.rotulo), el('i', { className: 'rom' }, d.seg + ' s'))))) : null,
+        el('p', {}, el('button', { type: 'button', className: 'primario', onclick: () => empezarDiaria() }, 'Empezar sesión diaria · ' + CFG.minutos + ' min'))));
+    $('pr-stats').focus(); caja.scrollTop = 0;
   }
 
   // --- lecciones ---
@@ -161,11 +185,20 @@
     ses = { tema, nivel, total, i: 0, hechas: [], t0: performance.now(), fase: 'pregunta', previa: null, est: N.estadisticas(todas()), errores: [] };
     mod = 0; pantalla = 'sesion'; siguiente(true);
   }
+  function empezarDiaria() {
+    ses = { diaria: true, tema: null, nivel: 1, total: Infinity, i: 0, hechas: [], marcas: [], t0: performance.now(), fase: 'pregunta', previa: null, previaTema: null, est: N.estadisticas(todas()), errores: [] };
+    mod = 0; pantalla = 'sesion'; siguiente(true);
+  }
+  const restante = () => Math.max(0, CFG.minutos * 60000 - (performance.now() - ses.t0));
   function siguiente(primera) {
     if (!ses) return;
     if (!primera && ses.fase !== 'feedback') return;
     clearTimeout(temporizador);
-    if (ses.i >= ses.total) return terminar();
+    if (ses.diaria) {
+      if (!primera && restante() <= 0) return terminar();
+      const sel = N.elegirTemaDiario(ses.est, todas(), hoy(), nivelDe, Math.random, ses.previaTema);
+      ses.tema = sel.tema; ses.nivel = sel.nivel; ses.previaTema = sel.tema;
+    } else if (ses.i >= ses.total) return terminar();
     ses.preg = N.crearPregunta(ses.tema, ses.nivel, ses.est, Math.random, ses.previa);
     ses.previa = ses.preg.item; ses.fase = 'pregunta'; ses.tq = performance.now(); mod = 0;
     pintarPregunta();
@@ -207,7 +240,7 @@
       el('p', {}, feedback.ok ? '✓ Correcto' : '✗ ' + feedback.texto),
       !feedback.ok && el('p', {}, el('button', { type: 'button', className: 'primario', id: 'pr-sig', onclick: () => siguiente() }, ses.i >= ses.total ? 'Ver resultado' : 'Siguiente')));
     caja.replaceChildren(
-      barra(el('button', { type: 'button', title: 'Salir (Esc)', onclick: () => history.back() }, '← Salir'), `${Math.min(hechas + (feedback ? 0 : 1), ses.total)} / ${ses.total}`),
+      barra(el('button', { type: 'button', title: 'Salir (Esc)', onclick: () => history.back() }, '← Salir'), ses.diaria ? `Diaria · ${mmss(restante())} · ${hechas}` : `${Math.min(hechas + (feedback ? 0 : 1), ses.total)} / ${ses.total}`),
       el('div', { className: 'ccuerpo pr-sesion' },
         el('p', { className: 'a' }, T.nombre + ' · nivel ' + niv.id + ' · ' + niv.nombre + ' · ' + pct(hechas ? aciertos / hechas : null)),
         area, respuestas, cierre));
@@ -225,6 +258,10 @@
     if (!ses || ses.fase !== 'pregunta') return;
     const p = ses.preg, ok = N.comprobar(p, resp), ms = Math.min(120000, Math.max(0, Math.round(performance.now() - ses.tq)));
     ses.fase = 'feedback'; ses.i++; ses.hechas.push([p.item, ok ? 1 : 0, ms]);
+    if (ses.diaria) {
+      ses.marcas.push([ses.tema, ses.nivel]);
+      const it = ses.est.items[p.item] || (ses.est.items[p.item] = { v: 0, a: 0, ms: 0 }); it.v++; it.a += ok ? 1 : 0; it.ms += ms;   // la sesión se adapta sobre la marcha
+    }
     const T = N.TEMAS[ses.tema];
     const dicho = p.tipo === 'oido' ? T.datos.find(d => d.id === resp.id).nombre : (p.tipo === 'armadura' || p.tipo === 'cuantas') ? N.botones(ses.tema, ses.nivel).opciones.find(o => o.id === resp.id).texto : (p.tipo === 'pentagrama' || p.tipo === 'escala') ? N.bonito({ l: resp.l, a: resp.a || 0 }) : N.NOMBRES_PC[((resp.pc % 12) + 12) % 12].replace(/#/g, '♯').replace(/b/g, '♭');
     const era = p.tipo === 'pentagrama' ? N.bonito(p.nota) : p.etiqueta.replace(/#/g, '♯').replace(/b/g, '♭');
@@ -234,8 +271,23 @@
     if (ok) temporizador = setTimeout(() => siguiente(), CFG.pausa);
   }
 
+  // Sesión diaria: se guarda una sesión normal por cada tema y nivel que salió (así las estadísticas no cambian).
+  function guardarDiaria() {
+    const grupos = new Map();
+    ses.hechas.forEach((h, i) => { const [t, l] = ses.marcas[i], k = t + ':' + l; if (!grupos.has(k)) grupos.set(k, { tema: t, nivel: l, q: [] }); grupos.get(k).q.push(h); });
+    const total = { a: 0, n: 0, ms: 0, grupos: [] };
+    for (const g of grupos.values()) {
+      const q = g.q.slice(0, 100), a = q.filter(h => h[1]).length, ms = Math.min(3600000, q.reduce((x, h) => x + h[2], 0));
+      datos.pend.push({ id: nuevoId(), t: g.tema, l: g.nivel, f: hoy(), n: q.length, a, ms, q });
+      total.a += a; total.n += q.length; total.ms += ms; total.grupos.push({ tema: g.tema, nivel: g.nivel, a, n: q.length });
+    }
+    persistir(); sync = { estado: 'pendiente' };
+    if (token()) sincronizar();
+    return total;
+  }
   function guardarSesion() {
     if (!ses || !ses.hechas.length) return null;
+    if (ses.diaria) return guardarDiaria();
     const n = Math.min(100, ses.hechas.length), q = ses.hechas.slice(0, n);
     const s = { id: nuevoId(), t: ses.tema, l: ses.nivel, f: hoy(), n, a: q.filter(h => h[1]).length, ms: Math.min(3600000, q.reduce((x, h) => x + h[2], 0)), q };
     datos.pend.push(s); persistir(); sync = { estado: 'pendiente' };
@@ -254,9 +306,10 @@
       el('div', { className: 'ccuerpo pr-sesion' },
         el('h2', { id: 'pr-resultado', tabIndex: -1 }, s ? `${s.a} de ${s.n} · ${pct(s.a / s.n)}` : 'Sin respuestas'),
         s && el('p', { className: 'a' }, `Tiempo: ${mmss(s.ms)} · ${Math.round(s.ms / s.n / 100) / 10} s por pregunta`),
+        s && s.grupos ? el('div', { className: 'parte' }, el('h3', {}, 'Por tema'), el('div', { className: 'chips' }, ...s.grupos.map(g => el('span', { className: 'chip' }, el('b', {}, N.TEMAS[g.tema].nombre), el('i', { className: 'rom' }, g.a + '/' + g.n))))) : null,
         cfg.errores.length ? el('div', { className: 'parte' }, el('h3', {}, 'Fallos de esta sesión'), el('div', { className: 'chips' }, ...cfg.errores.map(e => el('span', { className: 'chip' }, el('b', {}, e.era), el('i', { className: 'rom' }, 'dijiste ' + e.dicho))))) : el('p', {}, 'Sin fallos. 👏'),
         repasar.length ? el('div', { className: 'parte' }, el('h3', {}, 'Para repasar'), el('div', { className: 'chips' }, ...repasar.map(([k, i]) => el('span', { className: 'chip' }, el('b', {}, N.rotulo(k)), el('i', { className: 'rom' }, pct(i.a / i.v)))))) : null,
-        el('p', {}, el('button', { type: 'button', className: 'primario', id: 'pr-repetir', onclick: () => empezar(cfg.tema, cfg.nivel, cfg.total) }, 'Repetir'), ' ',
+        el('p', {}, el('button', { type: 'button', className: 'primario', id: 'pr-repetir', onclick: () => (cfg.diaria ? empezarDiaria() : empezar(cfg.tema, cfg.nivel, cfg.total)) }, cfg.diaria ? 'Otra sesión diaria' : 'Repetir'), ' ',
           el('button', { type: 'button', onclick: () => { pintarInicio(); } }, 'Otro ejercicio')),
         el('p', { className: 'a', id: 'pr-estado', 'aria-live': 'polite' }, TEXTO_ESTADO[sync.estado] || '')));
     $('pr-resultado').focus();

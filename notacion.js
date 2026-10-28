@@ -152,6 +152,39 @@
     return n;
   }
 
+  // --- sesión diaria y resumen ---
+  const diasEntre = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 864e5);
+  const sumarDias = (f, d) => { const x = new Date(f + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + d); return x.toISOString().slice(0, 10); };
+  // Elige el tema (y su nivel) de la siguiente pregunta de la sesión diaria: pesa más lo que dominas menos y lo que hace más días que
+  // no practicas; lo que nunca has hecho también pesa. nivelDe(tema) = nivel elegido por la persona. Nunca repite el tema anterior.
+  function elegirTemaDiario(est, sesiones, hoy, nivelDe, rng, evitar) {
+    const ultimo = {};
+    for (const s of sesiones || []) if (!ultimo[s.t] || s.f > ultimo[s.t]) ultimo[s.t] = s.f;
+    const todos = Object.keys(TEMAS).map(tema => {
+      const pedido = nivelDe(tema), nivel = TEMAS[tema].niveles.some(n => n.id === pedido) ? pedido : 1;
+      const p = precision(est, tema, nivel), dias = ultimo[tema] ? Math.max(0, diasEntre(ultimo[tema], hoy)) : null;
+      return { tema, nivel, peso: (p == null ? 2.5 : 1 + 4 * (1 - p)) + (dias == null ? 1 : Math.min(dias, 7) * 0.15) };
+    });
+    const lista = todos.length > 1 ? todos.filter(c => c.tema !== evitar) : todos;
+    let r = rng() * lista.reduce((s, c) => s + c.peso, 0);
+    for (const c of lista) { r -= c.peso; if (r <= 0) return { tema: c.tema, nivel: c.nivel }; }
+    const u = lista[lista.length - 1]; return { tema: u.tema, nivel: u.nivel };
+  }
+  // Los últimos 7 días (el último es hoy): preguntas y aciertos de cada uno.
+  function resumenSemana(sesiones, hoy) {
+    return rango(0, 6).map(i => { const f = sumarDias(hoy, i - 6); let n = 0, a = 0; for (const s of sesiones || []) if (s.f === f) { n += s.n; a += s.a; } return { f, n, a }; });
+  }
+  // Puntos débiles: ejercicios con 3 o más intentos y menos de 80 % de aciertos, los peores primero.
+  function debiles(est, max = 8) {
+    return Object.entries(est.items).filter(([, i]) => i.v >= 3 && i.a / i.v < 0.8).sort((x, y) => x[1].a / x[1].v - y[1].a / y[1].v || y[1].v - x[1].v).slice(0, max)
+      .map(([item, i]) => ({ item, rotulo: rotulo(item), acierto: i.a / i.v, intentos: i.v }));
+  }
+  // Los más lentos: ejercicios con 3 o más intentos, por tiempo medio de respuesta.
+  function lentos(est, max = 5) {
+    return Object.entries(est.items).filter(([, i]) => i.v >= 3 && i.ms > 0).sort((x, y) => y[1].ms / y[1].v - x[1].ms / x[1].v).slice(0, max)
+      .map(([item, i]) => ({ item, rotulo: rotulo(item), seg: Math.round(i.ms / i.v / 100) / 10, intentos: i.v }));
+  }
+
   // --- preguntas ---
   // Peso de cada ejercicio: lo que fallas o no has visto sale más. rng = () => número en [0,1).
   const peso = (est, item) => { const i = est && est.items[item]; return i && i.v ? 1 + 4 * (1 - i.a / i.v) : 2; };
@@ -272,6 +305,6 @@
   }
 
   const api = { LETRAS, PC, CLAVES, TEMAS, NIVELES_PENTAGRAMA, NIVELES_TECLADO, NOMBRES_PC, nota, indice, deIndice, midi, nombre, bonito, esNegra,
-    posicion, notaEnPos, nombreMidi, INTERVALOS, ACORDES, NIVELES_TONALIDAD, POS_ARMADURA, tonica, nombreTon, nombreLargo, altEnArmadura, gradoDeEscala, textoAlt, letrasAlt, rotulo, svgArmadura, estadisticas, precision, racha, peso, candidatos, crearPregunta, comprobar, botones, svgPentagrama, svgTeclado };
+    elegirTemaDiario, resumenSemana, debiles, lentos, posicion, notaEnPos, nombreMidi, INTERVALOS, ACORDES, NIVELES_TONALIDAD, POS_ARMADURA, tonica, nombreTon, nombreLargo, altEnArmadura, gradoDeEscala, textoAlt, letrasAlt, rotulo, svgArmadura, estadisticas, precision, racha, peso, candidatos, crearPregunta, comprobar, botones, svgPentagrama, svgTeclado };
   raiz.Notacion = api;
 })(typeof window !== 'undefined' ? window : globalThis);
