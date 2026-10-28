@@ -262,6 +262,13 @@ test('progreso: guarda sesiones válidas, las devuelve y no repite una con el mi
   assert.deepEqual(leido.sesiones[0], limpiarSesion(s));
 });
 
+test('progreso: acepta los temas y ejercicios de oído', async () => {
+  limpiarTodo();
+  const token = await pase();
+  const r = await enviar(token, [sesion({ t: 'int-asc', q: [['ia:3M', 1, 1800], ['ia:TT', 0, 4000], ['ia:8J', 1, 900]] }), sesion({ t: 'acordes', q: [['ac:m7b5', 0, 5000], ['ac:dom7', 1, 2500], ['ac:mayor', 1, 1200]] })]);
+  assert.equal(r.status, 200); assert.equal(r.guardadas, 2);
+});
+
 test('progreso: rechaza sesiones inválidas sin guardar nada', async () => {
   limpiarTodo();
   const token = await pase();

@@ -27,8 +27,9 @@ test('posiciones en las claves de sol y fa (0 = línea inferior)', () => {
 test('niveles: cada candidato cae donde dice el nivel y no hay dobles alteraciones', () => {
   for (const [id, T] of Object.entries(N.TEMAS)) for (const nv of T.niveles) {
     const c = N.candidatos(id, nv.id);
-    assert.ok(c.length >= 3, `${id} nivel ${nv.id} tiene pocas opciones`);
-    if (T.tipo === 'pentagrama') for (const x of c) {
+    assert.ok(c.length >= (T.tipo === 'oido' ? 2 : 3), `${id} nivel ${nv.id} tiene pocas opciones`);
+    if (T.tipo === 'oido') for (const x of c) assert.ok(nv.ids.includes(x.id));
+    else if (T.tipo === 'pentagrama') for (const x of c) {
       assert.ok(nv.pos.includes(N.posicion(id, x.nota)), `${id}/${nv.id}: ${N.nombre(x.nota)}`);
       assert.ok(Math.abs(x.nota.a) <= 1);
       if (!nv.alt) assert.equal(x.nota.a, 0, 'sin alteraciones en niveles 1 a 4');
@@ -48,6 +49,8 @@ test('preguntas: 300 por tema y nivel, siempre válidas, con respuesta correcta 
         assert.ok(N.comprobar(p, { l: p.nota.l, a: p.nota.a }));
         assert.ok(!N.comprobar(p, { l: N.LETRAS[(N.LETRAS.indexOf(p.nota.l) + 1) % 7], a: p.nota.a }), 'otra letra es incorrecta');
         if (p.nota.a) assert.ok(!N.comprobar(p, { l: p.nota.l, a: 0 }), 'sin la alteración es incorrecto');
+      } else if (p.tipo === 'oido') {
+        assert.ok(N.comprobar(p, { id: p.respuesta.id })); assert.ok(!N.comprobar(p, { id: 'otro' }));
       } else {
         assert.ok(N.comprobar(p, { pc: p.respuesta.pc })); assert.ok(N.comprobar(p, { pc: p.respuesta.pc + 12 }), 'cualquier octava vale');
         assert.ok(!N.comprobar(p, { pc: p.respuesta.pc + 1 }));
@@ -113,4 +116,50 @@ test('teclado SVG: 24 teclas, una marcada, interactivo con teclado', () => {
 test('la fuente musical está incluida, es pequeña y trae su licencia', async () => {
   assert.ok((await stat(new URL('../vendor/atril-notas.woff2', import.meta.url))).size < 20_000);
   assert.match(await readFile(new URL('../vendor/OFL-Bravura.txt', import.meta.url), 'utf8'), /SIL OPEN FONT LICENSE/i);
+});
+
+const SEMITONOS = { '2m': 1, '2M': 2, '3m': 3, '3M': 4, '4J': 5, TT: 6, '5J': 7, '6m': 8, '6M': 9, '7m': 10, '7M': 11, '8J': 12 };
+const ACORDES_PASOS = { mayor: [0, 4, 7], menor: [0, 3, 7], dim: [0, 3, 6], aum: [0, 4, 8], maj7: [0, 4, 7, 11], dom7: [0, 4, 7, 10], m7: [0, 3, 7, 10], m7b5: [0, 3, 6, 10] };
+
+test('oído: intervalos suben, bajan o suenan juntos con los semitonos correctos y dentro del rango del piano', () => {
+  const rng = semilla(5);
+  for (const [tema, modo] of [['int-asc', 'asc'], ['int-desc', 'desc'], ['int-arm', 'arm']]) for (const nv of N.TEMAS[tema].niveles) {
+    const vistos = new Set();
+    for (let i = 0; i < 400; i++) {
+      const p = N.crearPregunta(tema, nv.id, { items: {} }, rng, null), n = SEMITONOS[p.respuesta.id];
+      vistos.add(p.respuesta.id);
+      assert.ok(nv.ids.includes(p.respuesta.id));
+      if (modo === 'arm') { assert.equal(p.pasos.length, 1); assert.equal(p.pasos[0].midis[1] - p.pasos[0].midis[0], n); }
+      else {
+        assert.equal(p.pasos.length, 2); assert.ok(p.pasos[1].en > p.pasos[0].en, 'la segunda nota llega después');
+        assert.equal(p.pasos[1].midis[0] - p.pasos[0].midis[0], modo === 'asc' ? n : -n);
+      }
+      for (const m of p.notas) assert.ok(m >= 36 && m <= 96, 'fuera del rango cómodo: ' + m);
+      assert.equal(p.item.split(':')[0], { asc: 'ia', desc: 'id', arm: 'ih' }[modo]);
+    }
+    assert.equal(vistos.size, nv.ids.length, `${tema}/${nv.id}: salen todos los intervalos del nivel`);
+  }
+});
+
+test('oído: acordes con las notas correctas', () => {
+  const rng = semilla(9);
+  for (const nv of N.TEMAS.acordes.niveles) {
+    const vistos = new Set();
+    for (let i = 0; i < 300; i++) {
+      const p = N.crearPregunta('acordes', nv.id, { items: {} }, rng, null);
+      vistos.add(p.respuesta.id);
+      assert.equal(p.pasos.length, 1);
+      assert.deepEqual(JSON.parse(JSON.stringify(p.pasos[0].midis.map(m => m - p.pasos[0].midis[0]))), ACORDES_PASOS[p.respuesta.id]);
+      assert.ok(p.item.startsWith('ac:'));
+    }
+    assert.equal(vistos.size, nv.ids.length);
+  }
+  assert.equal(N.TEMAS.acordes.niveles[3].ids.length, 8);
+});
+
+test('oído: botones de respuesta y nombres de notas', () => {
+  const b = N.botones('int-asc', 1); assert.equal(b.tipo, 'opciones'); assert.deepEqual(JSON.parse(JSON.stringify(b.opciones.map(o => o.texto))), ['3m', '3M', '5J', '8J']);
+  assert.equal(N.botones('int-asc', 4).opciones.length, 12);
+  const a = N.botones('acordes', 3); assert.deepEqual(JSON.parse(JSON.stringify(a.opciones.map(o => o.texto))), ['Mayor 7ª', 'Dominante 7ª', 'Menor 7ª', 'Semidisminuido']);
+  assert.equal(N.nombreMidi(60), 'C4'); assert.equal(N.nombreMidi(61), 'C#4'); assert.equal(N.nombreMidi(69), 'A4'); assert.equal(N.nombreMidi(48), 'C3');
 });

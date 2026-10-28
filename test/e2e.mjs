@@ -219,6 +219,9 @@ async function contestar(n, bien, { teclado = false } = {}) {
     const letra = bien ? p.respuesta.l : n.w.Notacion.LETRAS[(n.w.Notacion.LETRAS.indexOf(p.respuesta.l) + 3) % 7];
     if (p.respuesta.a !== undefined && n.d.querySelector('[data-mod]') && bien) n.d.querySelector(`[data-mod="${p.respuesta.a}"]`).click();
     n.d.querySelector(`[data-letra="${letra}"]`).click();
+  } else if (p.tipo === 'oido') {
+    const otro = n.w.Notacion.botones(ses.tema, ses.nivel).opciones.find(o => o.id !== p.respuesta.id).id;
+    n.d.querySelector(`[data-op="${bien ? p.respuesta.id : otro}"]`).click();
   } else if (p.tipo === 'teclado') {
     n.d.querySelector(`[data-pc="${bien ? p.respuesta.pc : (p.respuesta.pc + 1) % 12}"]`)?.click() || n.w.RepertorioPractica.responder({ pc: (p.respuesta.pc + 1) % 12 });
   } else {
@@ -338,4 +341,89 @@ test('PRACTICAR: teclado de piano (nombrar la tecla y tocar la tecla)', async ()
   await esperar(() => m.w.RepertorioPractica.estadoSesion().fase === 'pregunta', 'siguiente');
   await contestar(m, true);
   sinErrores(m); m.cerrar();
+});
+
+const audioFalso = (n, { falla = false } = {}) => {
+  const a = { llamadas: [], async tocar(p) { if (falla) throw new Error('sin sonido'); this.llamadas.push(p); }, detener() {}, esPiano: () => true };
+  n.w.RepertorioAudio = a; return a;
+};
+const empezarTema = async (n, tema, total = 10, nivel = 0) => {
+  if (nivel) { [...n.d.querySelectorAll(`[data-tema="${tema}"] .tg button`)].find(b => b.textContent.startsWith(nivel + ' ')).click(); await esperar(() => n.d.querySelector(`[data-tema="${tema}"] [aria-pressed="true"]`)?.textContent.startsWith(nivel + ' '), 'nivel elegido'); }
+  [...n.d.querySelectorAll(`[data-tema="${tema}"] button`)].find(b => new RegExp('Empezar · ' + total).test(b.textContent)).click();
+  await esperar(() => n.w.RepertorioPractica.estadoSesion()?.preg, 'primera pregunta de ' + tema);
+};
+
+test('PRACTICAR (oído): intervalos que suben: suena al empezar, se repite con R, y al fallar suena de nuevo y muestra las notas', async () => {
+  memoria.clear();
+  const n = await navegador('');
+  await abrirPractica(n);
+  const audio = audioFalso(n);
+  await empezarTema(n, 'int-asc', 10);
+  assert.equal(audio.llamadas.length, 1, 'suena sola al aparecer la pregunta');
+  assert.equal(audio.llamadas[0].length, 2, 'dos notas, una después de la otra');
+  assert.equal(n.d.querySelectorAll('#practica [data-op]').length, 4); assert.ok(n.$('pr-oir')); assert.equal(n.d.querySelector('#practica svg'), null, 'sin dibujos que den la respuesta');
+  n.tecla(n.d, 'r'); assert.equal(audio.llamadas.length, 2, 'R repite');
+  n.$('pr-oir').click(); assert.equal(audio.llamadas.length, 3, 'el botón repite');
+  await contestar(n, false);
+  assert.match(n.d.querySelector('.pr-feedback').textContent, /Era .*\(.*→.*\).*dijiste/s);
+  assert.equal(audio.llamadas.length, 4, 'al fallar vuelve a sonar la respuesta correcta');
+  n.$('pr-sig').click();
+  await esperar(() => n.w.RepertorioPractica.estadoSesion().fase === 'pregunta', 'siguiente');
+  const opciones = n.w.Notacion.botones('int-asc', 1).opciones, p = pregunta(n);
+  n.tecla(n.d, String(opciones.findIndex(o => o.id === p.respuesta.id) + 1));
+  await esperar(() => n.w.RepertorioPractica.estadoSesion().hechas.length === 2, 'respuesta con el número');
+  assert.equal(n.w.RepertorioPractica.estadoSesion().hechas[1][1], 1, 'la tecla de número elige esa opción');
+  await sesionCompleta(n, 8, 0);
+  await esperar(() => n.$('pr-resultado'), 'resultado');
+  assert.match(n.$('pr-resultado').textContent, /9 de 10 · 90%/);
+  const s = n.w.RepertorioPractica.datos.pend[0];
+  assert.equal(s.t, 'int-asc'); assert.ok(s.q.every(x => x[0].startsWith('ia:')));
+  sinErrores(n); n.cerrar();
+});
+
+test('PRACTICAR (oído): acordes (un solo golpe de varias notas) y sonido que no carga', async () => {
+  memoria.clear();
+  const n = await navegador('');
+  await abrirPractica(n);
+  const audio = audioFalso(n);
+  await empezarTema(n, 'acordes', 10, 3);
+  assert.equal(audio.llamadas[0].length, 1); assert.ok(audio.llamadas[0][0].midis.length >= 3, 'las notas del acorde suenan juntas');
+  assert.deepEqual([...n.d.querySelectorAll('#practica [data-op]')].map(b => b.title), ['Mayor 7ª', 'Dominante 7ª', 'Menor 7ª', 'Semidisminuido']);
+  await sesionCompleta(n, 10, 0);
+  await esperar(() => n.$('pr-resultado'), 'resultado');
+  assert.match(n.$('pr-resultado').textContent, /10 de 10 · 100%/);
+  [...n.d.querySelectorAll('#practica button')].find(b => b.textContent === 'Otro ejercicio').click();
+  await esperar(() => n.d.querySelector('[data-tema="int-desc"]'), 'inicio');
+  audioFalso(n, { falla: true });
+  await empezarTema(n, 'int-arm', 10);
+  await esperar(() => /No se pudo cargar el sonido/.test(n.$('pr-audio').textContent), 'aviso de sonido que no carga');
+  await contestar(n, true);                                   // se puede seguir practicando
+  assert.equal(n.w.RepertorioPractica.estadoSesion().hechas.length, 1);
+  sinErrores(n); n.cerrar();
+});
+
+test('AUDIO compartido (RepertorioAudio) con un Tone simulado: espera al piano, programa las notas y cancela lo anterior', async () => {
+  const n = await navegador('');
+  const sonidos = [];
+  class Instrumento {
+    constructor(op = {}) { this.volume = { value: 0 }; this.op = op; if (op.onload) setTimeout(op.onload, 40); }
+    connect() { return this; } toDestination() { return this; } releaseAll() {}
+    triggerAttackRelease(freqs, dur, t, vel) { sonidos.push({ quien: this.op.urls ? 'piano' : 'respaldo', freqs, dur, vel }); }
+  }
+  n.w.Tone = { start: async () => {}, Frequency: m => ({ toFrequency: () => 440 * 2 ** ((m - 69) / 12) }), Sampler: Instrumento, Reverb: Instrumento, PolySynth: Instrumento, Synth: class {}, getContext: () => ({}) };
+  const A = n.w.RepertorioAudio;
+  assert.equal(A.esPiano(), false);
+  await A.tocar([{ midis: [60], en: 10, dur: 1 }, { midis: [64, 67], en: 60, dur: 1.5 }]);
+  assert.equal(A.esPiano(), true, 'esperó a que cargara el piano');
+  await esperar(() => sonidos.length === 2, 'las dos notas programadas');
+  assert.deepEqual(sonidos.map(x => x.quien), ['piano', 'piano']);
+  assert.equal(sonidos[0].freqs.length, 1); assert.equal(sonidos[1].freqs.length, 2);
+  assert.ok(Math.abs(sonidos[0].freqs[0] - 261.63) < 0.01, 'C4 = 261.63 Hz');
+  sonidos.length = 0;
+  A.tocar([{ midis: [60], en: 80 }]);                          // se pide una y, enseguida, otra: la primera se cancela
+  await new Promise(r => setTimeout(r, 5));
+  await A.tocar([{ midis: [72], en: 20 }]);
+  await new Promise(r => setTimeout(r, 200));
+  assert.equal(sonidos.length, 1, 'solo suena la última petición'); assert.ok(Math.abs(sonidos[0].freqs[0] - 523.25) < 0.01);
+  sinErrores(n); n.cerrar();
 });

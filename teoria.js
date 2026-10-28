@@ -373,4 +373,18 @@
   }
   window.addEventListener('popstate', () => { if (!caja.hidden) cerrar(); });
   $('teoria-btn').addEventListener('click', abrir);
+
+  // Piano compartido con Practicar (oído). pasos: [{ midis: [60, 64], en: ms, dur: segundos }]. Rechaza si no hay sonido.
+  window.RepertorioAudio = {
+    async tocar(pasos) {
+      await cargarTone(); crearPiano();
+      await Tone.start();
+      for (let i = 0; i < 50 && !pianoListo && !pianoFallo; i++) await new Promise(ok => setTimeout(ok, 100));   // espera hasta 5 s al piano real
+      parar();
+      const inst = instrumento(), f = m => Tone.Frequency(m, 'midi').toFrequency();
+      pasos.forEach(p => notas_en_cola.push(setTimeout(() => inst.triggerAttackRelease(p.midis.map(f), p.dur || 1.2, undefined, 0.8), p.en || 0)));
+    },
+    detener() { parar(); },
+    esPiano: () => pianoListo
+  };
 })();

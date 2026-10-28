@@ -77,10 +77,10 @@
   const barra = (izq, centro) => el('div', { className: 'cbarra' }, izq, el('span', { className: 'ctitulo' }, centro));
 
   function pintarInicio() {
-    clearTimeout(temporizador); ses = null; mod = 0; pantalla = 'inicio';
+    clearTimeout(temporizador); ses = null; mod = 0; pantalla = 'inicio'; window.RepertorioAudio?.detener();
     const est = N.estadisticas(todas()), lista = todas();
     const hoyN = lista.filter(s => s.f === hoy()).reduce((x, s) => x + s.n, 0), racha = N.racha(lista, hoy());
-    const debiles = Object.entries(est.items).filter(([k, i]) => /^(sol|fa|tec|tecla):/.test(k) && i.v >= 3 && i.a / i.v < 0.8).sort((a, b) => a[1].a / a[1].v - b[1].a / b[1].v).slice(0, 3);
+    const debiles = Object.entries(est.items).filter(([k, i]) => /^(sol|fa|tec|tecla|ia|id|ih|ac):/.test(k) && i.v >= 3 && i.a / i.v < 0.8).sort((a, b) => a[1].a / a[1].v - b[1].a / b[1].v).slice(0, 3);
     const pass = el('input', { type: 'password', autocomplete: 'current-password', placeholder: 'Contraseña', id: 'pr-pass', 'aria-label': 'Contraseña del editor' });
     const rec = el('input', { type: 'checkbox', id: 'pr-rec' });
     const msg = el('p', { className: 'aviso-e', id: 'pr-msg' });
@@ -123,6 +123,22 @@
         el('p', { className: 'a' }, 'Atajos: letras A–G para responder · # o + sube, - baja · Enter o Espacio para seguir · Esc para salir.')));
   }
 
+  // --- sonido (oído) ---
+  const PREGUNTA_OIDO = { asc: '¿Qué intervalo suena? (sube)', desc: '¿Qué intervalo suena? (baja)', arm: '¿Qué intervalo suena? (a la vez)', acorde: '¿Qué acorde suena?' };
+  let audioTexto = '';
+  const marcarAudio = t => { audioTexto = t; const n = $('pr-audio'); if (n) n.textContent = t; };
+  async function reproducir() {
+    const p = ses && ses.preg;
+    if (!p || p.tipo !== 'oido') return;
+    const A = window.RepertorioAudio;
+    try {
+      if (!A) throw new Error('sin audio');
+      if (!A.esPiano()) marcarAudio('Cargando el piano…');
+      await A.tocar(p.pasos);
+      marcarAudio('');
+    } catch (e) { marcarAudio('No se pudo cargar el sonido (la primera vez necesita internet). Toca “Escuchar otra vez” para reintentar.'); }
+  }
+
   // --- sesión ---
   function empezar(tema, nivel, total) {
     ses = { tema, nivel, total, i: 0, hechas: [], t0: performance.now(), fase: 'pregunta', previa: null, est: N.estadisticas(todas()), errores: [] };
@@ -143,6 +159,10 @@
     let visual;
     if (p.tipo === 'pentagrama') visual = nodoSvg(N.svgPentagrama(p.clave, p.nota));
     else if (p.tipo === 'teclado') visual = nodoSvg(N.svgTeclado({ marcar: [p.midi], clases: feedback ? { [p.midi]: feedback.ok ? 'pk-ok' : 'pk-mal' } : {} }));
+    else if (p.tipo === 'oido') visual = el('div', { className: 'pr-oido' },
+      el('p', { className: 'pr-pedido' }, PREGUNTA_OIDO[N.TEMAS[ses.tema].modo]),
+      el('button', { type: 'button', className: 'primario pr-oir', id: 'pr-oir', onclick: () => reproducir() }, '🔊 Escuchar otra vez (R)'),
+      el('p', { className: 'a', id: 'pr-audio', 'aria-live': 'polite' }, audioTexto));
     else {
       const clases = {};
       if (feedback) for (const o of [4, 5]) clases[12 * (o + 1) + p.respuesta.pc] = 'pk-ok';
@@ -156,6 +176,9 @@
         b.alteraciones && el('div', { className: 'tg pr-mod', rol: 'group', 'aria-label': 'Alteración' },
           ...[['-1', '♭ bemol'], ['0', '♮ natural'], ['1', '♯ sostenido']].map(([v, t]) => el('button', { type: 'button', 'data-mod': v, 'aria-pressed': String(String(mod) === v), onclick: () => { mod = Number(v); refrescarMod(); } }, t))),
         el('div', { className: 'pr-letras' }, ...b.letras.map(l => el('button', { type: 'button', 'data-letra': l, disabled: !!feedback, onclick: () => responder({ l, a: b.alteraciones ? mod : 0 }) }, l))));
+    } else if (b.tipo === 'opciones') {
+      respuestas = el('div', { className: 'pr-resp' }, el('div', { className: 'pr-letras pr-opciones' }, ...b.opciones.map((o, i) =>
+        el('button', { type: 'button', 'data-op': o.id, title: o.titulo, disabled: !!feedback, onclick: () => responder({ id: o.id }) }, i < 9 ? el('small', { className: 'pr-n' }, (i + 1) + ' ') : null, o.texto))));
     } else if (b.tipo === 'pcs') {
       respuestas = el('div', { className: 'pr-resp' }, el('div', { className: 'pr-letras' }, ...b.pcs.map(x => el('button', { type: 'button', 'data-pc': x.pc, disabled: !!feedback, onclick: () => responder({ pc: x.pc }) }, x.texto.replace(/#/g, '♯').replace(/b/g, '♭')))));
     }
@@ -173,6 +196,7 @@
       svg.addEventListener('keydown', e => { const k = e.target.closest && e.target.closest('[data-midi]'); if (k && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); e.stopPropagation(); responder({ pc: Number(k.getAttribute('data-midi')) % 12, midi: Number(k.getAttribute('data-midi')) }); } });
     }
     if (feedback && !feedback.ok) $('pr-sig')?.focus();
+    if (p.tipo === 'oido' && (!feedback || !feedback.ok)) reproducir();
   }
   const refrescarMod = () => caja.querySelectorAll('[data-mod]').forEach(b => b.setAttribute('aria-pressed', String(b.getAttribute('data-mod') === String(mod))));
 
@@ -180,10 +204,12 @@
     if (!ses || ses.fase !== 'pregunta') return;
     const p = ses.preg, ok = N.comprobar(p, resp), ms = Math.min(120000, Math.max(0, Math.round(performance.now() - ses.tq)));
     ses.fase = 'feedback'; ses.i++; ses.hechas.push([p.item, ok ? 1 : 0, ms]);
-    const dicho = p.tipo === 'pentagrama' ? N.bonito({ l: resp.l, a: resp.a || 0 }) : N.NOMBRES_PC[((resp.pc % 12) + 12) % 12].replace(/#/g, '♯').replace(/b/g, '♭');
+    const T = N.TEMAS[ses.tema];
+    const dicho = p.tipo === 'oido' ? T.datos.find(d => d.id === resp.id).nombre : p.tipo === 'pentagrama' ? N.bonito({ l: resp.l, a: resp.a || 0 }) : N.NOMBRES_PC[((resp.pc % 12) + 12) % 12].replace(/#/g, '♯').replace(/b/g, '♭');
     const era = p.tipo === 'pentagrama' ? N.bonito(p.nota) : p.etiqueta.replace(/#/g, '♯').replace(/b/g, '♭');
     if (!ok) ses.errores.push({ item: p.item, era, dicho });
-    pintarPregunta({ ok, texto: 'Era ' + era + (p.tipo === 'tecla' ? '' : ' (dijiste ' + dicho + ')'), tocada: resp.midi });
+    const detalle = p.tipo === 'oido' ? ' (' + p.notas.map(N.nombreMidi).join(T.modo === 'asc' || T.modo === 'desc' ? ' → ' : ' + ').replace(/#/g, '♯') + ')' : '';
+    pintarPregunta({ ok, texto: 'Era ' + era + detalle + (p.tipo === 'tecla' ? '' : ' · dijiste ' + dicho), tocada: resp.midi });
     if (ok) temporizador = setTimeout(() => siguiente(), CFG.pausa);
   }
 
@@ -197,10 +223,12 @@
   }
   function terminar() {
     clearTimeout(temporizador);
+    window.RepertorioAudio?.detener();
     const s = guardarSesion(), cfg = ses;
     ses = null; pantalla = 'resultado';
     const est = N.estadisticas(todas());
-    const repasar = Object.entries(est.items).filter(([k, i]) => k.startsWith(cfg.tema + ':') || k.startsWith('tec:') || k.startsWith('tecla:')).filter(([, i]) => i.v >= 2 && i.a / i.v < 0.8).sort((a, b) => a[1].a / a[1].v - b[1].a / b[1].v).slice(0, 3);
+    const prefijos = new Set(cfg.hechas.map(h => h[0].split(':')[0]));
+    const repasar = Object.entries(est.items).filter(([k]) => prefijos.has(k.split(':')[0])).filter(([, i]) => i.v >= 2 && i.a / i.v < 0.8).sort((a, b) => a[1].a / a[1].v - b[1].a / b[1].v).slice(0, 3);
     caja.replaceChildren(barra(el('button', { type: 'button', onclick: () => history.back() }, '← Salir'), 'Resultado'),
       el('div', { className: 'ccuerpo pr-sesion' },
         el('h2', { id: 'pr-resultado', tabIndex: -1 }, s ? `${s.a} de ${s.n} · ${pct(s.a / s.n)}` : 'Sin respuestas'),
@@ -220,6 +248,11 @@
     if (ses.fase === 'feedback' && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); siguiente(); return; }
     if (ses.fase !== 'pregunta') return;
     const b = N.botones(ses.tema, ses.nivel);
+    if (b.tipo === 'opciones') {
+      if (e.key.toLowerCase() === 'r') { e.preventDefault(); reproducir(); }
+      else if (/^[1-9]$/.test(e.key) && b.opciones[Number(e.key) - 1]) { e.preventDefault(); responder({ id: b.opciones[Number(e.key) - 1].id }); }
+      return;
+    }
     if (b.tipo === 'ninguno') return;
     if (e.key === '#' || e.key === '+') { mod = 1; refrescarMod(); return; }
     if (e.key === '-') { mod = -1; refrescarMod(); return; }
@@ -241,6 +274,7 @@
     if (token()) sincronizar();
   }
   function cerrar() {
+    window.RepertorioAudio?.detener();
     if (ses && ses.hechas.length >= 3) guardarSesion();        // una sesión a medias se conserva si respondiste 3 o más
     clearTimeout(temporizador); ses = null;
     caja.hidden = true; document.body.classList.remove('fija');

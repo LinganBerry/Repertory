@@ -43,11 +43,42 @@
     { id: 4, nombre: 'Teclas negras', pcs: NEGRAS_PC },
     { id: 5, nombre: 'Las 12 notas', pcs: rango(0, 11) }
   ];
+  // --- oído: intervalos y acordes (semitonos desde la nota más grave) ---
+  const INTERVALOS = [
+    { id: '2m', n: 1, nombre: '2ª menor' }, { id: '2M', n: 2, nombre: '2ª mayor' }, { id: '3m', n: 3, nombre: '3ª menor' }, { id: '3M', n: 4, nombre: '3ª mayor' },
+    { id: '4J', n: 5, nombre: '4ª justa' }, { id: 'TT', n: 6, nombre: 'Tritono' }, { id: '5J', n: 7, nombre: '5ª justa' }, { id: '6m', n: 8, nombre: '6ª menor' },
+    { id: '6M', n: 9, nombre: '6ª mayor' }, { id: '7m', n: 10, nombre: '7ª menor' }, { id: '7M', n: 11, nombre: '7ª mayor' }, { id: '8J', n: 12, nombre: 'Octava' }
+  ];
+  const ACORDES = [
+    { id: 'mayor', nombre: 'Mayor', pasos: [0, 4, 7] }, { id: 'menor', nombre: 'Menor', pasos: [0, 3, 7] },
+    { id: 'dim', nombre: 'Disminuido', pasos: [0, 3, 6] }, { id: 'aum', nombre: 'Aumentado', pasos: [0, 4, 8] },
+    { id: 'maj7', nombre: 'Mayor 7ª', pasos: [0, 4, 7, 11] }, { id: 'dom7', nombre: 'Dominante 7ª', pasos: [0, 4, 7, 10] },
+    { id: 'm7', nombre: 'Menor 7ª', pasos: [0, 3, 7, 10] }, { id: 'm7b5', nombre: 'Semidisminuido', pasos: [0, 3, 6, 10] }
+  ];
+  const NIVELES_INTERVALOS = [
+    { id: 1, nombre: '3m 3M 5J 8J', ids: ['3m', '3M', '5J', '8J'] },
+    { id: 2, nombre: '+ 2m 2M 4J', ids: ['2m', '2M', '3m', '3M', '4J', '5J', '8J'] },
+    { id: 3, nombre: '+ 6m 6M 7m 7M', ids: ['2m', '2M', '3m', '3M', '4J', '5J', '6m', '6M', '7m', '7M', '8J'] },
+    { id: 4, nombre: 'Todos (con tritono)', ids: INTERVALOS.map(i => i.id) }
+  ];
+  const NIVELES_ACORDES = [
+    { id: 1, nombre: 'Mayor y menor', ids: ['mayor', 'menor'] },
+    { id: 2, nombre: '+ disminuido y aumentado', ids: ['mayor', 'menor', 'dim', 'aum'] },
+    { id: 3, nombre: 'Séptimas', ids: ['maj7', 'dom7', 'm7', 'm7b5'] },
+    { id: 4, nombre: 'Todos', ids: ACORDES.map(a => a.id) }
+  ];
+  const SOST = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const nombreMidi = m => SOST[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
+
   const TEMAS = {
     sol: { grupo: 'Pentagrama', nombre: 'Clave de sol', tipo: 'pentagrama', niveles: NIVELES_PENTAGRAMA },
     fa: { grupo: 'Pentagrama', nombre: 'Clave de fa', tipo: 'pentagrama', niveles: NIVELES_PENTAGRAMA },
     teclado: { grupo: 'Teclado', nombre: 'Nombrar la tecla marcada', tipo: 'teclado', niveles: NIVELES_TECLADO },
-    tecla: { grupo: 'Teclado', nombre: 'Tocar la tecla de la nota', tipo: 'tecla', niveles: NIVELES_TECLADO }
+    tecla: { grupo: 'Teclado', nombre: 'Tocar la tecla de la nota', tipo: 'tecla', niveles: NIVELES_TECLADO },
+    'int-asc': { grupo: 'Oído', nombre: 'Intervalos que suben', tipo: 'oido', modo: 'asc', prefijo: 'ia', niveles: NIVELES_INTERVALOS, datos: INTERVALOS },
+    'int-desc': { grupo: 'Oído', nombre: 'Intervalos que bajan', tipo: 'oido', modo: 'desc', prefijo: 'id', niveles: NIVELES_INTERVALOS, datos: INTERVALOS },
+    'int-arm': { grupo: 'Oído', nombre: 'Intervalos a la vez', tipo: 'oido', modo: 'arm', prefijo: 'ih', niveles: NIVELES_INTERVALOS, datos: INTERVALOS },
+    acordes: { grupo: 'Oído', nombre: 'Acordes', tipo: 'oido', modo: 'acorde', prefijo: 'ac', niveles: NIVELES_ACORDES, datos: ACORDES }
   };
 
   // --- estadísticas (a partir de las sesiones guardadas) ---
@@ -95,6 +126,7 @@
     if (!T) throw new Error('Tema desconocido: ' + tema);
     const N = T.niveles.find(n => n.id === nivel);
     if (!N) throw new Error('Nivel desconocido: ' + nivel);
+    if (T.tipo === 'oido') return N.ids.map(id => ({ item: T.prefijo + ':' + id, id, dato: T.datos.find(d => d.id === id) }));
     if (T.tipo === 'pentagrama') {
       const out = [];
       for (const pos of N.pos) {
@@ -116,17 +148,29 @@
       cands = cands.map(c => ({ ...c })); // 1 de cada 3 candidatos es natural: se reparte 33 % / 67 %
     }
     const c = elegir(cands, est, rng, evitar);
+    if (T.tipo === 'oido') {
+      const d = c.dato, n = d.n;
+      const r = T.modo === 'asc' || T.modo === 'arm' ? 48 + Math.floor(rng() * 25) : T.modo === 'desc' ? 60 + Math.floor(rng() * 25) : 48 + Math.floor(rng() * 20);
+      let pasos, notas;
+      if (T.modo === 'asc') { pasos = [{ midis: [r], en: 0, dur: 1.3 }, { midis: [r + n], en: 950, dur: 1.6 }]; notas = [r, r + n]; }
+      else if (T.modo === 'desc') { pasos = [{ midis: [r], en: 0, dur: 1.3 }, { midis: [r - n], en: 950, dur: 1.6 }]; notas = [r, r - n]; }
+      else if (T.modo === 'arm') { pasos = [{ midis: [r, r + n], en: 0, dur: 2.2 }]; notas = [r, r + n]; }
+      else { notas = d.pasos.map(x => r + x); pasos = [{ midis: notas, en: 0, dur: 2.2 }]; }
+      return { tema, nivel, tipo: 'oido', item: c.item, pasos, notas, respuesta: { id: c.id }, etiqueta: d.nombre, corto: c.id };
+    }
     if (T.tipo === 'pentagrama') return { tema, nivel, tipo: 'pentagrama', item: c.item, clave: tema, nota: c.nota, respuesta: { l: c.nota.l, a: c.nota.a }, etiqueta: nombre(c.nota, false) };
     if (T.tipo === 'teclado') return { tema, nivel, tipo: 'teclado', item: c.item, midi: c.midi, respuesta: { pc: c.pc }, etiqueta: NOMBRES_PC[c.pc] };
     return { tema, nivel, tipo: 'tecla', item: c.item, respuesta: { pc: c.pc }, etiqueta: NOMBRES_PC[c.pc] };
   }
   function comprobar(preg, resp) {
+    if (preg.tipo === 'oido') return resp.id === preg.respuesta.id;
     if (preg.tipo === 'pentagrama') return resp.l === preg.respuesta.l && (resp.a || 0) === preg.respuesta.a;
     return ((resp.pc % 12) + 12) % 12 === preg.respuesta.pc;
   }
   // Botones de respuesta que corresponden a (tema, nivel).
   function botones(tema, nivel) {
     const T = TEMAS[tema], N = T.niveles.find(n => n.id === nivel);
+    if (T.tipo === 'oido') return { tipo: 'opciones', opciones: N.ids.map(id => { const d = T.datos.find(x => x.id === id); return { id, texto: T.modo === 'acorde' ? d.nombre : id, titulo: d.nombre }; }) };
     if (T.tipo === 'pentagrama') return { tipo: 'letras', letras: LETRAS.slice(), alteraciones: !!N.alt };
     if (T.tipo === 'tecla') return { tipo: 'ninguno' };
     const pcs = N.pcs.every(p => !esNegra(p)) ? NATURALES_PC : N.pcs.every(esNegra) ? NEGRAS_PC : rango(0, 11);
@@ -165,6 +209,6 @@
   }
 
   const api = { LETRAS, PC, CLAVES, TEMAS, NIVELES_PENTAGRAMA, NIVELES_TECLADO, NOMBRES_PC, nota, indice, deIndice, midi, nombre, bonito, esNegra,
-    posicion, notaEnPos, estadisticas, precision, racha, peso, candidatos, crearPregunta, comprobar, botones, svgPentagrama, svgTeclado };
+    posicion, notaEnPos, nombreMidi, INTERVALOS, ACORDES, estadisticas, precision, racha, peso, candidatos, crearPregunta, comprobar, botones, svgPentagrama, svgTeclado };
   raiz.Notacion = api;
 })(typeof window !== 'undefined' ? window : globalThis);
