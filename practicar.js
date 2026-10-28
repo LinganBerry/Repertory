@@ -116,11 +116,28 @@
           el('div', { className: 'tg', rol: 'group', 'aria-label': 'Nivel de ' + T.nombre },
             ...T.niveles.map(n => el('button', { type: 'button', 'aria-pressed': String(n.id === nv), title: n.nombre, onclick: () => { pref.nivel[id] = n.id; guardar(PREF, pref); pintarInicio(); $('practica').querySelector(`[data-tema="${id}"] [aria-pressed="true"]`)?.focus(); } },
               n.id + ' · ' + n.nombre, el('small', { className: 'pr-pct' }, ' ' + pct(N.precision(est, id, n.id)))))),
-          el('p', {}, el('button', { type: 'button', className: 'primario', onclick: () => empezar(id, nv, 10) }, 'Empezar · 10'), ' ', el('button', { type: 'button', onclick: () => empezar(id, nv, 20) }, 'Empezar · 20')));
+          el('p', {}, el('button', { type: 'button', className: 'primario', onclick: () => empezar(id, nv, 10) }, 'Empezar · 10'), ' ', el('button', { type: 'button', onclick: () => empezar(id, nv, 20) }, 'Empezar · 20'),
+            window.Lecciones && window.Lecciones.dePorTema(id) ? [' ', el('button', { type: 'button', className: 'b-leccion', onclick: () => pintarLeccion(id) }, '📖 Lección')] : null));
       })));
     caja.replaceChildren(barra(el('button', { type: 'button', title: 'Volver (Esc)', onclick: () => history.back() }, '← Volver'), 'Practicar'),
       el('div', { className: 'ccuerpo' }, estado, repaso, ...tarjetas,
         el('p', { className: 'a' }, 'Atajos: letras A–G para responder · # o + sube, - baja · Enter o Espacio para seguir · Esc para salir.')));
+  }
+
+  // --- lecciones ---
+  function pintarLeccion(tema) {
+    const L = window.Lecciones && window.Lecciones.dePorTema(tema);
+    if (!L) return pintarInicio();
+    clearTimeout(temporizador); ses = null; pantalla = 'leccion';
+    const dibujo = v => v.tipo === 'pentagrama' ? N.svgPentagrama(v.clave, N.nota(...v.nota)) : v.tipo === 'armadura' ? N.svgArmadura(v.clave, v.f) : N.svgTeclado({ marcar: v.marcar });
+    const pasos = L.temas.map((t, i) => el('button', { type: 'button', className: i === 0 || L.temas.length === 1 ? 'primario' : '', 'data-practicar': t, onclick: () => empezar(t, nivelDe(t), 10) }, 'Practicar: ' + N.TEMAS[t].nombre + ' · 10'));
+    caja.replaceChildren(barra(el('button', { type: 'button', title: 'Volver a Practicar', onclick: () => pintarInicio() }, '← Practicar'), 'Lección'),
+      el('div', { className: 'ccuerpo leccion' },
+        el('h2', { id: 'pr-leccion', tabIndex: -1 }, L.titulo),
+        el('ul', { className: 'pr-puntos' }, ...L.puntos.map(x => el('li', {}, x))),
+        el('div', { className: 'pr-visuales' }, ...L.visuales.map(v => el('div', { className: 'pr-visual' }, nodoSvg(dibujo(v))))),
+        el('div', { className: 'pr-pasos' }, ...pasos.flatMap(b => [el('p', {}, b)]))));
+    $('pr-leccion').focus(); caja.scrollTop = 0;
   }
 
   // --- sonido (oído) ---

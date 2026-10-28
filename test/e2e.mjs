@@ -462,3 +462,24 @@ test('PRACTICAR (armaduras y escalas): dibuja la armadura, acepta respuestas, ex
   assert.match(n3.d.querySelector('.pr-feedback').textContent, /Era .*\(.* .*\).*dijiste/s);
   sinErrores(n3); n3.cerrar();
 });
+
+test('PRACTICAR (lecciones): cada tema tiene su botón, la lección se abre, vuelve y lleva directo al ejercicio', async () => {
+  memoria.clear();
+  const n = await navegador('');
+  await abrirPractica(n);
+  const temas = Object.keys(n.w.Notacion.TEMAS);
+  for (const t of temas) assert.ok([...n.d.querySelectorAll(`[data-tema="${t}"] button`)].some(b => /Lección/.test(b.textContent)), 'sin botón de lección en ' + t);
+  [...n.d.querySelectorAll('[data-tema="sol"] button')].find(b => /Lección/.test(b.textContent)).click();
+  await esperar(() => n.$('pr-leccion'), 'lección abierta');
+  assert.equal(n.$('pr-leccion').textContent, 'Clave de sol'); assert.equal(n.d.activeElement, n.$('pr-leccion'));
+  assert.ok(n.d.querySelectorAll('#practica .pr-puntos li').length >= 3); assert.ok(n.d.querySelectorAll('#practica svg.pentagrama').length >= 1);
+  [...n.d.querySelectorAll('#practica button')].find(b => /← Practicar/.test(b.textContent)).click();
+  await esperar(() => n.d.querySelector('#practica .pr-tema'), 'vuelve a Practicar');
+  [...n.d.querySelectorAll('[data-tema="int-desc"] button')].find(b => /Lección/.test(b.textContent)).click();
+  await esperar(() => n.$('pr-leccion'), 'lección de intervalos');
+  assert.equal(n.d.querySelectorAll('#practica [data-practicar]').length, 3, 'una lección de intervalos con sus 3 ejercicios');
+  n.d.querySelector('#practica [data-practicar="int-arm"]').click();
+  await esperar(() => n.w.RepertorioPractica.estadoSesion()?.preg, 'empieza el ejercicio');
+  assert.equal(n.w.RepertorioPractica.estadoSesion().tema, 'int-arm');
+  sinErrores(n); n.cerrar();
+});

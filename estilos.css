@@ -147,6 +147,10 @@
   .pr-visual { max-width: 26rem; margin: .5rem auto 1rem; color: var(--ink); }
   .pentagrama, .pteclado { display: block; width: 100%; height: auto; }
   .pr-pedido { margin: 0 0 .5rem; font-size: 1.6rem; }
+  .pr-puntos { margin: .8rem 0; padding-left: 1.2rem; }
+  .pr-puntos li { margin: .5rem 0; line-height: 1.45; }
+  .pr-visuales { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .pr-visuales .pr-visual { flex: 1 1 14rem; margin: .5rem 0; }
   .pk-b { fill: #fffdf8; stroke: #2a2620; stroke-width: 1; }
   .pk-n { fill: #2a2620; }
   .pk-b.pk-on, .pk-n.pk-on { fill: #2b59c3; }
