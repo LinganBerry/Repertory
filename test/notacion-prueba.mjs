@@ -16,11 +16,11 @@ test('midi y nombres', () => {
   assert.equal(N.midi(n('F', 1, 5)), 78); assert.equal(N.nombre(n('F', 1, 5)), 'F#5'); assert.equal(N.bonito(n('B', -1, 3)), 'B♭');
 });
 
-test('posiciones en las 4 claves (0 = línea inferior)', () => {
+test('posiciones en las claves de sol y fa (0 = línea inferior)', () => {
   assert.equal(N.posicion('sol', n('E', 0, 4)), 0);  assert.equal(N.posicion('sol', n('C', 0, 4)), -2); assert.equal(N.posicion('sol', n('F', 0, 5)), 8);
   assert.equal(N.posicion('fa', n('G', 0, 2)), 0);   assert.equal(N.posicion('fa', n('F', 0, 3)), 6);   assert.equal(N.posicion('fa', n('C', 0, 4)), 10);
-  assert.equal(N.posicion('alto', n('F', 0, 3)), 0); assert.equal(N.posicion('alto', n('C', 0, 4)), 4);
-  assert.equal(N.posicion('tenor', n('D', 0, 3)), 0); assert.equal(N.posicion('tenor', n('C', 0, 4)), 6);
+  assert.deepEqual(Object.keys(N.CLAVES), ['sol', 'fa'], 'solo las claves del piano');
+  assert.deepEqual(Object.keys(N.TEMAS).filter(t => N.TEMAS[t].tipo === 'pentagrama'), ['sol', 'fa']);
   for (const c of Object.keys(N.CLAVES)) for (let p = -8; p <= 16; p++) assert.equal(N.posicion(c, N.notaEnPos(c, p)), p, `${c} ${p}`);
 });
 
@@ -90,12 +90,12 @@ test('estadísticas, precisión y racha', () => {
   assert.equal(N.racha([], '2026-10-27'), 0);
 });
 
-test('pentagrama SVG: 5 líneas + las líneas adicionales que toquen, clave correcta y alteración', () => {
+test('pentagrama SVG: 5 líneas + las líneas adicionales que toquen, clave (sol o fa) y alteración', () => {
   const lineas = svg => (svg.match(/<line /g) || []).length;
   for (const [pos, extra] of [[0, 0], [8, 0], [-1, 0], [-2, 1], [-3, 1], [-4, 2], [9, 0], [10, 1], [11, 1], [12, 2]]) {
     assert.equal(lineas(N.svgPentagrama('sol', N.notaEnPos('sol', pos))), 5 + extra, 'posición ' + pos);
   }
-  for (const [c, glifo] of [['sol', '\uE050'], ['fa', '\uE062'], ['alto', '\uE05C'], ['tenor', '\uE05C']]) assert.ok(N.svgPentagrama(c, N.notaEnPos(c, 3)).includes(glifo));
+  for (const [c, glifo] of [['sol', '\uE050'], ['fa', '\uE062']]) assert.ok(N.svgPentagrama(c, N.notaEnPos(c, 3)).includes(glifo));
   assert.ok(N.svgPentagrama('sol', n('F', 1, 4)).includes('\uE262')); assert.ok(N.svgPentagrama('sol', n('B', -1, 4)).includes('\uE260'));
   assert.ok(!/\uE262|\uE260/.test(N.svgPentagrama('sol', n('F', 0, 4))));
   assert.ok(!N.svgPentagrama('sol', n('F', 0, 4)).includes('style='), 'sin estilos en línea (la CSP los bloquea)');

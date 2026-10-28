@@ -80,7 +80,7 @@
     clearTimeout(temporizador); ses = null; mod = 0; pantalla = 'inicio';
     const est = N.estadisticas(todas()), lista = todas();
     const hoyN = lista.filter(s => s.f === hoy()).reduce((x, s) => x + s.n, 0), racha = N.racha(lista, hoy());
-    const debiles = Object.entries(est.items).filter(([, i]) => i.v >= 3 && i.a / i.v < 0.8).sort((a, b) => a[1].a / a[1].v - b[1].a / b[1].v).slice(0, 3);
+    const debiles = Object.entries(est.items).filter(([k, i]) => /^(sol|fa|tec|tecla):/.test(k) && i.v >= 3 && i.a / i.v < 0.8).sort((a, b) => a[1].a / a[1].v - b[1].a / b[1].v).slice(0, 3);
     const pass = el('input', { type: 'password', autocomplete: 'current-password', placeholder: 'Contraseña', id: 'pr-pass', 'aria-label': 'Contraseña del editor' });
     const rec = el('input', { type: 'checkbox', id: 'pr-rec' });
     const msg = el('p', { className: 'aviso-e', id: 'pr-msg' });

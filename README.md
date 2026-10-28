@@ -12,7 +12,7 @@ Sin cuentas de usuario, sin comunidad, sin registro. El editor se abre tocando 5
 
 ## Practicar (ejercicios para estudiar sin salir de la página)
 - Botón **Practicar** (arriba). Una pregunta por pantalla, sin adornos. Sesiones de 10 o 20 preguntas.
-- **Lectura de notas:** pentagrama en clave de sol, fa, do en tercera (alto) y do en cuarta (tenor); 5 niveles (líneas, espacios, completo, líneas adicionales, alteraciones). **Teclado:** nombrar la tecla marcada y tocar la tecla de una nota. Nombres con letras (C D E…).
+- **Lectura de notas:** pentagrama en clave de sol y de fa (las del piano); 5 niveles (líneas, espacios, completo, líneas adicionales, alteraciones). **Teclado:** nombrar la tecla marcada y tocar la tecla de una nota. Nombres con letras (C D E…).
 - **Responder:** toca los botones o escribe la letra (A–G); `#` o `+` sube, `-` baja, `0` natural; `Enter` o `Espacio` para seguir; `Esc` para salir (si ya respondiste 3 o más, la sesión se guarda).
 - **Lo que más fallas sale más.** Al final ves aciertos, tiempo, tus fallos y "Para repasar".
 - **Progreso:** se guarda en el dispositivo. Si entras con tu contraseña del editor (dentro de Practicar), se sincroniza con tus otros dispositivos mediante `api/progreso.js` (las últimas 500 sesiones; solo agrega, no hay forma de borrar desde la web). Si no entras, queda solo en ese dispositivo y se sube cuando entres.

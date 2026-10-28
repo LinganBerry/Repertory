@@ -19,12 +19,10 @@
   const NATURALES_PC = [0, 2, 4, 5, 7, 9, 11], NEGRAS_PC = [1, 3, 6, 8, 10];
   const esNegra = pc => NEGRAS_PC.includes(((pc % 12) + 12) % 12);
 
-  // --- claves: base = nota de la línea inferior; linea = posición (0 = línea inferior) donde "se apoya" el símbolo ---
+  // --- claves (solo sol y fa: las del piano); base = nota de la línea inferior; linea = posición (0 = línea inferior) donde "se apoya" el símbolo ---
   const CLAVES = {
     sol: { nombre: 'Clave de sol', base: indice(nota('E', 0, 4)), glifo: '\uE050', linea: 2 },
-    fa: { nombre: 'Clave de fa', base: indice(nota('G', 0, 2)), glifo: '\uE062', linea: 6 },
-    alto: { nombre: 'Clave de do (alto)', base: indice(nota('F', 0, 3)), glifo: '\uE05C', linea: 4 },
-    tenor: { nombre: 'Clave de do (tenor)', base: indice(nota('D', 0, 3)), glifo: '\uE05C', linea: 6 }
+    fa: { nombre: 'Clave de fa', base: indice(nota('G', 0, 2)), glifo: '\uE062', linea: 6 }
   };
   const posicion = (clave, n) => indice(n) - CLAVES[clave].base;
   const notaEnPos = (clave, pos, a = 0) => deIndice(CLAVES[clave].base + pos, a);
@@ -48,8 +46,6 @@
   const TEMAS = {
     sol: { grupo: 'Pentagrama', nombre: 'Clave de sol', tipo: 'pentagrama', niveles: NIVELES_PENTAGRAMA },
     fa: { grupo: 'Pentagrama', nombre: 'Clave de fa', tipo: 'pentagrama', niveles: NIVELES_PENTAGRAMA },
-    alto: { grupo: 'Pentagrama', nombre: 'Clave de do (alto)', tipo: 'pentagrama', niveles: NIVELES_PENTAGRAMA },
-    tenor: { grupo: 'Pentagrama', nombre: 'Clave de do (tenor)', tipo: 'pentagrama', niveles: NIVELES_PENTAGRAMA },
     teclado: { grupo: 'Teclado', nombre: 'Nombrar la tecla marcada', tipo: 'teclado', niveles: NIVELES_TECLADO },
     tecla: { grupo: 'Teclado', nombre: 'Tocar la tecla de la nota', tipo: 'tecla', niveles: NIVELES_TECLADO }
   };
