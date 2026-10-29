@@ -204,6 +204,72 @@ test('SIN CONEXIÓN: muestra el aviso de copia y lo quita al volver la señal', 
   sinErrores(caido); caido.cerrar();
 });
 
+test('LISTAS DEL CULTO: crear, agregar, ordenar, recorrer con Siguiente, atrás y borrar', async () => {
+  memoria.clear();
+  const doc = { version: 2, nombre: 'Acordes y Tonos', intro: '', canciones: ['Aleluya', 'Brillas', 'Cristo'].map((t, i) => ({ id: 'id' + i, titulo: t, artista: 'X', tono: 'G', partes: [{ nombre: 'Verso', tono: '', prog: 'G D | Em C' }] })) };
+  memoria.set('repertorio/canciones.json', { texto: JSON.stringify(doc), etag: '"e0"' });
+  const n = await navegador();
+  const { d, $, w, escribir, tecla, boton } = n;
+  w.confirm = () => true;
+  await esperar(() => d.querySelectorAll('#lista .fila').length === 3, 'las 3 canciones');
+  assert.equal($('nav').parentElement, $('app'), 'la barra de abajo está dentro de #app (se bloquea con las capas)');
+  assert.equal($('teoria-btn').parentElement, $('nav')); assert.equal($('practica-btn').parentElement, $('nav'));
+  assert.equal($('nav-canciones').getAttribute('aria-current'), 'page');
+
+  $('nav-listas').click();
+  assert.equal($('app').dataset.vista, 'listas');
+  assert.equal($('nav-listas').getAttribute('aria-current'), 'page'); assert.equal($('nav-canciones').getAttribute('aria-current'), null);
+  assert.match($('listas').textContent, /Aún no tienes listas/);
+
+  escribir($('listas').querySelector('input'), 'Domingo'); boton('Crear', $('listas')).click();
+  await esperar(() => $('l-agregar'), 'la lista nueva se abre ya en modo editar');
+  assert.equal($('listas').querySelector('h2').textContent, 'Domingo');
+  assert.equal($('l-empezar').disabled, true, 'vacía: no se puede empezar');
+
+  $('l-agregar').click();
+  await esperar(() => d.querySelectorAll('#listas .fila').length === 3, 'las 3 canciones para elegir');
+  const elegir = t => [...d.querySelectorAll('#listas .fila .abrir')].find(b => b.textContent.includes(t));
+  elegir('Cristo').click(); elegir('Aleluya').click(); elegir('Aleluya').click();   // el segundo toque no la duplica
+  assert.match(elegir('Cristo').textContent, /✓ En la lista/); assert.equal(elegir('Cristo').disabled, true);
+  escribir($('listas').querySelector('input[type=search]'), 'brilas');               // tolera un error de escritura
+  await esperar(() => d.querySelectorAll('#listas .fila').length === 1, 'búsqueda con error de escritura');
+  $('l-listo').click();
+  const titulos = () => [...d.querySelectorAll('#listas .fila .t')].map(x => x.textContent);
+  assert.deepEqual(titulos(), ['1. Cristo', '2. Aleluya']);
+
+  d.querySelector('[data-mov="1:-1"]').click();                                      // sube Aleluya
+  assert.deepEqual(titulos(), ['1. Aleluya', '2. Cristo']);
+  assert.equal(d.querySelector('[data-mov="0:-1"]').disabled, true, 'la primera no puede subir');
+  boton('Listo', $('listas')).click();
+  assert.equal(d.querySelectorAll('#listas .fila-acciones').length, 0, 'fuera de editar no hay botones que se toquen sin querer');
+  assert.deepEqual(JSON.parse(w.localStorage.getItem('repertorio-listas'))[0].ids, ['id0', 'id2']);
+
+  $('l-empezar').click();
+  const caja = $('cancion');
+  await esperar(() => !caja.hidden && caja.getAttribute('aria-label') === 'Aleluya', 'abre la primera de la lista');
+  assert.match(caja.querySelector('.pos').textContent, /1 \/ 2/);
+  tecla(d, 'ArrowRight');
+  await esperar(() => caja.getAttribute('aria-label') === 'Cristo', 'Siguiente sigue el orden de la lista (salta Brillas)');
+  assert.match(caja.querySelector('.pos').textContent, /2 \/ 2/);
+  tecla(d, 'Escape');
+  await esperar(() => caja.hidden, 'Esc cierra la canción');
+  assert.match($('listas').textContent, /Aleluya/, 'al cerrar la canción sigues dentro de la lista');
+  assert.equal($('app').inert, false);
+
+  w.history.back();
+  await esperar(() => /Listas del culto/.test($('listas').textContent) && $('listas').querySelector('input'), 'Atrás vuelve a la lista de listas');
+  assert.match($('listas').textContent, /Domingo/); assert.match($('listas').textContent, /2 canciones/);
+
+  d.querySelector('#listas .fila .abrir').click();
+  await esperar(() => $('l-empezar'), 'abre la lista otra vez');
+  boton('Editar', $('listas')).click(); boton('Borrar lista', $('listas')).click();
+  await esperar(() => /Aún no tienes listas/.test($('listas').textContent), 'borrada: vuelve a la lista de listas, vacía');
+  assert.equal(d.querySelectorAll('#lista .fila').length, 3, 'borrar la lista no borra canciones');
+  $('nav-canciones').click();
+  assert.equal($('app').dataset.vista, 'canciones');
+  sinErrores(n); n.cerrar();
+});
+
 // --- Practicar ---
 const PASE = process.env.ADMIN_PASSWORD;
 async function abrirPractica(n) {
@@ -309,9 +375,12 @@ test('PRACTICAR: teclado del ordenador (letras, # y -), alteraciones y salir con
     assert.equal(n.w.RepertorioPractica.estadoSesion().hechas[i][1], 1, 'la respuesta por teclado es correcta: ' + p.item);
   }
   n.tecla(n.d, 'Escape');
-  await esperar(() => n.$('practica').hidden, 'Esc cierra Practicar');
+  await esperar(() => n.$('pr-diaria'), 'Esc sale de la sesión y vuelve al menú de Practicar');
+  assert.equal(n.$('practica').hidden, false, 'Practicar sigue abierto: solo se salió de la sesión');
   assert.equal(n.w.RepertorioPractica.datos.pend.length, 1, 'se guardó la sesión a medias');
   assert.equal(n.w.RepertorioPractica.datos.pend[0].n, 4);
+  n.tecla(n.d, 'Escape');
+  await esperar(() => n.$('practica').hidden, 'Esc desde el menú cierra Practicar');
   assert.equal(n.$('app').inert, false);
   await esperar(() => n.d.activeElement === n.$('practica-btn'), 'el foco vuelve al botón Practicar');
   sinErrores(n); n.cerrar();
@@ -525,4 +594,28 @@ test('PRACTICAR (sesión diaria): mezcla temas, se guarda por tema y termina al 
   await abrirPractica(v); v.$('pr-stats-ir').click();
   await esperar(() => v.$('pr-stats'), 'estadísticas vacías'); assert.equal(v.$('pr-stats').textContent, 'Aún no hay práctica');
   sinErrores(v); v.cerrar();
+});
+
+test('PRACTICAR: Atrás desde una sesión, una lección o las estadísticas vuelve al menú de Practicar y recuerda dónde estabas', async () => {
+  memoria.clear();
+  const n = await navegador('');
+  const caja = await abrirPractica(n);
+  const alMenu = () => esperar(() => n.$('pr-diaria') && !n.$('practica').hidden, 'el menú de Practicar');
+  caja.scrollTop = 240;
+  [...caja.querySelectorAll('[data-tema="teclado"] button')].find(b => /Empezar · 10/.test(b.textContent)).click();
+  await esperar(() => n.w.RepertorioPractica.estadoSesion()?.preg, 'sesión');
+  n.w.history.back(); await alMenu();
+  assert.equal(n.w.RepertorioPractica.estadoSesion(), null, 'la sesión terminó');
+  assert.equal(caja.scrollTop, 240, 'vuelves al mismo lugar del menú, no arriba del todo');
+  caja.querySelector('.b-leccion').click();
+  await esperar(() => n.$('pr-leccion'), 'lección');
+  n.w.history.back(); await alMenu();
+  assert.equal(caja.scrollTop, 240);
+  n.$('pr-stats-ir').click(); await esperar(() => n.$('pr-stats'), 'estadísticas');
+  n.w.history.back(); await alMenu();
+  assert.equal(n.$('practica').hidden, false, 'Practicar sigue abierto');
+  n.w.history.back();
+  await esperar(() => n.$('practica').hidden, 'desde el menú, Atrás sí sale de Practicar');
+  assert.equal(n.$('app').inert, false);
+  sinErrores(n); n.cerrar();
 });
