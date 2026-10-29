@@ -70,6 +70,8 @@
   caja.setAttribute('role', 'dialog');
   document.body.append(caja);
   let ses = null, origenFoco = null, temporizador = null, mod = 0, pantalla = 'inicio';
+  let yInicio = 0;   // hasta dónde habías bajado en el menú; al volver de una sesión, lección o estadísticas regresas ahí
+  const dejarInicio = () => { if (pantalla === 'inicio') yInicio = caja.scrollTop; };
   const pref = leer(PREF, { nivel: {} });
   const nivelDe = t => pref.nivel[t] || 1;
   const pct = x => (x == null ? '—' : Math.round(x * 100) + '%');
@@ -77,6 +79,7 @@
   const barra = (izq, centro) => el('div', { className: 'cbarra' }, izq, el('span', { className: 'ctitulo' }, centro));
 
   function pintarInicio() {
+    const yVuelta = pantalla === 'inicio' ? caja.scrollTop : yInicio;
     clearTimeout(temporizador); ses = null; mod = 0; pantalla = 'inicio'; window.RepertorioAudio?.detener();
     const est = N.estadisticas(todas()), lista = todas();
     const hoyN = lista.filter(s => s.f === hoy()).reduce((x, s) => x + s.n, 0), racha = N.racha(lista, hoy());
@@ -126,10 +129,12 @@
     caja.replaceChildren(barra(el('button', { type: 'button', title: 'Volver (Esc)', onclick: () => history.back() }, '← Volver'), 'Practicar'),
       el('div', { className: 'ccuerpo' }, estado, diaria, repaso, ...tarjetas,
         el('p', { className: 'a' }, 'Atajos: letras A–G para responder · # o + sube, - baja · Enter o Espacio para seguir · Esc para salir.')));
+    caja.scrollTop = yVuelta;
   }
 
   // --- estadísticas ---
   function pintarEstadisticas() {
+    dejarInicio();
     clearTimeout(temporizador); ses = null; pantalla = 'estadisticas'; window.RepertorioAudio?.detener();
     const lista = todas(), est = N.estadisticas(lista), semana = N.resumenSemana(lista, hoy()), deb = N.debiles(est, 8), len = N.lentos(est, 5);
     const total = lista.reduce((x, s) => x + s.n, 0), aciertos = lista.reduce((x, s) => x + s.a, 0);
@@ -152,6 +157,7 @@
   function pintarLeccion(tema) {
     const L = window.Lecciones && window.Lecciones.dePorTema(tema);
     if (!L) return pintarInicio();
+    dejarInicio();
     clearTimeout(temporizador); ses = null; pantalla = 'leccion';
     const dibujo = v => v.tipo === 'pentagrama' ? N.svgPentagrama(v.clave, N.nota(...v.nota)) : v.tipo === 'armadura' ? N.svgArmadura(v.clave, v.f) : N.svgTeclado({ marcar: v.marcar });
     const pasos = L.temas.map((t, i) => el('button', { type: 'button', className: i === 0 || L.temas.length === 1 ? 'primario' : '', 'data-practicar': t, onclick: () => empezar(t, nivelDe(t), 10) }, 'Practicar: ' + N.TEMAS[t].nombre + ' · 10'));
@@ -182,10 +188,12 @@
 
   // --- sesión ---
   function empezar(tema, nivel, total) {
+    dejarInicio();
     ses = { tema, nivel, total, i: 0, hechas: [], t0: performance.now(), fase: 'pregunta', previa: null, est: N.estadisticas(todas()), errores: [] };
     mod = 0; pantalla = 'sesion'; siguiente(true);
   }
   function empezarDiaria() {
+    dejarInicio();
     ses = { diaria: true, tema: null, nivel: 1, total: Infinity, i: 0, hechas: [], marcas: [], t0: performance.now(), fase: 'pregunta', previa: null, previaTema: null, est: N.estadisticas(todas()), errores: [] };
     mod = 0; pantalla = 'sesion'; siguiente(true);
   }
@@ -343,6 +351,7 @@
   function abrir() {
     origenFoco = $('practica-btn');
     history.pushState({ practica: true }, '');
+    pantalla = 'inicio'; yInicio = 0;
     caja.hidden = false; document.body.classList.add('fija');
     pintarInicio(); caja.focus({ preventScroll: true }); caja.scrollTop = 0;
     if (token()) sincronizar();
@@ -356,7 +365,15 @@
     if (o) setTimeout(() => o.focus({ preventScroll: true }), 0);
     origenFoco = null;
   }
-  window.addEventListener('popstate', () => { if (!caja.hidden) cerrar(); });
+  // Atrás dentro de Practicar (sesión, resultado, lección, estadísticas) vuelve al menú de Practicar; solo desde el menú se sale.
+  window.addEventListener('popstate', () => {
+    if (caja.hidden) return;
+    if (pantalla === 'inicio') return cerrar();
+    if (ses && ses.hechas.length >= 3) guardarSesion();        // igual que al salir: una sesión a medias se conserva
+    history.pushState({ practica: true }, '');
+    pintarInicio();
+    caja.focus({ preventScroll: true });
+  });
   $('practica-btn').addEventListener('click', abrir);
   window.addEventListener('online', () => { if (token() && datos.pend.length) sincronizar(); });
   window.RepertorioPractica = { CFG, datos, todas, sincronizar, empezar, responder: r => responder(r), estadoSesion: () => ses };

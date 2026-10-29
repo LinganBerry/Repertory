@@ -28,7 +28,7 @@
 <div id="app">
   <header>
     <div class="marca"><span class="logo" aria-hidden="true"><b id="logo-l">A</b><i class="rom">I</i></span><h1 id="titulo">Acordes y Tonos</h1></div>
-    <div class="acciones"><button id="teoria-btn" type="button">Teoría</button><button id="practica-btn" type="button">Practicar</button><button id="tema" type="button"></button></div>
+    <div class="acciones"><button id="tema" type="button"></button></div>
   </header>
   <div id="franja" aria-hidden="true"></div>
   <p id="intro"></p>
@@ -41,6 +41,13 @@
   <main id="lista"></main>
   <hr>
   <p id="pie"></p>
+  <section id="listas" aria-label="Listas del culto"></section>
+  <nav id="nav" aria-label="Secciones">
+    <button id="nav-canciones" type="button" aria-current="page">Canciones</button>
+    <button id="nav-listas" type="button">Listas</button>
+    <button id="teoria-btn" type="button">Teoría</button>
+    <button id="practica-btn" type="button">Practicar</button>
+  </nav>
 </div>
 <div id="cancion" role="dialog" aria-modal="true" aria-label="Canción" tabindex="-1" hidden></div>
 <noscript><p>Acordes y Tonos necesita JavaScript para mostrar el repertorio.</p></noscript>
@@ -51,5 +58,6 @@
 <script src="notacion.js"></script>
 <script src="lecciones.js"></script>
 <script src="practicar.js"></script>
+<script src="listas.js"></script>
 </body>
 </html>

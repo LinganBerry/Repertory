@@ -4,7 +4,7 @@
 // La primera visita debe ser con internet. No toca el editor ni los POST (guardar / entrar).
 const CACHE = 'acordes-v7';
 // Tone.js, Tonal y las muestras del piano NO se precargan: se guardan la primera vez que abres Teoría (con internet).
-const BASE = ['/', '/index.html', '/estilos.css', '/app.js', '/canciones.js', '/editor.js', '/teoria.js', '/notacion.js', '/lecciones.js', '/practicar.js', '/manifest.webmanifest', '/icono-192.png'];
+const BASE = ['/', '/index.html', '/estilos.css', '/app.js', '/canciones.js', '/editor.js', '/teoria.js', '/notacion.js', '/lecciones.js', '/practicar.js', '/listas.js', '/manifest.webmanifest', '/icono-192.png'];
 const API = '/api/canciones';
 const ESPERA_MS = 4000; // si la red tarda más, se muestra la copia guardada
 

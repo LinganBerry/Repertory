@@ -18,7 +18,15 @@
   };
 
   // Mientras hay una capa abierta (canción, Teoría, editor) el fondo no recibe foco ni toques.
-  const sincronizarFondo = () => { const f = $('app'); if (f) f.inert = document.body.classList.contains('fija'); };
+  // Además recuerda hasta dónde habías bajado en la lista y vuelve ahí al cerrar la capa (no al inicio).
+  let yFondo = 0, habiaCapa = false;
+  const sincronizarFondo = () => {
+    const f = $('app'), hay = document.body.classList.contains('fija');
+    if (f) f.inert = hay;
+    if (hay && !habiaCapa) yFondo = window.scrollY;
+    if (!hay && habiaCapa && window.scrollY !== yFondo) window.scrollTo(0, yFondo);
+    habiaCapa = hay;
+  };
   new MutationObserver(sincronizarFondo).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
   // --- tema (Papel / Escenario): arranca según el modo del teléfono y se recuerda ---
@@ -302,10 +310,10 @@
   }
 
   let origenFoco = null;
-  function abrirCancion(c, origen) {
+  function abrirCancion(c, origen, lista) {
     origenFoco = origen || document.activeElement;
     actual = ultima = c;
-    orden = visibles().map(r => r.c);
+    orden = lista && lista.length ? lista.slice() : visibles().map(r => r.c);
     foco = -1;
     history.pushState({ cancion: true }, '');
     mostrar();
@@ -348,6 +356,7 @@
       ? rows.flatMap(fila)
       : [el('p', { className: 'vacio' }, data.canciones.length ? 'No hay canciones con esos filtros. ' : 'Aún no hay canciones.',
           data.canciones.length > 0 && el('button', { type: 'button', onclick: () => { vista.q = ''; vista.tono = ''; $('q').value = ''; render(); } }, 'Quitar filtros'))]));
+    document.dispatchEvent(new Event('repertorio-render'));
   }
 
   // Acceso secreto al editor: 5 toques seguidos al título (en 3 segundos). No hay enlace visible.
@@ -379,7 +388,8 @@
 
   // Interfaz que usa editor.js (solo se carga con ?editar)
   const app = window.RepertorioApp = {
-    el, norm, render,
+    el, norm, render, abrirCancion, pastilla,
+    buscar: q => { const palabras = fichas(q); return data.canciones.map(c => ({ c, p: puntaje(c, palabras) })).filter(x => x.p !== null).sort((a, b) => a.p - b.p || a.c.titulo.localeCompare(b.c.titulo, 'es')).map(x => x.c); },
     get data() { return data; },
     set data(d) { data = d; render(); },
     acciones: null
