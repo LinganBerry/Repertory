@@ -385,6 +385,8 @@
       pasos.forEach(p => notas_en_cola.push(setTimeout(() => inst.triggerAttackRelease(p.midis.map(f), p.dur || 1.2, undefined, 0.8), p.en || 0)));
     },
     detener() { parar(); },
-    esPiano: () => pianoListo
+    esPiano: () => pianoListo,
+    // Archivos que hacen falta para tocar sin internet (los usa "Preparar sin internet"): así la lista no se copia a mano.
+    archivos: () => ['/vendor/Tone.js', '/vendor/tonal.min.js', ...Object.values(PIANO).map(f => '/vendor/piano/' + f)]
   };
 })();
