@@ -169,7 +169,7 @@ test('el código no importa ni define funciones de borrado del almacén', async 
   for (const a of archivos) {
     const src = await readFile(new URL('../' + a, import.meta.url), 'utf8');
     const imp = /import\s*\{([^}]*)\}\s*from\s*'@vercel\/blob'/.exec(src);
-    if (imp) assert.ok(imp[1].split(',').map(s => s.trim()).every(n => ['get', 'put', 'BlobPreconditionFailedError'].includes(n)), a + ' importa algo más que get/put: ' + imp[1]);
+    if (imp) assert.ok(imp[1].split(',').map(s => s.trim()).every(n => ['get', 'put', 'head', 'BlobPreconditionFailedError'].includes(n)), a + ' importa algo más que get/put: ' + imp[1]);
     assert.ok(!/\bdel\s*\(|\.delete\(|unlink|rmSync|\brm\(|export (async )?(function|const) (borrar|eliminar|delete|remove)/i.test(src.replace(/\/\/.*$/gm, '')), a + ' parece borrar archivos');
   }
 });
@@ -305,4 +305,25 @@ test('progreso: acción desconocida y cuerpo grande', async () => {
   assert.equal((await post(progreso, { token, accion: 'borrar' })).status, 400);
   assert.equal((await post(progreso, 'a'.repeat(200_001))).status, 413);
   assert.equal((await post(progreso, '{roto')).status, 400);
+});
+
+test('canciones viejas sin id: reciben un id estable, se pueden editar sin duplicar y mandar a la papelera', async () => {
+  limpiarTodo();
+  const token = await pase();
+  const vieja = (t, a) => ({ titulo: t, artista: a, tono: 'G', partes: [{ nombre: 'Coro', prog: 'G D | Em C' }] });
+  memoria.set('repertorio/canciones.json', { texto: JSON.stringify({ version: 2, canciones: [vieja('Uno', 'A'), vieja('Dos', 'B'), vieja('Uno', 'A')] }), etag: '"v0"' });
+  const antes = await lista();
+  assert.equal(antes.length, 3);
+  assert.equal(new Set(antes.map(c => c.id)).size, 3, 'ids distintos');
+  assert.deepEqual((await lista()).map(c => c.id), antes.map(c => c.id), 'los ids son iguales en cada lectura');
+  // editar una: no se duplica
+  const r = await guardar(token, { ...antes[1], nota: 'capo 2' });
+  assert.equal(r.status, 200);
+  const despues = await lista();
+  assert.equal(despues.length, 3, 'no se duplicó');
+  assert.equal(despues.find(c => c.id === antes[1].id).nota, 'capo 2');
+  // mandar una a la papelera
+  const b = await json(await post(canciones, { token, accion: 'borrar', id: antes[0].id }));
+  assert.equal(b.status, 200);
+  assert.equal((await lista()).length, 2);
 });

@@ -388,7 +388,7 @@
 
   // Interfaz que usa editor.js (solo se carga con ?editar)
   const app = window.RepertorioApp = {
-    el, norm, render, abrirCancion, pastilla,
+    el, norm, render, abrirCancion, pastilla, romano, compases,
     buscar: q => { const palabras = fichas(q); return data.canciones.map(c => ({ c, p: puntaje(c, palabras) })).filter(x => x.p !== null).sort((a, b) => a.p - b.p || a.c.titulo.localeCompare(b.c.titulo, 'es')).map(x => x.c); },
     get data() { return data; },
     set data(d) { data = d; render(); },

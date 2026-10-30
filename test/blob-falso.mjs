@@ -10,6 +10,12 @@ export async function get(ruta, { access } = {}) {
   if (!b) return null;
   return { statusCode: 200, stream: new Blob([b.texto]).stream(), blob: { etag: b.etag } };
 }
+export async function head(ruta) {
+  registro.push({ op: 'head', ruta });
+  const b = memoria.get(ruta);
+  if (!b) throw new Error('not found');
+  return { etag: b.etag };
+}
 export async function put(ruta, cuerpo, { access, ifMatch, allowOverwrite } = {}) {
   registro.push({ op: 'put', ruta, access });
   await new Promise(r => setImmediate(r));   // cede el turno: así las peticiones simultáneas sí se cruzan
