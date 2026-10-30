@@ -9,6 +9,7 @@ Sin cuentas de usuario, sin comunidad, sin registro. El editor se abre tocando 5
 - **Instalar como app:** en Android/Chrome o en PC (Chrome/Edge) usa *Instalar app*. Se abre sin barra del navegador.
 - **Sin señal:** se muestra la última copia guardada **y un aviso arriba**; al volver la señal se actualiza sola. Abre la página con internet al menos una vez en cada dispositivo.
 - **Listas del culto** (barra de abajo): crea una lista, agrégale canciones, ordénalas y toca **▶ Empezar**; con ← → o Anterior/Siguiente recorres la lista en ese orden. Se guardan en cada dispositivo. La pantalla no se apaga mientras una canción está abierta. Atrás vuelve a donde estabas.
+- **Retos de acordes** (Practicar → Retos de acordes): sale un acorde mayor o menor en los 12 tonos (con inversiones si quieres). Lo tocas en tu piano, pulsas **Ya lo toqué** y ves las notas en el teclado. Guarda cuánto tardas y qué fallas. No usa sonido ni internet.
 - **Teoría** (barra de abajo): escalas y modos, diccionario de acordes y **Tonalidades** (armadura, relativa, acordes con su función T/SD/D, dominantes secundarios, cadencia I–IV–V–I para oír). El piano y la librería de teoría se descargan la primera vez que abres Teoría y después quedan guardados.
 
 ## Practicar (ejercicios para estudiar sin salir de la página)
@@ -52,4 +53,4 @@ Sin cuentas de usuario, sin comunidad, sin registro. El editor se abre tocando 5
 - Límites: usan un almacén falso en memoria (no el Blob real de Vercel), y jsdom no dibuja ni suena (el audio se prueba con un Tone simulado: se verifica qué notas se programan, no cómo suenan). Falta probar en navegadores reales y medir con Lighthouse.
 
 ## Archivos
-`api/canciones.js` (leer y guardar) · `api/entrar.js` (contraseña) · `lib/` (auth, almacén, intentos, limpieza) · `app.js` (página) · `editor.js` (editor) · `teoria.js` + `vendor/` (teoría y piano) · `notacion.js` + `listas.js` (listas del culto) · `practicar.js` (ejercicios) · `api/progreso.js` + `lib/progreso.js` (progreso sincronizado) · `sw.js` (modo sin internet) · `manifest.webmanifest` + `icono-*.png` (instalar como app) · `scripts/` (comparar, generar respaldo, contraste) · `test/`.
+`api/canciones.js` (leer y guardar) · `api/entrar.js` (contraseña) · `lib/` (auth, almacén, intentos, limpieza) · `app.js` (página) · `editor.js` (editor) · `teoria.js` + `vendor/` (teoría y piano) · `notacion.js` + `retos.js` (retos de acordes) · `listas.js` (listas del culto) · `practicar.js` (ejercicios) · `api/progreso.js` + `lib/progreso.js` (progreso sincronizado) · `sw.js` (modo sin internet) · `manifest.webmanifest` + `icono-*.png` (instalar como app) · `scripts/` (comparar, generar respaldo, contraste) · `test/`.

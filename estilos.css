@@ -219,3 +219,9 @@
   .l-edicion { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
   #listas input[type=search] { width: 100%; min-height: 48px; margin: .3rem 0; }
   @media print { #nav, #listas { display: none !important; } }
+  /* --- retos de acordes --- */
+  .rt-acorde { margin: .4rem 0; font: 700 3.4rem/1.1 ui-monospace, Menlo, Consolas, monospace; text-align: center; }
+  .rt-pos { margin: 0 0 1rem; color: var(--muted); font-size: 1.1rem; text-align: center; }
+  .rt-notas { margin: .2rem 0 .6rem; font: 700 1.5rem ui-monospace, Menlo, Consolas, monospace; }
+  .rt-botones { display: flex; flex-direction: column; gap: .6rem; max-width: 26rem; margin: 1rem auto; }
+  .rt-botones button { min-height: 60px; font-size: 1.15rem; }

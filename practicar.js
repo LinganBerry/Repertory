@@ -122,17 +122,26 @@
           el('p', {}, el('button', { type: 'button', className: 'primario', onclick: () => empezar(id, nv, 10) }, 'Empezar · 10'), ' ', el('button', { type: 'button', onclick: () => empezar(id, nv, 20) }, 'Empezar · 20'),
             window.Lecciones && window.Lecciones.dePorTema(id) ? [' ', el('button', { type: 'button', className: 'b-leccion', onclick: () => pintarLeccion(id) }, '📖 Lección')] : null));
       })));
+    const retos = window.Retos && window.Retos.abrir ? el('div', { className: 'parte', id: 'pr-retos' }, el('h3', {}, 'Retos de acordes'),
+      el('p', {}, 'Tócalos en tu piano y compruébalos. Mayores y menores, en los 12 tonos. Sin sonido ni internet.'),
+      el('p', {}, el('button', { type: 'button', className: 'primario', id: 'pr-retos-ir', onclick: pintarRetos }, 'Abrir retos'))) : null;
     const diaria = el('div', { className: 'parte', id: 'pr-diaria' }, el('h3', {}, 'Sesión diaria'),
       el('p', {}, 'Mezcla de todos los temas, ' + CFG.minutos + ' minutos. Sale más lo que menos dominas y lo que hace más tiempo que no practicas.'),
       el('p', {}, el('button', { type: 'button', className: 'primario', id: 'pr-diaria-ir', onclick: () => empezarDiaria() }, 'Empezar sesión diaria · ' + CFG.minutos + ' min'), ' ',
         el('button', { type: 'button', id: 'pr-stats-ir', onclick: () => pintarEstadisticas() }, '📊 Estadísticas')));
     caja.replaceChildren(barra(el('button', { type: 'button', title: 'Volver (Esc)', onclick: () => history.back() }, '← Volver'), 'Practicar'),
-      el('div', { className: 'ccuerpo' }, estado, diaria, repaso, ...tarjetas,
+      el('div', { className: 'ccuerpo' }, estado, diaria, retos, repaso, ...tarjetas,
         el('p', { className: 'a' }, 'Atajos: letras A–G para responder · # o + sube, - baja · Enter o Espacio para seguir · Esc para salir.')));
     caja.scrollTop = yVuelta;
   }
 
   // --- estadísticas ---
+  function pintarRetos() {
+    dejarInicio();
+    clearTimeout(temporizador); ses = null; mod = 0; pantalla = 'retos';
+    window.RepertorioAudio?.detener();
+    window.Retos.abrir(caja, pintarInicio);
+  }
   function pintarEstadisticas() {
     dejarInicio();
     clearTimeout(temporizador); ses = null; pantalla = 'estadisticas'; window.RepertorioAudio?.detener();
@@ -369,6 +378,7 @@
   window.addEventListener('popstate', () => {
     if (caja.hidden) return;
     if (pantalla === 'inicio') return cerrar();
+    if (pantalla === 'retos' && window.Retos && window.Retos.atras()) { history.pushState({ practica: true }, ''); return; }
     if (ses && ses.hechas.length >= 3) guardarSesion();        // igual que al salir: una sesión a medias se conserva
     history.pushState({ practica: true }, '');
     pintarInicio();
