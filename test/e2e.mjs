@@ -619,3 +619,57 @@ test('PRACTICAR: Atrás desde una sesión, una lección o las estadísticas vuel
   assert.equal(n.$('app').inert, false);
   sinErrores(n); n.cerrar();
 });
+
+test('RETOS DE ACORDES: elegir opciones, hacer un reto completo, estadísticas guardadas y Atrás por niveles', async () => {
+  memoria.clear();
+  const n = await navegador('');
+  const caja = await abrirPractica(n);
+  n.w.Retos.CFG.guardia = 0;                                   // sin espera anti doble toque en las pruebas
+  n.$('pr-retos-ir').click();
+  await esperar(() => n.$('rt-empezar-10'), 'menú de los retos');
+  assert.equal(caja.scrollTop, 0);
+  assert.equal(n.$('rt-progreso').textContent.includes('Aún no has hecho retos'), true);
+  n.d.querySelector('[data-op="calidad:m"]').click();
+  n.d.querySelector('[data-op="inversiones:true"]').click();
+  assert.equal(n.d.querySelector('[data-op="calidad:m"]').getAttribute('aria-pressed'), 'true');
+  assert.deepEqual(JSON.parse(n.w.localStorage.getItem('repertorio-retos-pref')), { calidad: 'm', inversiones: true });
+
+  n.$('rt-empezar-10').click();
+  await esperar(() => n.$('rt-acorde'), 'primer reto');
+  const bien = [], hechos = [];
+  for (let i = 1; i <= 10; i++) {
+    const nombre = n.$('rt-acorde').textContent;
+    assert.match(nombre, /^[A-G](#|b)?m$/, 'solo menores: ' + nombre);
+    assert.match(n.d.querySelector('.cbarra').textContent, new RegExp(`${i} / 10`));
+    assert.equal(n.$('rt-revela'), null, 'las notas no se ven antes de tocar');
+    if (i % 3 === 0) { n.$('rt-ver').click(); assert.ok(n.$('rt-revela')); n.$('rt-sig').click(); hechos.push([nombre, false]); }
+    else {
+      n.$('rt-toque').click();
+      assert.ok(n.$('rt-revela').querySelector('svg.pteclado'), 'se dibuja el teclado');
+      assert.equal(n.$('rt-revela').querySelectorAll('.pk-on').length, 3, 'tres teclas marcadas');
+      assert.match(n.$('rt-tiempo').textContent, /Tardaste \d+\.\d s/);
+      if (i % 4 === 0) { n.$('rt-fallo').click(); hechos.push([nombre, false]); } else { n.$('rt-bien').click(); hechos.push([nombre, true]); }
+    }
+  }
+  await esperar(() => n.$('rt-resultado'), 'resultado');
+  const buenas = hechos.filter(h => h[1]).length;
+  assert.match(n.$('rt-resultado').textContent, new RegExp(`^${buenas} de 10 bien`));
+  const est = JSON.parse(n.w.localStorage.getItem('repertorio-retos-v1'));
+  assert.equal(Object.values(est.items).reduce((s, x) => s + x.v, 0), 10, 'cada reto quedó guardado');
+  assert.equal(Object.values(est.items).reduce((s, x) => s + x.a, 0), buenas);
+
+  n.w.history.back();                                          // Atrás desde el resultado: menú de los retos
+  await esperar(() => n.$('rt-empezar-10') && n.$('rt-progreso').textContent.includes('10 retos'), 'vuelve al menú de los retos, con el progreso');
+  assert.equal(n.$('practica').hidden, false);
+  n.$('rt-empezar-10').click();
+  await esperar(() => n.$('rt-acorde'), 'otra sesión');
+  n.w.history.back();                                          // Atrás en medio de un reto: menú de los retos
+  await esperar(() => n.$('rt-empezar-10'), 'menú de los retos otra vez');
+  n.w.history.back();                                          // Atrás desde el menú de los retos: menú de Practicar
+  await esperar(() => n.$('pr-diaria') && n.$('pr-retos-ir'), 'menú de Practicar');
+  assert.equal(n.$('practica').hidden, false);
+  n.w.history.back();                                          // y desde ahí, sale de Practicar
+  await esperar(() => n.$('practica').hidden, 'sale de Practicar');
+  assert.equal(n.$('app').inert, false);
+  sinErrores(n); n.cerrar();
+});
