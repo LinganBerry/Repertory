@@ -128,13 +128,16 @@
     const progs = window.Progresiones && window.Progresiones.abrir ? el('div', { className: 'parte', id: 'pr-progs' }, el('h3', {}, 'Retos de progresiones'),
       el('p', {}, 'Progresiones de tus canciones en números romanos, en el tono que salga. Tócalas en tu piano y compruébalas. Sin sonido ni internet.'),
       el('p', {}, el('button', { type: 'button', className: 'primario', id: 'pr-progs-ir', onclick: pintarProgresiones }, 'Abrir progresiones'))) : null;
+    const escs = window.Escalas && window.Escalas.abrir ? el('div', { className: 'parte', id: 'pr-escalas' }, el('h3', {}, 'Retos de escalas y modos'),
+      el('p', {}, 'Una escala o un modo en una tónica al azar. Tócala en tu piano y compruébala. Sin sonido ni internet.'),
+      el('p', {}, el('button', { type: 'button', className: 'primario', id: 'pr-escalas-ir', onclick: pintarEscalas }, 'Abrir escalas y modos'))) : null;
     const prep = window.Preparar && window.Preparar.tarjeta ? window.Preparar.tarjeta() : null;
     const diaria = el('div', { className: 'parte', id: 'pr-diaria' }, el('h3', {}, 'Sesión diaria'),
       el('p', {}, 'Mezcla de todos los temas, ' + CFG.minutos + ' minutos. Sale más lo que menos dominas y lo que hace más tiempo que no practicas.'),
       el('p', {}, el('button', { type: 'button', className: 'primario', id: 'pr-diaria-ir', onclick: () => empezarDiaria() }, 'Empezar sesión diaria · ' + CFG.minutos + ' min'), ' ',
         el('button', { type: 'button', id: 'pr-stats-ir', onclick: () => pintarEstadisticas() }, '📊 Estadísticas')));
     caja.replaceChildren(barra(el('button', { type: 'button', title: 'Volver (Esc)', onclick: () => history.back() }, '← Volver'), 'Practicar'),
-      el('div', { className: 'ccuerpo' }, estado, diaria, retos, progs, prep, repaso, ...tarjetas,
+      el('div', { className: 'ccuerpo' }, estado, diaria, retos, progs, escs, prep, repaso, ...tarjetas,
         el('p', { className: 'a' }, 'Atajos: letras A–G para responder · # o + sube, - baja · Enter o Espacio para seguir · Esc para salir.')));
     caja.scrollTop = yVuelta;
   }
@@ -145,6 +148,12 @@
     clearTimeout(temporizador); ses = null; mod = 0; pantalla = 'retos'; modRetos = window.Retos;
     window.RepertorioAudio?.detener();
     window.Retos.abrir(caja, pintarInicio);
+  }
+  function pintarEscalas() {
+    dejarInicio();
+    clearTimeout(temporizador); ses = null; mod = 0; pantalla = 'retos'; modRetos = window.Escalas;
+    window.RepertorioAudio?.detener();
+    window.Escalas.abrir(caja, pintarInicio);
   }
   function pintarProgresiones() {
     dejarInicio();

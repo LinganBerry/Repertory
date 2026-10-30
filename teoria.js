@@ -375,6 +375,8 @@
   $('teoria-btn').addEventListener('click', abrir);
 
   // Piano compartido con Practicar (oído). pasos: [{ midis: [60, 64], en: ms, dur: segundos }]. Rechaza si no hay sonido.
+  // Lo usan también los retos de escalas y modos (no se copia la lista ni el cargador).
+  window.RepertorioTeoria = { cargarTonal, modos: MODOS };
   window.RepertorioAudio = {
     async tocar(pasos) {
       await cargarTone(); crearPiano();
