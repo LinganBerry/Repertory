@@ -10,7 +10,7 @@
 import { leer, escribir, crear, ConflictoError, ExisteError } from '../lib/almacen.js';
 import { tokenValido, problemaConClave } from '../lib/auth.js';
 import { limpiarCancion, guardable, idValido, texto } from '../lib/limpiar.js';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
 
 const RUTA = 'repertorio/canciones.json';
 const MAX_BYTES = 600_000;
@@ -34,8 +34,9 @@ async function modificar(cambiar) {
     const previo = actual ? structuredClone(actual.data) : null;   // copia intacta, antes de aplicar el cambio
     const doc = actual?.data ?? vacio();
     if (!Array.isArray(doc.canciones)) doc.canciones = [];
+    const idsArreglados = asegurarIds(doc);
     const res = cambiar(doc);
-    if (res.error || res.sinCambios) return res;
+    if (res.error || (res.sinCambios && !idsArreglados)) return res;
     doc.version = 2;
     doc.actualizado = hoy();
     try {
@@ -54,6 +55,21 @@ async function respaldoDelDia(anterior) {
   catch (e) { if (!(e instanceof ExisteError)) console.error('respaldo del día:', e); }   // un fallo aquí no impide guardar
 }
 
+// Canciones viejas sin identificador (o con uno repetido/inválido): no se podían editar ni mandar a la papelera,
+// y al editarlas se creaba una copia nueva. Se les da un id estable (sale del título + artista), igual en cada lectura.
+function asegurarIds(doc) {
+  const vistos = new Set();
+  let cambio = false;
+  for (const c of doc.canciones) {
+    if (idValido(c.id) && !vistos.has(c.id)) { vistos.add(c.id); continue; }
+    const base = createHash('sha1').update(clave(c)).digest('hex').slice(0, 16);
+    let id = base, n = 1;
+    while (vistos.has(id)) id = base.slice(0, 13) + String(++n).padStart(3, '0');
+    c.id = id; vistos.add(id); cambio = true;
+  }
+  return cambio;
+}
+
 const publica = c => { const { borrada, ...resto } = c; return resto; };
 
 export async function GET() {
@@ -61,6 +77,8 @@ export async function GET() {
     const r = await leer(RUTA);
     if (!r) return responder({ error: 'Aún no hay datos guardados' }, 404);
     const d = r.data;
+    if (!Array.isArray(d.canciones)) d.canciones = [];
+    asegurarIds(d);
     return responder({ version: 2, nombre: d.nombre || '', intro: d.intro || '', actualizado: d.actualizado || '',
       canciones: (d.canciones || []).filter(c => !c.borrada).map(publica) });
   } catch (e) {
@@ -154,6 +172,7 @@ export async function POST(request) {
   try {
     if (cuerpo.accion === 'papelera') {
       const r = await leer(RUTA);
+      if (r?.data && Array.isArray(r.data.canciones)) asegurarIds(r.data);
       return responder({ canciones: (r?.data?.canciones || []).filter(c => c.borrada).map(publica) });
     }
     if (!Object.hasOwn(ACCIONES, cuerpo.accion)) return responder({ error: 'Acción desconocida' }, 400);
