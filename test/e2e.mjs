@@ -632,7 +632,7 @@ test('RETOS DE ACORDES: elegir opciones, hacer un reto completo, estadísticas g
   n.d.querySelector('[data-op="calidad:m"]').click();
   n.d.querySelector('[data-op="inversiones:true"]').click();
   assert.equal(n.d.querySelector('[data-op="calidad:m"]').getAttribute('aria-pressed'), 'true');
-  assert.deepEqual(JSON.parse(n.w.localStorage.getItem('repertorio-retos-pref')), { calidad: 'm', inversiones: true });
+  assert.deepEqual(JSON.parse(n.w.localStorage.getItem('repertorio-retos-pref')), { calidad: 'm', inversiones: true, tiempo: 0, teclado: true, repasar: true });
 
   n.$('rt-empezar-10').click();
   await esperar(() => n.$('rt-acorde'), 'primer reto');
@@ -671,5 +671,30 @@ test('RETOS DE ACORDES: elegir opciones, hacer un reto completo, estadísticas g
   n.w.history.back();                                          // y desde ahí, sale de Practicar
   await esperar(() => n.$('practica').hidden, 'sale de Practicar');
   assert.equal(n.$('app').inert, false);
+  sinErrores(n); n.cerrar();
+});
+
+test('RETOS DE ACORDES: tiempo por acorde (al acabarse cuenta como fallo y muestra la respuesta), solo notas y sin relojes sueltos al salir', async () => {
+  memoria.clear();
+  const n = await navegador('');
+  await abrirPractica(n);
+  n.w.Retos.CFG.guardia = 0; n.w.Retos.CFG.escala = 0.02;      // 6 s -> 120 ms en la prueba
+  n.$('pr-retos-ir').click(); await esperar(() => n.$('rt-empezar-10'), 'menú de los retos');
+  n.d.querySelector('[data-op="tiempo:6"]').click(); n.d.querySelector('[data-op="teclado:false"]').click();
+  assert.equal(n.d.querySelector('[data-op="tiempo:6"]').getAttribute('aria-pressed'), 'true');
+  n.$('rt-empezar-10').click(); await esperar(() => n.$('rt-acorde'), 'primer reto');
+  assert.ok(n.$('rt-barra') && /Quedan \d+ s/.test(n.$('rt-cuenta').textContent), 'se ve la cuenta regresiva');
+  await esperar(() => n.$('rt-expiro'), 'se acaba el tiempo');
+  assert.ok(n.$('rt-sig'), 'solo queda Siguiente'); assert.equal(n.$('rt-revela').querySelector('svg'), null, 'solo notas, sin teclado');
+  assert.match(n.$('rt-revela').textContent, /\w/);
+  n.$('rt-sig').click(); await esperar(() => n.$('rt-toque'), 'segundo reto');
+  n.$('rt-toque').click(); assert.equal(n.$('rt-barra'), null, 'al tocar se detiene la cuenta'); n.$('rt-bien').click();
+  await esperar(() => n.$('rt-toque'), 'tercer reto');
+  const est = JSON.parse(n.w.localStorage.getItem('repertorio-retos-v1'));
+  assert.deepEqual([Object.values(est.items).reduce((s, x) => s + x.v, 0), Object.values(est.items).reduce((s, x) => s + x.a, 0)], [2, 1], 'el tiempo agotado cuenta como fallo');
+  n.w.history.back();                                           // salir con la cuenta corriendo
+  await esperar(() => n.$('rt-empezar-10'), 'menú de los retos');
+  await new Promise(r => setTimeout(r, 400));                   // si quedara un reloj vivo, rompería el menú
+  assert.ok(n.$('rt-empezar-10') && !n.$('rt-expiro') && !n.$('rt-barra'));
   sinErrores(n); n.cerrar();
 });

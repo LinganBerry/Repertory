@@ -78,3 +78,21 @@ test('estadísticas: registrar, "para repasar" y "los más lentos"', () => {
   assert.deepEqual(r.lentos.map(f => f.nombre), ['G', 'C'], 'solo con 2 o más aciertos, del más lento al más rápido');
   assert.deepEqual(R.resumen(R.vacias()), { v: 0, a: 0, repasar: [], lentos: [] });
 });
+
+test('"lo que más fallas sale más": respeta lo que elegiste y solo ayuda si activas "repasar"', () => {
+  const est = R.vacias();
+  for (let i = 0; i < 4; i++) R.registrar(est, 'Db|M|0', false, 0);          // lo fallas mucho
+  R.registrar(est, 'C|M|2', false, 0);                                      // fallo en una inversión
+  for (let i = 0; i < 5; i++) R.registrar(est, 'G|M|0', true, 2000);        // este lo dominas
+  R.registrar(est, 'E|m|0', false, 0);
+  const cuantos = (op, item, n = 1500) => { const az = semilla(11); let c = 0, prev = null; for (let i = 0; i < n; i++) { const r = R.crearReto(op, az, prev, est); prev = r.item; if (r.item === item) c++; } return c; };
+  assert.deepEqual(R.debiles(est, { calidad: 'M', inversiones: false }).map(f => f.item), ['Db|M|0'], 'sin inversiones no entra C|M|2; los que dominas tampoco');
+  assert.deepEqual(R.debiles(est, { calidad: 'ambos', inversiones: true }).map(f => f.item).sort(), ['C|M|2', 'Db|M|0', 'E|m|0']);
+  assert.deepEqual(R.debiles(est, { calidad: 'm', inversiones: false }).map(f => f.item), ['E|m|0']);
+  const con = cuantos({ calidad: 'M', inversiones: false, repasar: true }, 'Db|M|0'), sin = cuantos({ calidad: 'M', inversiones: false, repasar: false }, 'Db|M|0');
+  assert.ok(con > 450 && con < 800, 'con repasar sale mucho más: ' + con);
+  assert.ok(sin > 60 && sin < 200, 'sin repasar sale como cualquiera (~1 de 12): ' + sin);
+  assert.equal(cuantos({ calidad: 'm', inversiones: false, repasar: true }, 'Db|M|0'), 0, 'nunca sale algo que no elegiste');
+  assert.equal(cuantos({ calidad: 'M', inversiones: false, repasar: true }, 'C|M|2'), 0, 'sin inversiones no salen inversiones');
+  let prev = null; for (let i = 0; i < 300; i++) { const r = R.crearReto({ calidad: 'M', repasar: true }, semilla(i), prev, est); assert.notEqual(r.item, prev); prev = r.item; }
+});
