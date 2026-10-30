@@ -9,7 +9,7 @@ Sin cuentas de usuario, sin comunidad, sin registro. El editor se abre tocando 5
 - **Instalar como app:** en Android/Chrome o en PC (Chrome/Edge) usa *Instalar app*. Se abre sin barra del navegador.
 - **Sin señal:** se muestra la última copia guardada **y un aviso arriba**; al volver la señal se actualiza sola. Abre la página con internet al menos una vez en cada dispositivo.
 - **Listas del culto** (barra de abajo): crea una lista, agrégale canciones, ordénalas y toca **▶ Empezar**; con ← → o Anterior/Siguiente recorres la lista en ese orden. Se guardan en cada dispositivo. La pantalla no se apaga mientras una canción está abierta. Atrás vuelve a donde estabas.
-- **Retos de acordes** (Practicar → Retos de acordes): sale un acorde mayor o menor en los 12 tonos (con inversiones si quieres). Lo tocas en tu piano, pulsas **Ya lo toqué** y ves las notas en el teclado. Guarda cuánto tardas y qué fallas. No usa sonido ni internet.
+- **Retos de acordes** (Practicar → Retos de acordes): sale un acorde mayor o menor en los 12 tonos (con inversiones si quieres). Lo tocas en tu piano, pulsas **Ya lo toqué** y ves las notas en el teclado. Guarda cuánto tardas y qué fallas. **Ayudas:** tiempo por acorde (10 s o 6 s: si se acaba, cuenta como fallo y ves la respuesta), ver solo las notas sin el teclado, y repasar lo que fallo (4 de cada 10 retos salen de tus fallos). No usa sonido ni internet.
 - **Teoría** (barra de abajo): escalas y modos, diccionario de acordes y **Tonalidades** (armadura, relativa, acordes con su función T/SD/D, dominantes secundarios, cadencia I–IV–V–I para oír). El piano y la librería de teoría se descargan la primera vez que abres Teoría y después quedan guardados.
 
 ## Practicar (ejercicios para estudiar sin salir de la página)

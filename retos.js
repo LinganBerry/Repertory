@@ -33,14 +33,31 @@
     for (const t of orden.slice(1)) { const m = midis[midis.length - 1]; midis.push(m + ((((t.pc - (m % 12)) % 12) + 12) % 12)); }
     return { notas: orden.map(t => t.nombre), midis };
   }
-  function crearReto(op = {}, azar = Math.random, previo = null) {
-    const cals = op.calidad === 'M' ? ['M'] : op.calidad === 'm' ? ['m'] : ['M', 'm'];
+  const calidadesDe = op => (op.calidad === 'M' ? ['M'] : op.calidad === 'm' ? ['m'] : ['M', 'm']);
+  // Retos que fallas (y que encajan con lo que elegiste ahora), con más peso mientras más los has fallado.
+  function debiles(est, op = {}) {
+    const cals = calidadesDe(op), out = [];
+    for (const [item, x] of Object.entries(est.items)) {
+      if (!describir(item) || x.v - x.a < 1 || x.a / x.v >= 0.8) continue;
+      const [nombre, calidad, inv] = item.split('|');
+      if (cals.includes(calidad) && (op.inversiones || Number(inv) === 0)) out.push({ item, nombre, calidad, inv: Number(inv), peso: x.v - x.a });
+    }
+    return out;
+  }
+  function crearReto(op = {}, azar = Math.random, previo = null, est = null) {
+    const cals = calidadesDe(op), flojos = op.repasar && est ? debiles(est, op) : [];
     let r;
     for (let i = 0; i < 20; i++) {
-      const calidad = cals[Math.floor(azar() * cals.length)];
-      const nombre = RAICES[calidad][Math.floor(azar() * 12)];
-      const inv = op.inversiones ? Math.floor(azar() * 3) : 0;
-      r = { item: `${nombre}|${calidad}|${inv}`, raiz: nombre, calidad, inv };
+      if (flojos.length && azar() < 0.4) {                      // 4 de cada 10 retos salen de tus fallos
+        let t = azar() * flojos.reduce((s, f) => s + f.peso, 0), f = flojos[flojos.length - 1];
+        for (const c of flojos) { t -= c.peso; if (t < 0) { f = c; break; } }
+        r = { item: f.item, raiz: f.nombre, calidad: f.calidad, inv: f.inv };
+      } else {
+        const calidad = cals[Math.floor(azar() * cals.length)];
+        const nombre = RAICES[calidad][Math.floor(azar() * 12)];
+        const inv = op.inversiones ? Math.floor(azar() * 3) : 0;
+        r = { item: `${nombre}|${calidad}|${inv}`, raiz: nombre, calidad, inv };
+      }
       if (r.item !== previo) break;
     }
     const ac = acorde(r.raiz, r.calidad), pos = posicion(ac, r.inv);
@@ -80,7 +97,7 @@
     return { v, a, repasar, lentos };
   }
 
-  const api = { RAICES, POSICIONES, acorde, posicion, crearReto, describir, vacias, limpiar, registrar, resumen, CFG: { guardia: 350 } };
+  const api = { RAICES, POSICIONES, acorde, posicion, crearReto, debiles, describir, vacias, limpiar, registrar, resumen, CFG: { guardia: 350, escala: 1 } };
   raiz.Retos = api;
   if (typeof document === 'undefined') return;
 
@@ -99,26 +116,35 @@
   const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sin espacio: no pasa nada grave */ } };
   const seg = ms => (ms / 1000).toFixed(1) + ' s';
 
-  let caja = null, volverFn = null, vista = 'menu', ses = null, pref = { calidad: 'ambos', inversiones: false }, est = vacias();
+  const PREF0 = { calidad: 'ambos', inversiones: false, tiempo: 0, teclado: true, repasar: true };
+  let caja = null, volverFn = null, vista = 'menu', ses = null, pref = { ...PREF0 }, est = vacias(), reloj = null;
+  const parar = () => { if (reloj) { clearInterval(reloj); reloj = null; } };
   const barra = (izq, centro) => el('div', { className: 'cbarra' }, izq, el('span', { className: 'ctitulo' }, centro));
   const atrasBtn = (texto, titulo = 'Salir') => el('button', { type: 'button', title: titulo, onclick: () => history.back() }, texto);
   const poner = (...hijos) => { caja.replaceChildren(...hijos); caja.scrollTop = 0; };
 
   function menu(conservar) {
-    vista = 'menu'; ses = null;
+    vista = 'menu'; ses = null; parar();
     const y = conservar ? caja.scrollTop : 0, r = resumen(est);
     const opcion = (campo, valor, texto) => el('button', {
       type: 'button', 'data-op': campo + ':' + valor, 'aria-pressed': String(pref[campo] === valor),
       onclick: () => { pref[campo] = valor; guardar(PREF, pref); menu(true); const b = caja.querySelector(`[data-op="${campo}:${valor}"]`); if (b) b.focus({ preventScroll: true }); }
     }, texto);
     poner(
-      barra(el('button', { type: 'button', title: 'Volver a Practicar', onclick: () => { vista = 'fuera'; volverFn(); } }, '← Practicar'), 'Retos de acordes'),
+      barra(el('button', { type: 'button', title: 'Volver a Practicar', onclick: () => { vista = 'fuera'; parar(); volverFn(); } }, '← Practicar'), 'Retos de acordes'),
       el('div', { className: 'ccuerpo', 'data-retos': '1' },
         el('p', {}, 'Sale un acorde. Tócalo en tu piano y luego compruébalo. No usa sonido ni internet.'),
         el('div', { className: 'parte' }, el('h3', {}, 'Acordes'),
           el('div', { className: 'tg', rol: 'group', 'aria-label': 'Acordes' }, opcion('calidad', 'M', 'Mayores'), opcion('calidad', 'm', 'Menores'), opcion('calidad', 'ambos', 'Ambos'))),
         el('div', { className: 'parte' }, el('h3', {}, 'Posición'),
           el('div', { className: 'tg', rol: 'group', 'aria-label': 'Posición' }, opcion('inversiones', false, 'Fundamental'), opcion('inversiones', true, 'Con inversiones'))),
+        el('div', { className: 'parte' }, el('h3', {}, 'Ayudas'),
+          el('p', { className: 'a' }, 'Tiempo para tocar cada acorde'),
+          el('div', { className: 'tg', rol: 'group', 'aria-label': 'Tiempo por acorde' }, opcion('tiempo', 0, 'Sin límite'), opcion('tiempo', 10, '10 s'), opcion('tiempo', 6, '6 s')),
+          el('p', { className: 'a' }, 'Al ver la respuesta'),
+          el('div', { className: 'tg', rol: 'group', 'aria-label': 'Al ver la respuesta' }, opcion('teclado', true, 'Notas y teclado'), opcion('teclado', false, 'Solo notas')),
+          el('p', { className: 'a' }, 'Repasar lo que fallo'),
+          el('div', { className: 'tg', rol: 'group', 'aria-label': 'Repasar lo que fallo' }, opcion('repasar', true, 'Sí'), opcion('repasar', false, 'No'))),
         el('p', {}, el('button', { type: 'button', className: 'primario', id: 'rt-empezar-10', onclick: () => empezar(10) }, 'Empezar · 10'), ' ',
           el('button', { type: 'button', id: 'rt-empezar-20', onclick: () => empezar(20) }, 'Empezar · 20')),
         el('div', { className: 'parte', id: 'rt-progreso' }, el('h3', {}, 'Tu progreso'),
@@ -129,20 +155,29 @@
   }
 
   function empezar(total) {
-    ses = { total, i: 0, hechas: [], reto: null, fase: 'pregunta', t0: 0, ms: 0, tRevela: 0 };
+    ses = { total, i: 0, hechas: [], reto: null, fase: 'pregunta', t0: 0, ms: 0, tRevela: 0, expiro: false };
     siguiente();
   }
   function siguiente() {
     if (ses.i >= ses.total) return resultado();
-    ses.reto = crearReto(pref, Math.random, ses.reto && ses.reto.item);
-    ses.i++; ses.fase = 'pregunta'; ses.t0 = performance.now(); vista = 'sesion';
+    ses.reto = crearReto(pref, Math.random, ses.reto && ses.reto.item, est);
+    ses.i++; ses.fase = 'pregunta'; ses.expiro = false; ses.t0 = performance.now(); vista = 'sesion';
     pintarReto();
   }
   function revelar(fase) {
     if (!ses || ses.fase !== 'pregunta') return;
+    parar();
     ses.ms = Math.min(120000, Math.max(0, Math.round(performance.now() - ses.t0)));
     ses.fase = fase; ses.tRevela = performance.now();
     pintarReto();
+  }
+  const limite = () => pref.tiempo * 1000 * api.CFG.escala;
+  function tic() {
+    if (!ses || vista !== 'sesion' || ses.fase !== 'pregunta' || !caja || caja.hidden) return parar();
+    const resta = limite() - (performance.now() - ses.t0), bar = document.getElementById('rt-barra'), cuenta = document.getElementById('rt-cuenta');
+    if (resta <= 0) { ses.expiro = true; return revelar('visto'); }          // se acabó el tiempo: cuenta como fallo y ves la respuesta
+    if (bar) bar.style.width = Math.max(0, (resta / limite()) * 100) + '%';
+    if (cuenta) cuenta.textContent = 'Quedan ' + Math.ceil(resta / 1000 / api.CFG.escala) + ' s';
   }
   const enGuardia = () => performance.now() - ses.tRevela < api.CFG.guardia;     // evita que un doble toque conteste por error
   function responder(bien) {
@@ -156,8 +191,11 @@
     const r = ses.reto, f = ses.fase, ultimo = ses.i >= ses.total;
     const boton = (texto, id, fn, primario) => el('button', { type: 'button', id, className: primario ? 'primario' : '', onclick: fn }, texto);
     const revelado = f === 'pregunta' ? null : el('div', { className: 'parte', id: 'rt-revela', 'aria-live': 'polite' },
+      ses.expiro ? el('p', { className: 'a', id: 'rt-expiro' }, 'Se acabó el tiempo.') : null,
       el('h3', {}, 'Las notas, de grave a agudo'), el('p', { className: 'rt-notas' }, r.notas.join(' – ')),
-      el('div', { className: 'pr-visual' }, nodoSvg(N.svgTeclado({ marcar: r.midis }))));
+      pref.teclado ? el('div', { className: 'pr-visual' }, nodoSvg(N.svgTeclado({ marcar: r.midis }))) : null);
+    const cuenta = f === 'pregunta' && pref.tiempo > 0 ? el('div', { id: 'rt-cuenta-caja' },
+      el('div', { className: 'rt-pista' }, el('div', { id: 'rt-barra', className: 'rt-barra' })), el('p', { className: 'a', id: 'rt-cuenta' }, 'Quedan ' + pref.tiempo + ' s')) : null;
     const botones = f === 'pregunta' ? [boton('Ya lo toqué', 'rt-toque', () => revelar('toque'), true), boton('No me sale (ver)', 'rt-ver', () => revelar('visto'))]
       : f === 'toque' ? [el('p', { className: 'a', id: 'rt-tiempo' }, 'Tardaste ' + seg(ses.ms) + '. ¿Lo tocaste bien?'), boton('Sí, bien', 'rt-bien', () => responder(true), true), boton('Fallé', 'rt-fallo', () => responder(false))]
         : [boton(ultimo ? 'Ver resultado' : 'Siguiente', 'rt-sig', () => responder(false), true)];
@@ -165,11 +203,13 @@
       barra(atrasBtn('← Salir', 'Salir (Esc)'), `${ses.i} / ${ses.total}`),
       el('div', { className: 'ccuerpo pr-sesion', 'data-retos': '1' },
         el('p', { className: 'rt-acorde', id: 'rt-acorde' }, r.nombre), el('p', { className: 'rt-pos' }, r.posicion),
-        el('div', { className: 'rt-botones' }, ...botones), revelado));
+        cuenta, el('div', { className: 'rt-botones' }, ...botones), revelado));
+    parar();
+    if (cuenta) reloj = setInterval(tic, 100);
     const primero = caja.querySelector('.rt-botones .primario'); if (primero) primero.focus({ preventScroll: true });
   }
   function resultado() {
-    vista = 'resultado';
+    vista = 'resultado'; parar();
     const h = ses.hechas, a = h.filter(x => x.bien), total = ses.total;
     const medio = a.length ? a.reduce((s, x) => s + x.ms, 0) / a.length : 0;
     const fallos = h.filter(x => !x.bien), lentos = [...a].sort((p, q) => q.ms - p.ms).slice(0, 3);
@@ -185,6 +225,10 @@
     const t = document.getElementById('rt-resultado'); if (t) t.focus({ preventScroll: true });
   }
 
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && ses && vista === 'sesion' && ses.fase === 'pregunta' && pref.tiempo > 0) ses.t0 = performance.now();
+  });
+
   // Atajos de teclado (PC/tablet): V = ver las notas, F = fallé. Enter ya funciona en el botón que tiene el foco.
   document.addEventListener('keydown', e => {
     if (!caja || caja.hidden || vista !== 'sesion' || !ses || !caja.querySelector('[data-retos]')) return;
@@ -198,13 +242,16 @@
   // los retos (devuelve true); desde el menú devuelve false y Practicar vuelve a su propio menú.
   api.abrir = (cajaPracticar, volver) => {
     caja = cajaPracticar; volverFn = volver; ses = null;
-    pref = { calidad: 'ambos', inversiones: false, ...(leer(PREF) || {}) };
+    const g = leer(PREF) || {};
+    pref = { ...PREF0, ...(typeof g === 'object' ? g : {}) };
     if (!['M', 'm', 'ambos'].includes(pref.calidad)) pref.calidad = 'ambos';
-    pref.inversiones = pref.inversiones === true;
+    if (![0, 6, 10].includes(pref.tiempo)) pref.tiempo = 0;
+    for (const k of ['inversiones', 'teclado', 'repasar']) pref[k] = typeof pref[k] === 'boolean' ? pref[k] : PREF0[k];
     est = limpiar(leer(EST));
     menu(); caja.focus({ preventScroll: true });
   };
   api.atras = () => {
+    parar();
     if (vista === 'sesion' || vista === 'resultado') { menu(); return true; }
     return false;
   };
