@@ -1,0 +1,19 @@
+/* Página 404: usa los colores de la app (estilos.css). Sin estilos en línea: la política de seguridad no los permite. */
+body.perdida { min-height: 100vh; display: flex; align-items: center; padding-top: max(1.2rem, env(safe-area-inset-top, 0px)); }
+.perdida main { width: 100%; text-align: center; }
+.perdida h1 { font-size: 1.9rem; margin: .2rem 0 .4rem; }
+.perdida .sub { color: var(--muted); max-width: 30rem; margin: 0 auto 1.4rem; }
+.cuatro { display: flex; justify-content: center; align-items: center; gap: .15em; margin: 0; font: 800 clamp(5rem, 28vw, 9rem)/1 var(--serif); color: var(--ink); letter-spacing: -.02em; }
+.cero { display: inline-block; color: var(--peligro); transform: rotate(-8deg); }
+.teclado { position: relative; display: flex; height: 9.5rem; max-width: 24rem; margin: 0 auto; border: 2px solid var(--ink); border-radius: 0 0 8px 8px; background: var(--ink); gap: 2px; padding: 0 2px 2px; }
+.blanca { flex: 1; min-width: 0; min-height: 0; padding: 0 0 .5rem; display: flex; align-items: flex-end; justify-content: center; border: 0; border-radius: 0 0 6px 6px; background: var(--fila2); color: var(--muted); font-weight: 700; transition: background .08s ease; }
+.negra { position: absolute; top: 0; width: 9%; height: 60%; min-height: 0; padding: 0; border: 0; border-radius: 0 0 5px 5px; background: var(--ink); box-shadow: 0 0 0 2px var(--bg); }
+.n1 { left: 10%; } .n2 { left: 24.3%; } .n4 { left: 52.8%; } .n5 { left: 67.1%; } .n6 { left: 81.4%; }
+.blanca.suena { background: var(--accent); color: var(--bg); }
+.negra.suena { background: var(--accent); }
+.nota { min-height: 2.4rem; margin: 1rem 0 .1rem; font: 700 1.6rem/1.5 var(--serif); }
+#frase { min-height: 1.4em; margin: 0 0 1.4rem; }
+.volver { display: inline-flex; align-items: center; min-height: 48px; padding: .5rem 1.1rem; border: 2px solid var(--ink); border-radius: 4px; color: var(--ink); font-weight: 700; text-decoration: none; }
+.volver:hover { background: var(--fila); }
+@media (prefers-reduced-motion: no-preference) { .cero { animation: tambalea 3s ease-in-out infinite; } }
+@keyframes tambalea { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(6deg); } }
