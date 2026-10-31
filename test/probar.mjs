@@ -327,3 +327,17 @@ test('canciones viejas sin id: reciben un id estable, se pueden editar sin dupli
   assert.equal(b.status, 200);
   assert.equal((await lista()).length, 2);
 });
+
+test('ids viejos que ya sirven (aunque sean cortos) no se cambian; solo se arreglan los que faltan, están repetidos o tienen caracteres raros', async () => {
+  limpiarTodo();
+  const token = await pase();
+  const c = (id, t) => ({ ...(id === undefined ? {} : { id }), titulo: t, tono: 'G', partes: [{ nombre: 'Coro', prog: 'G D' }] });
+  memoria.set('repertorio/canciones.json', { texto: JSON.stringify({ version: 2, canciones: [c('id0', 'Uno'), c('c1', 'Dos'), c(undefined, 'Tres'), c('id0', 'Cuatro'), c('con espacio', 'Cinco')] }), etag: '"v0"' });
+  const l = await lista();
+  assert.deepEqual(l.slice(0, 2).map(x => x.id), ['id0', 'c1'], 'los ids cortos que sirven se quedan igual');
+  assert.equal(new Set(l.map(x => x.id)).size, 5, 'ningún id repetido');
+  assert.ok(l.slice(2).every(x => /^[A-Za-z0-9_-]{1,40}$/.test(x.id)), 'los arreglados son válidos');
+  assert.equal((await guardar(token, { ...l[0], nota: 'hola' })).status, 200, 'una canción de id corto se puede editar');
+  assert.equal((await lista()).length, 5, 'sin duplicar');
+  assert.equal((await json(await post(canciones, { token, accion: 'borrar', id: 'c1' }))).status, 200, 'y mandar a la papelera');
+});

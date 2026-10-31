@@ -56,7 +56,7 @@ test('comparar (línea de comandos): "0 diferencias" con código 0, y código 1 
 });
 
 test('generar-respaldo: omite papelera, limpia datos y produce un canciones.js que la página puede cargar', async () => {
-  const copia = { nombre: 'Mi repertorio', canciones: [C(), C({ id: 'borr1234', titulo: 'Borrada', borrada: true }), C({ id: 'bad12345', titulo: 'Enlace malo', enlace: 'javascript:alert(1)' }), { titulo: 'Sin tono' }, C({ id: 'x'.repeat(5), titulo: 'ID inválido' })] };
+  const copia = { nombre: 'Mi repertorio', canciones: [C(), C({ id: 'borr1234', titulo: 'Borrada', borrada: true }), C({ id: 'bad12345', titulo: 'Enlace malo', enlace: 'javascript:alert(1)' }), { titulo: 'Sin tono' }, C({ id: 'x'.repeat(41), titulo: 'ID inválido' })] };
   const datos = construir(copia);
   assert.deepEqual(datos.canciones.map(c => c.titulo), ['Canción', 'Enlace malo', 'ID inválido']);
   assert.equal(datos.canciones[1].enlace, '');

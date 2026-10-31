@@ -55,8 +55,9 @@ async function respaldoDelDia(anterior) {
   catch (e) { if (!(e instanceof ExisteError)) console.error('respaldo del día:', e); }   // un fallo aquí no impide guardar
 }
 
-// Canciones viejas sin identificador (o con uno repetido/inválido): no se podían editar ni mandar a la papelera,
+// Canciones viejas sin identificador (o con uno repetido o con caracteres raros): no se podían editar ni mandar a la papelera,
 // y al editarlas se creaba una copia nueva. Se les da un id estable (sale del título + artista), igual en cada lectura.
+// Los ids que ya sirven NO se tocan (aunque sean cortos): las listas del culto guardadas en cada dispositivo los usan.
 function asegurarIds(doc) {
   const vistos = new Set();
   let cambio = false;

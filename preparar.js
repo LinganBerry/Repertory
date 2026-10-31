@@ -73,7 +73,8 @@
       if (r.faltan.length) estado.textContent = `Faltaron ${r.faltan.length} de ${r.total} archivos. Prueba de nuevo con mejor señal.`;
       else { guardarFecha(r.total); estado.textContent = `Listo: ${r.total} archivos guardados. Ya puedes practicar sin internet.`; }
     });
-    return el('div', { className: 'parte', id: 'pr-preparar' }, el('h3', {}, 'Preparar sin internet'),
-      el('p', {}, 'Haz esto una vez con internet. Guarda el piano y todo lo que usa la página, y te dice si quedó completo.'), estado, el('p', {}, boton));
+    boton.textContent = 'Preparar';
+    return el('div', { className: 'pr-fila', id: 'pr-preparar' },
+      el('div', { className: 'pr-fila-txt' }, el('b', {}, 'Preparar sin internet'), el('span', { className: 'a' }, 'Una vez con señal: guarda el piano y todo lo de la página.'), estado), boton);
   };
 })(typeof window !== 'undefined' ? window : globalThis);

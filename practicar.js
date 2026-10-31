@@ -122,25 +122,29 @@
           el('p', {}, el('button', { type: 'button', className: 'primario', onclick: () => empezar(id, nv, 10) }, 'Empezar · 10'), ' ', el('button', { type: 'button', onclick: () => empezar(id, nv, 20) }, 'Empezar · 20'),
             window.Lecciones && window.Lecciones.dePorTema(id) ? [' ', el('button', { type: 'button', className: 'b-leccion', onclick: () => pintarLeccion(id) }, '📖 Lección')] : null));
       })));
-    const retos = window.Retos && window.Retos.abrir ? el('div', { className: 'parte', id: 'pr-retos' }, el('h3', {}, 'Retos de acordes'),
-      el('p', {}, 'Tócalos en tu piano y compruébalos. Mayores y menores, en los 12 tonos. Sin sonido ni internet.'),
-      el('p', {}, el('button', { type: 'button', className: 'primario', id: 'pr-retos-ir', onclick: pintarRetos }, 'Abrir retos'))) : null;
-    const progs = window.Progresiones && window.Progresiones.abrir ? el('div', { className: 'parte', id: 'pr-progs' }, el('h3', {}, 'Retos de progresiones'),
-      el('p', {}, 'Progresiones de tus canciones en números romanos, en el tono que salga. Tócalas en tu piano y compruébalas. Sin sonido ni internet.'),
-      el('p', {}, el('button', { type: 'button', className: 'primario', id: 'pr-progs-ir', onclick: pintarProgresiones }, 'Abrir progresiones'))) : null;
-    const escs = window.Escalas && window.Escalas.abrir ? el('div', { className: 'parte', id: 'pr-escalas' }, el('h3', {}, 'Retos de escalas y modos'),
-      el('p', {}, 'Una escala o un modo en una tónica al azar. Tócala en tu piano y compruébala. Sin sonido ni internet.'),
-      el('p', {}, el('button', { type: 'button', className: 'primario', id: 'pr-escalas-ir', onclick: pintarEscalas }, 'Abrir escalas y modos'))) : null;
-    const rearm = window.Rearmonizar && window.Rearmonizar.abrir ? el('div', { className: 'parte', id: 'pr-rearm' }, el('h3', {}, 'Rearmonizar tus canciones'),
-      el('p', {}, 'Elige una canción y un acorde: te sugiere cómo adornarlo, por niveles, con las notas para el piano. Solo ideas, no cambia tus canciones.'),
-      el('p', {}, el('button', { type: 'button', className: 'primario', id: 'pr-rearm-ir', onclick: pintarRearmonizar }, 'Abrir rearmonizar'))) : null;
+    // Una fila compacta: título, una línea y un botón. Los retos y las herramientas viven en una sola tarjeta cada grupo.
+    const fila = (id, titulo, linea, textoBtn, idBtn, fn) => el('div', { className: 'pr-fila', id },
+      el('div', { className: 'pr-fila-txt' }, el('b', {}, titulo), el('span', { className: 'a' }, linea)),
+      el('button', { type: 'button', className: 'primario', id: idBtn, onclick: fn }, textoBtn));
+    const filasRetos = [
+      window.Retos && window.Retos.abrir ? fila('pr-retos', 'Acordes', 'Mayores y menores, en los 12 tonos.', 'Abrir', 'pr-retos-ir', pintarRetos) : null,
+      window.Progresiones && window.Progresiones.abrir ? fila('pr-progs', 'Progresiones', 'De tus canciones, en números romanos.', 'Abrir', 'pr-progs-ir', pintarProgresiones) : null,
+      window.Escalas && window.Escalas.abrir ? fila('pr-escalas', 'Escalas y modos', 'Una escala o un modo en una tónica al azar.', 'Abrir', 'pr-escalas-ir', pintarEscalas) : null
+    ].filter(Boolean);
     const prep = window.Preparar && window.Preparar.tarjeta ? window.Preparar.tarjeta() : null;
+    const filasHerr = [
+      window.Rearmonizar && window.Rearmonizar.abrir ? fila('pr-rearm', 'Rearmonizar', 'Ideas para adornar tus canciones, por niveles.', 'Abrir', 'pr-rearm-ir', pintarRearmonizar) : null,
+      prep
+    ].filter(Boolean);
+    const grupo = (titulo, id, filas, nota) => filas.length ? el('section', { id }, el('h2', { className: 'pr-grupo' }, titulo),
+      nota ? el('p', { className: 'a' }, nota) : null, el('div', { className: 'parte pr-filas' }, ...filas)) : null;
     const diaria = el('div', { className: 'parte', id: 'pr-diaria' }, el('h3', {}, 'Sesión diaria'),
-      el('p', {}, 'Mezcla de todos los temas, ' + CFG.minutos + ' minutos. Sale más lo que menos dominas y lo que hace más tiempo que no practicas.'),
+      el('p', {}, 'Mezcla de todos los temas, ' + CFG.minutos + ' minutos. Sale más lo que menos dominas.'),
       el('p', {}, el('button', { type: 'button', className: 'primario', id: 'pr-diaria-ir', onclick: () => empezarDiaria() }, 'Empezar sesión diaria · ' + CFG.minutos + ' min'), ' ',
         el('button', { type: 'button', id: 'pr-stats-ir', onclick: () => pintarEstadisticas() }, '📊 Estadísticas')));
     caja.replaceChildren(barra(el('button', { type: 'button', title: 'Volver (Esc)', onclick: () => history.back() }, '← Volver'), 'Practicar'),
-      el('div', { className: 'ccuerpo' }, estado, diaria, retos, progs, escs, rearm, prep, repaso, ...tarjetas,
+      el('div', { className: 'ccuerpo' }, el('section', { id: 'pr-hoy' }, el('h2', { className: 'pr-grupo' }, 'Hoy'), estado, diaria, repaso),
+        grupo('Retos', 'pr-g-retos', filasRetos, 'Tócalos en tu piano y compruébalos. Sin sonido ni internet.'), grupo('Herramientas', 'pr-g-herr', filasHerr), ...tarjetas,
         el('p', { className: 'a' }, 'Atajos: letras A–G para responder · # o + sube, - baja · Enter o Espacio para seguir · Esc para salir.')));
     caja.scrollTop = yVuelta;
   }
