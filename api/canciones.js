@@ -36,7 +36,7 @@ async function modificar(cambiar) {
     if (!Array.isArray(doc.canciones)) doc.canciones = [];
     const idsArreglados = asegurarIds(doc);
     const res = cambiar(doc);
-    if (res.error || (res.sinCambios && !idsArreglados)) return res;
+    if (res.error || res.simulado || (res.sinCambios && !idsArreglados)) return res;   // una simulación nunca escribe nada
     doc.version = 2;
     doc.actualizado = hoy();
     try {
