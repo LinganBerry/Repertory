@@ -242,8 +242,9 @@
     const d = app.data;
     const copia = { version: 2, nombre: d.nombre || '', intro: d.intro || '', canciones: lista().map(c => ({ id: c.id, ...limpia(c) })) };
     const url = URL.createObjectURL(new Blob([JSON.stringify(copia, null, 2)], { type: 'application/json' }));
-    el('a', { href: url, download: 'repertorio-copia.json' }).click();
-    URL.revokeObjectURL(url);
+    const enlace = el('a', { href: url, download: 'repertorio-copia.json' });
+    document.body.append(enlace); enlace.click(); enlace.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);   // si se libera al instante, algunos navegadores cancelan la descarga y el archivo llega vacío
   }
 
   // Importar una copia (.json de "Descargar copia", de la versión nueva o de la vieja). Solo SUMA y ACTUALIZA: nunca quita canciones.

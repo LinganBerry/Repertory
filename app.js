@@ -120,6 +120,7 @@
 
   const tonosPresentes = () => [...new Set(data.canciones.map(c => c.tono).filter(Boolean))].sort((a, b) => posTono(a) - posTono(b));
 
+  const ORDEN_ES = new Intl.Collator('es'); // mismo orden que localeCompare(..., 'es'), pero mucho más rápido al ordenar en cada tecla
   function visibles() {
     const palabras = fichas(vista.q);
     const filas = [];
@@ -128,7 +129,7 @@
       const p = puntaje(c, palabras);
       if (p !== null) filas.push({ c, i, p });
     });
-    const porTitulo = (a, b) => a.c.titulo.localeCompare(b.c.titulo, 'es');
+    const porTitulo = (a, b) => ORDEN_ES.compare(a.c.titulo, b.c.titulo);
     return filas.sort(palabras.length ? (a, b) => a.p - b.p || porTitulo(a, b) : porTitulo);
   }
 
@@ -339,13 +340,14 @@
     return [el('div', { className: 'fila' + (c === ultima ? ' ultima' : '') }, cuerpo, pastilla(c.tono), EDITOR && app.acciones && app.acciones(i))];
   }
 
+  let iniPuesta = ''; // el icono de la pestaña solo se rehace si cambia la letra, no en cada tecla
   function render() {
     document.title = data.nombre || NOMBRE;
     $('titulo').textContent = data.nombre || NOMBRE;
     // La letra de la ficha y del icono de la pestaña salen de la primera letra del nombre (Ajustes → Página).
     const ini = ((data.nombre || NOMBRE).match(/[0-9A-Za-zÀ-ÿ]/) || ['R'])[0].toUpperCase();
     $('logo-l').textContent = ini;
-    $('icono').href = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#2a2620"/><text x="16" y="24" font-size="22" text-anchor="middle" fill="#faf6ee" font-family="Georgia,serif" font-weight="700">${ini}</text></svg>`);
+    if (ini !== iniPuesta) { iniPuesta = ini; $('icono').href = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#2a2620"/><text x="16" y="24" font-size="22" text-anchor="middle" fill="#faf6ee" font-family="Georgia,serif" font-weight="700">${ini}</text></svg>`); }
     $('intro').textContent = data.intro || '';
     $('pie').textContent = data.actualizado ? 'Actualizado: ' + data.actualizado + '.' : '';
     pastillas();
