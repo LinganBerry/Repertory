@@ -12,7 +12,7 @@
   const TONOS = ['C', 'C#', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
     .flatMap(t => [t, t + 'm']);
   // Mismos límites que lib/limpiar.js (el servidor corta lo que pase de aquí; test/probar.mjs comprueba que coinciden).
-  const LIM = { titulo: 200, artista: 200, nota: 300, enlace: 300, partes: 30, nombre: 60, prog: 500, pista: 200 };
+  const LIM = { titulo: 200, artista: 200, nota: 300, enlace: 300, partes: 30, nombre: 60, prog: 500, pista: 200, letra: 1500 };
   const lista = () => app.data.canciones;
   const nuevoId = () => {
     try { return crypto.randomUUID().replace(/-/g, '').slice(0, 16); } catch (e) { /* navegador viejo */ }
@@ -27,28 +27,47 @@
   let token = leerSesion();
 
   // Partes: una por línea, "Nombre (tono): acordes // pista". Tono y pista son opcionales; | marca el compás.
-  const partesATexto = ps => (ps || []).map(p => (p.nombre ? p.nombre + (p.tono ? ' (' + p.tono + ')' : '') + ': ' : '') + p.prog + (p.pista ? ' // ' + p.pista : '')).join('\n');
-  const textoAPartes = t => t.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
-    const [cuerpo, ...resto] = l.split('//');
-    const i = cuerpo.indexOf(':');
-    let nombre = i < 0 ? '' : cuerpo.slice(0, i).trim();
-    const prog = (i < 0 ? cuerpo : cuerpo.slice(i + 1)).trim();
-    const m = /\s*\(([A-G][#b]?m?)\)$/.exec(nombre);
-    if (m) nombre = nombre.slice(0, m.index).trim();
-    return { nombre, tono: m ? m[1] : '', prog, pista: resto.join('//').trim() };
-  });
+  // La letra de una parte va debajo, una línea por renglón empezando con ">".
+  const partesATexto = ps => (ps || []).map(p => (p.nombre ? p.nombre + (p.tono ? ' (' + p.tono + ')' : '') + ': ' : '') + p.prog + (p.pista ? ' // ' + p.pista : '')
+    + (p.letra ? '\n' + p.letra.split('\n').map(x => ('> ' + x).trimEnd()).join('\n') : '')).join('\n');
+  const textoAPartes = t => {
+    const ps = [];
+    t.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => {
+      if (l[0] === '>') {
+        const p = ps[ps.length - 1];
+        if (p) p.letra = (p.letra ? p.letra + '\n' : '') + l.slice(1).trim();
+        return;
+      }
+      const [cuerpo, ...resto] = l.split('//');
+      const i = cuerpo.indexOf(':');
+      let nombre = i < 0 ? '' : cuerpo.slice(0, i).trim();
+      const prog = (i < 0 ? cuerpo : cuerpo.slice(i + 1)).trim();
+      const m = /\s*\(([A-G][#b]?m?)\)$/.exec(nombre);
+      if (m) nombre = nombre.slice(0, m.index).trim();
+      ps.push({ nombre, tono: m ? m[1] : '', prog, pista: resto.join('//').trim(), letra: '' });
+    });
+    return ps;
+  };
   // Revisión en vivo de las partes. Los errores bloquean el guardado; los avisos solo informan.
   const ACORDE = /^(?:maj|min|dim|aug|sus|add|alt|M|m|o|ø|°|\+|-|\d|[#♯b♭]|[(),]|\/[A-G][#♯b♭]*|\/)*$/;
   function revisar(texto) {
     const errores = [], avisos = [];
-    if (texto.split('\n').filter(l => l.trim()).length > LIM.partes) errores.push('Máximo ' + LIM.partes + ' partes por canción.');
+    if (texto.split('\n').filter(l => l.trim() && l.trim()[0] !== '>').length > LIM.partes) errores.push('Máximo ' + LIM.partes + ' partes por canción.');
+    let actual = null;
     texto.split('\n').forEach((linea, n) => {
       const l = linea.trim();
       if (!l) return;
       const donde = 'Línea ' + (n + 1) + ': ';
+      if (l[0] === '>') {
+        if (!actual) { avisos.push(donde + 'esta letra no tiene una parte arriba; se ignorará.'); return; }
+        actual.n += l.slice(1).trim().length + 1;
+        if (actual.n > LIM.letra && !actual.dicho) { actual.dicho = true; avisos.push(actual.donde + 'la letra pasa de ' + LIM.letra + ' caracteres; se recortará al guardar.'); }
+        return;
+      }
+      actual = { donde, n: 0, dicho: false };
       const [cuerpo, ...resto] = l.split('//');
       const i = cuerpo.indexOf(':');
-      if (i < 0) avisos.push(donde + 'falta ":" después del nombre; la parte quedará sin nombre.');
+      if (i < 0) avisos.push(donde + 'falta ":" después del nombre; la parte quedará sin nombre. Si es letra, empieza el renglón con >.');
       const m = /\(([^)]*)\)\s*$/.exec(i < 0 ? '' : cuerpo.slice(0, i));
       if (m && !TONOS.includes(m[1].trim())) errores.push(donde + 'el tono "' + m[1] + '" no es válido (ej: C, F#m, Bb).');
       const prog = (i < 0 ? cuerpo : cuerpo.slice(i + 1)).trim();
@@ -183,7 +202,7 @@
     tono.value = c.tono || '';
     const partes = el('textarea', {
       id: 'f-partes', rows: 8, value: partesATexto(c.partes), oninput: mostrarRevision, 'aria-describedby': 'avisos',
-      placeholder: 'Intro: G D | Em C\nVerso: G D | Em C // una línea que te ubique\nCoro (D): D G | Bm A'
+      placeholder: 'Intro: G D | Em C\nVerso: G D | Em C // una línea que te ubique\n> letra del verso, una línea por renglón\nCoro (D): D G | Bm A'
     });
     const botonGuardar = el('button', { type: 'button', className: 'primario' }, 'Guardar');
     const guardarForm = async () => {

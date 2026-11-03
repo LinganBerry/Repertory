@@ -41,6 +41,7 @@
   .chip { display: inline-flex; flex-direction: column; align-items: center; padding: .3rem .7rem; border: 1px solid var(--ink); border-radius: 3px; font: 700 calc(1.3rem * var(--z))/1.2 ui-monospace, Menlo, Consolas, monospace; }
   .compas { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
   .barra { color: var(--muted); font-size: calc(1.5rem * var(--z)); padding: 0 .15rem; }
+  .letra { margin: .6rem 0 0; white-space: pre-wrap; line-height: 1.55; font-size: calc(1rem * var(--z)); }
   .pista { margin: .5rem 0 0; color: var(--muted); font-style: italic; font-size: calc(1rem * var(--z)); }
   .vacio { padding: 1.5rem 0; color: var(--muted); }
   #pie { color: var(--muted); font-size: .9rem; }
@@ -296,3 +297,14 @@ button:active { background: var(--fila); color: var(--ink); border-color: var(--
 
 /* mensajes vacíos centrados */
 .vacio { text-align: center; }
+
+/* Escuchar tu piano */
+.chip.oye { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.chip.oye .rom { color: inherit; }
+.escucha { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; padding: .8rem max(1rem, env(safe-area-inset-right, 0px)) calc(.8rem + env(safe-area-inset-bottom, 0px)) max(1rem, env(safe-area-inset-left, 0px)); background: var(--bg); border-top: 2px solid var(--ink); box-shadow: 0 -2px 8px rgba(0, 0, 0, .12); max-width: 44rem; margin: 0 auto; }
+.es-txt { margin: 0 0 .6rem; color: var(--muted); }
+.es-acorde { font: 700 2.4rem/1.1 ui-monospace, Menlo, Consolas, monospace; min-height: 2.6rem; }
+.es-notas { color: var(--muted); font: .95rem ui-monospace, Menlo, Consolas, monospace; min-height: 1.4rem; margin: .1rem 0 .6rem; }
+.es-fila { display: flex; gap: .5rem; justify-content: space-between; }
+@media (max-width: 340px) { .cbarra button { padding-left: .5rem; padding-right: .5rem; } }
+@media print { .escucha { display: none !important; } }

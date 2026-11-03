@@ -54,3 +54,13 @@ Sin cuentas de usuario, sin comunidad, sin registro. El editor se abre tocando 5
 
 ## Archivos
 `api/canciones.js` (leer y guardar) · `api/entrar.js` (contraseña) · `lib/` (auth, almacén, intentos, limpieza) · `app.js` (página) · `editor.js` (editor) · `teoria.js` + `vendor/` (teoría y piano) · `notacion.js` + `retos.js` (retos de acordes) · `listas.js` (listas del culto) · `practicar.js` (ejercicios) · `api/progreso.js` + `lib/progreso.js` (progreso sincronizado) · `sw.js` (modo sin internet) · `manifest.webmanifest` + `icono-*.png` (instalar como app) · `scripts/` (comparar, generar respaldo, contraste) · `test/`.
+
+## Escuchar tu piano (carpeta `escucha/`)
+
+Botón **Escuchar** en la pantalla de cada canción: detecta por el micrófono qué acorde tocas y lo marca en los acordes de esa canción. Todo corre en el teléfono o la compu; el audio no sale del dispositivo.
+
+- La primera vez pide bajar el motor (~90 MB) a una caché propia (`escucha-v1`); después funciona sin internet. El service worker sirve de ahí `escucha/modelo/*` y el `.wasm`, y esa caché no se borra al actualizar la página.
+- El modelo (72 MB) está partido en 4 archivos (`escucha/modelo/online_amt.1` a `.4`) para no pasar el límite de 25 MB de la subida por la web de GitHub. El código los vuelve a unir.
+- Solo se carga al tocar el botón (`escucha/escucha.js`), así el resto de la página no pesa más.
+- `vercel.json`: se permitió el micrófono solo para esta página (`microphone=(self)`) y `'wasm-unsafe-eval'` en `script-src`, necesario para WebAssembly (no permite `eval` de JavaScript).
+- Motor: `fschuh/piano-transcription-engine` (MIT) con el modelo `jdasam/online_amt` (MIT). Licencias en `escucha/LICENCIAS.txt`.

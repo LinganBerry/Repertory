@@ -18,7 +18,7 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
-    for (const k of await caches.keys()) if (k !== CACHE) await caches.delete(k);
+    for (const k of await caches.keys()) if (k !== CACHE && !k.startsWith('escucha-')) await caches.delete(k);
     await self.clients.claim();
   })());
 });
@@ -38,6 +38,8 @@ self.addEventListener('fetch', e => {
   e.respondWith((async () => {
     const c = await caches.open(CACHE);
     const copia = () => c.match(nav ? '/' : req, { ignoreSearch: nav });
+    // El motor de escucha (modelo y WASM, ~90 MB) se baja una vez a su propia caché y desde ahí se sirve siempre.
+    if (url.pathname.startsWith('/escucha/modelo/') || url.pathname.endsWith('.wasm')) { const g = await caches.match(req, { cacheName: 'escucha-v1' }); return g || fetch(req); }
     // Las muestras del piano no cambian: primero lo guardado (la 1ª vez se bajan y quedan para el modo offline).
     if (url.pathname.startsWith('/vendor/piano/')) { const g = await copia(); if (g) return g; }
     const red = fetch(req, { cache: 'no-store' });

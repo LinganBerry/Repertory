@@ -237,6 +237,7 @@
       onkeydown: e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); alternar(); } } },
       el('h3', {}, p.nombre || '', p.tono && el('small', {}, ' · ' + p.tono)),
       el('div', { className: 'chips' }, ...hijos),
+      p.letra && el('p', { className: 'letra' }, p.letra),
       p.pista && el('p', { className: 'pista' }, p.pista));
   }
 
@@ -251,8 +252,16 @@
     $('cancion').scrollTop = 0;
   }
 
+  // Escuchar tu piano: el motor se carga solo al tocar el botón, para no pesar en el resto de la página.
+  let cargandoEscucha = null;
+  function abrirEscucha() {
+    if (!cargandoEscucha) cargandoEscucha = new Promise((ok, no) => { const s = document.createElement('script'); s.src = '/escucha/escucha.js'; s.onload = ok; s.onerror = () => { cargandoEscucha = null; s.remove(); no(); }; document.head.appendChild(s); });
+    cargandoEscucha.then(() => window.Escucha.alternar($('cancion'))).catch(() => { /* sin conexión y sin copia: no pasa nada */ });
+  }
+
   let obsTitulo = null;
   function mostrar() {
+    if (window.Escucha) window.Escucha.parar();
     const c = actual, caja = $('cancion');
     const partes = (c.partes || []).filter(p => p.prog);
     const pos = orden.indexOf(c);
@@ -264,6 +273,7 @@
       el('div', { className: 'cbarra' },
         el('button', { type: 'button', title: 'Volver (Esc)', onclick: () => history.back() }, '← Volver'),
         el('span', { className: 'ctitulo' }, c.titulo),
+        el('button', { type: 'button', id: 'escuchar', title: 'Escuchar tu piano', 'aria-label': 'Escuchar tu piano', onclick: abrirEscucha }, 'Escuchar'),
         el('button', { type: 'button', id: 'zmenos', 'aria-label': 'Letra más chica', onclick: () => cambiarZoom(-.15) }, 'A−'),
         el('button', { type: 'button', id: 'zmas', 'aria-label': 'Letra más grande', onclick: () => cambiarZoom(.15) }, 'A+')),
       el('div', { className: 'ccuerpo' },
@@ -322,6 +332,7 @@
     pantallaEncendida();
   }
   function cerrarCancion() {
+    if (window.Escucha) window.Escucha.parar();
     actual = null;
     $('cancion').hidden = true;
     document.body.classList.remove('fija');
