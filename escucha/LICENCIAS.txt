@@ -1,63 +1,7 @@
 Licencias del motor de escucha (carpeta escucha/)
 
-== piano-transcription-engine (fschuh) ==
-MIT License
-
-Copyright (c) 2026 fschuh
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-== modelo online_amt (jdasam) ==
-MIT License
-
-Copyright (c) 2025 Dasaem Jeong
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-== Avisos de terceros (incluye ONNX Runtime Web) ==
-# Third-party notices
-
-## online_amt
-
-The canonical ONNX model is derived from
-[`jdasam/online_amt`](https://github.com/jdasam/online_amt), copyright (c) 2025
-Dasaem Jeong, and is distributed under the MIT License. The complete license
-text is shipped at `assets/models/online_amt.LICENSE.txt`.
-
-## ONNX Runtime Web
-
-The runtime depends on `onnxruntime-web` 1.27.0, distributed under the MIT
-License. Its package supplies its own license metadata and notices when installed.
-
+== PitchPlease (markusstrasser/pitchplease), version 3.1.0 ==
+Licencia declarada: MIT (campo "license" de su package.json y sección License de su README).
+El repositorio no incluye un archivo LICENSE con el texto completo.
+Archivos usados, copiados sin cambios, en escucha/pitchplease/: pitchplease.js, engine/ (incluye los núcleos WebAssembly)
+y models/piano.bin y models/fast.bin. Sus núcleos de cálculo vienen del proyecto "pitchtest" según su engine/vendor.json.

@@ -57,13 +57,14 @@ Sin cuentas de usuario, sin comunidad, sin registro. El editor se abre tocando 5
 
 ## Escuchar tu piano (carpeta `escucha/`)
 
-Botón **Escuchar** en la pantalla de cada canción: detecta por el micrófono qué acorde tocas y lo marca en los acordes de esa canción. Todo corre en el teléfono o la compu; el audio no sale del dispositivo.
+Botón **Escuchar** en la pantalla de cada canción: detecta por el micrófono qué acorde tocas, en vivo (~60 ms en pruebas con audio sintético, sin contar el micrófono del teléfono), y lo marca en los acordes de esa canción. Todo corre en el teléfono o la compu; el audio no sale del dispositivo.
 
-- La primera vez pide bajar el motor (~90 MB) a una caché propia (`escucha-v1`); después funciona sin internet. El service worker sirve de ahí `escucha/modelo/*` y el `.wasm`, y esa caché no se borra al actualizar la página.
-- El modelo (72 MB) está partido en 4 archivos (`escucha/modelo/online_amt.1` a `.4`) para no pasar el límite de 25 MB de la subida por la web de GitHub. El código los vuelve a unir.
-- Solo se carga al tocar el botón (`escucha/escucha.js`), así el resto de la página no pesa más.
+- Motor: **PitchPlease** (`escucha/pitchplease/`), ~1,2 MB en total. Dibuja las notas que suenan cada ~12 ms; `escucha/escucha.js` las agrupa por golpe y las nombra (tríadas, séptimas, add9, sus, 9, maj9, m9, 11, 13 y alteradas como 7b9, 7#9, 7#11). Si la canción tiene lista de acordes, elige primero entre esos.
+- Offline: el service worker guarda estos archivos junto con la página (lista `ESCUCHA` en `sw.js`). Al actualizar se borra la caché vieja `escucha-v1` (~90 MB).
+- Si el teléfono va justo de procesador, pasa solo al modelo ligero (`models/fast.bin`).
+- Si agregas o quitas archivos en `escucha/pitchplease/`, actualiza la lista `ESCUCHA` en `sw.js` y sube el número de `CACHE`.
 - `vercel.json`: se permitió el micrófono solo para esta página (`microphone=(self)`) y `'wasm-unsafe-eval'` en `script-src`, necesario para WebAssembly (no permite `eval` de JavaScript).
-- Motor: `fschuh/piano-transcription-engine` (MIT) con el modelo `jdasam/online_amt` (MIT). Licencias en `escucha/LICENCIAS.txt`.
+- Motor: `markusstrasser/pitchplease` v3.1.0 (MIT). Licencia en `escucha/LICENCIAS.txt`.
 
 ## Letra con acordes y modo presentación
 

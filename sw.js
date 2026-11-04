@@ -2,8 +2,10 @@
 //  - Con internet: siempre carga y guarda lo más nuevo (los cambios del editor se ven sin pasos manuales).
 //  - Sin internet (o con señal muy mala): usa la última copia guardada de la página y de las canciones.
 // La primera visita debe ser con internet. No toca el editor ni los POST (guardar / entrar).
-const CACHE = 'acordes-v11';
+const CACHE = 'acordes-v12';
 // Tone.js, Tonal y las muestras del piano NO se precargan: se guardan la primera vez que abres Teoría (con internet).
+// Motor de escucha (PitchPlease, ~1,2 MB): se guarda junto con la página para que Escuchar funcione sin internet.
+const ESCUCHA = ['/escucha/escucha.js', '/escucha/pitchplease/pitchplease.js', '/escucha/pitchplease/engine/errors.js', '/escucha/pitchplease/engine/fft.js', '/escucha/pitchplease/engine/incport-relaxed.wasm', '/escucha/pitchplease/engine/incport-wasm.js', '/escucha/pitchplease/engine/incport.js', '/escucha/pitchplease/engine/incport.wasm', '/escucha/pitchplease/engine/kernel-load.js', '/escucha/pitchplease/engine/kernels.js', '/escucha/pitchplease/engine/load.js', '/escucha/pitchplease/engine/models.js', '/escucha/pitchplease/engine/music.js', '/escucha/pitchplease/engine/processor.js', '/escucha/pitchplease/engine/resample.js', '/escucha/pitchplease/engine/tracker.js', '/escucha/pitchplease/engine/worklet.js', '/escucha/pitchplease/models/piano.bin', '/escucha/pitchplease/models/fast.bin'];
 const BASE = ['/', '/index.html', '/estilos.css', '/app.js', '/hoja.js', '/canciones.js', '/editor.js', '/teoria.js', '/notacion.js', '/lecciones.js', '/practicar.js', '/retos.js', '/progresiones.js', '/escalas.js', '/rearmonizar.js', '/preparar.js', '/listas.js', '/manifest.webmanifest', '/icono-192.png'];
 const API = '/api/canciones';
 const ESPERA_MS = 4000; // si la red tarda más, se muestra la copia guardada
@@ -11,14 +13,14 @@ const ESPERA_MS = 4000; // si la red tarda más, se muestra la copia guardada
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
-    await Promise.all([...BASE, API].map(u => c.add(new Request(u, { cache: 'reload' })).catch(() => { /* se guarda luego */ })));
+    await Promise.all([...BASE, ...ESCUCHA, API].map(u => c.add(new Request(u, { cache: 'reload' })).catch(() => { /* se guarda luego */ })));
     await self.skipWaiting();
   })());
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
-    for (const k of await caches.keys()) if (k !== CACHE && !k.startsWith('escucha-')) await caches.delete(k);
+    for (const k of await caches.keys()) if (k !== CACHE) await caches.delete(k);   // incluye la caché vieja 'escucha-v1' (~90 MB)
     await self.clients.claim();
   })());
 });
@@ -38,8 +40,6 @@ self.addEventListener('fetch', e => {
   e.respondWith((async () => {
     const c = await caches.open(CACHE);
     const copia = () => c.match(nav ? '/' : req, { ignoreSearch: nav });
-    // El motor de escucha (modelo y WASM, ~90 MB) se baja una vez a su propia caché y desde ahí se sirve siempre.
-    if (url.pathname.startsWith('/escucha/modelo/') || url.pathname.endsWith('.wasm')) { const g = await caches.match(req, { cacheName: 'escucha-v1' }); return g || fetch(req); }
     // Las muestras del piano no cambian: primero lo guardado (la 1ª vez se bajan y quedan para el modo offline).
     if (url.pathname.startsWith('/vendor/piano/')) { const g = await copia(); if (g) return g; }
     const red = fetch(req, { cache: 'no-store' });

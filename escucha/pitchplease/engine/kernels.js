@@ -1,0 +1,58 @@
+// The DSP kernel seam. A kernel is a module with the API of engine/incport.js:
+//
+//   parseWeights(manifest, buffer)                       -> weights
+//   createDetector(weights, { inputRate, wasmModule })  -> { push(Float32Array) -> [{ t, emit, probs: Float32Array(88) }] }
+//
+// The main thread picks one kernel (pickKernel here; fetching in engine/kernel-load.js), and both the AudioWorklet
+// (engine/processor.js, bundled into engine/worklet.js) and analyze() run that choice. The worklet gets the raw .wasm
+// bytes in processorOptions and compiles them synchronously (new WebAssembly.Module) rather than receiving a compiled
+// WebAssembly.Module (checked in Chrome 155, Firefox 157 and WebKit 27.2).
+//
+// The kernels are vendored from pitchtest/web (engine/vendor.json records each file's commit). To update one, or to
+// add a kernel:
+//   1. npm run vendor -- incport-wasm.js incport.wasm incport-relaxed.wasm   (committed files only; records the commit)
+//   2. a new kernel module: import it below and add it to IMPLS; a new build: add a CHOICES entry (best first, with
+//      the feature probe it needs) and its id to KernelId in pitchplease.d.ts (a test compares the two)
+//   3. npm run build (regenerates engine/worklet.js), npm test (parity runs every supported choice), npm run test:ui
+// A kernel module must stay bundler-safe: no import('node:…') and only literal `new URL('./x', import.meta.url)`.
+import { PitchPleaseError } from './errors.js';
+import * as jsKernel from './incport.js';
+import * as wasmKernel from './incport-wasm.js';
+
+export const IMPLS = { js: jsKernel, wasm: wasmKernel };
+
+// GENERATED from engine/vendor.json by scripts/build.mjs; runtime integrity for fetched kernel bytes.
+export const WASM_SHA256 = {
+  'wasm-relaxed': '6ea4b3081e8598aa53585351309ed14320f7b6df5d6dc22c788239fcbd7b778e',
+  'wasm-simd': 'e86fcbff8b20170dffb699fd84590e0fc3431f55bb22da4e003d6c266f2534c7',
+};
+
+// Tiny modules for WebAssembly.validate (synchronous, microseconds).
+// simd128: (func (result v128) i32.const 0 i8x16.splat i8x16.popcnt)
+export const SIMD_PROBE = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11]);
+// relaxed SIMD: (func (result v128) v128.const 0 v128.const 0 v128.const 0 f32x4.relaxed_madd), the instruction the
+// relaxed kernel build uses (Safari has no relaxed SIMD)
+const V128_ZERO = [253, 12, ...new Array(16).fill(0)];
+export const RELAXED_SIMD_PROBE = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 61, 1, 59, 0, ...V128_ZERO, ...V128_ZERO, ...V128_ZERO, 253, 133, 2, 11]);
+
+// Best first. impl: a key of IMPLS; probe: bytes WebAssembly.validate must accept; wasm: the binary's URL (a static
+// `new URL('./…', import.meta.url)` so bundlers emit the file).
+export const CHOICES = [
+  { id: 'wasm-relaxed', impl: 'wasm', probe: RELAXED_SIMD_PROBE, wasm: () => new URL('./incport-relaxed.wasm', import.meta.url) },
+  { id: 'wasm-simd', impl: 'wasm', probe: SIMD_PROBE, wasm: () => new URL('./incport.wasm', import.meta.url) },
+  { id: 'js', impl: 'js' },
+];
+
+export function kernelSupported(choice) {
+  if (!choice.probe) return true;
+  try { return typeof WebAssembly === 'object' && WebAssembly.validate(choice.probe); } catch { return false; }
+}
+
+/** 'auto' -> the first supported choice; otherwise the named choice. Throws a PitchPleaseError naming the options. */
+export function pickKernel(preference = 'auto', choices = CHOICES) {
+  if (preference === 'auto') return choices.find(kernelSupported);
+  const choice = choices.find((c) => c.id === preference);
+  if (!choice) throw new PitchPleaseError('unknown-kernel', `Unknown kernel '${preference}'. Use 'auto' or one of: ${choices.map((c) => c.id).join(', ')}.`);
+  if (!kernelSupported(choice)) throw new PitchPleaseError('kernel-unsupported', `Kernel '${preference}' needs a WebAssembly feature this runtime lacks. Use kernel: 'auto' to fall back.`);
+  return choice;
+}
