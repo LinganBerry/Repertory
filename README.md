@@ -64,3 +64,11 @@ Botón **Escuchar** en la pantalla de cada canción: detecta por el micrófono q
 - Solo se carga al tocar el botón (`escucha/escucha.js`), así el resto de la página no pesa más.
 - `vercel.json`: se permitió el micrófono solo para esta página (`microphone=(self)`) y `'wasm-unsafe-eval'` en `script-src`, necesario para WebAssembly (no permite `eval` de JavaScript).
 - Motor: `fschuh/piano-transcription-engine` (MIT) con el modelo `jdasam/online_amt` (MIT). Licencias en `escucha/LICENCIAS.txt`.
+
+## Letra con acordes y modo presentación
+
+- En el editor hay un campo **Letra con acordes (opcional)**. Cada acorde va entre corchetes justo antes de la sílaba donde cambia: `[Am]Cuando salga el [F]sol`. Una línea que solo tiene `[Coro]` o `[Verso 1]` es un título de sección. Cualquier corchete mal puesto se muestra como texto y no rompe nada.
+- Si la canción tiene letra, en su pantalla aparecen las pestañas **Acordes** y **Letra** (se recuerda la última que usaste). La hoja pone cada acorde sobre su sílaba (`hoja.js` interpreta el texto; `app.js` lo dibuja).
+- **▶ Presentar** abre la letra a pantalla completa con desplazamiento automático. Empieza en pausa: toca el texto (o Espacio) para seguir o pausar. Botones: velocidad − / +, tamaño A− / A+, y **Ac** para ocultar los acordes. Si mueves la letra con el dedo o la rueda, se queda quieta 2 segundos. Esc la cierra. La velocidad y el tamaño se recuerdan en el dispositivo.
+- Límite: 12 000 caracteres por canción (`LIMITES.letraCancion` en `lib/limpiar.js`, copia en `editor.js`).
+- Los acordes de la hoja también se suman a la lista que usa **Escuchar**.

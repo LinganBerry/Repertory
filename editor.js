@@ -8,11 +8,11 @@
   const app = window.RepertorioApp;
   const { el, norm } = app;
   const $ = id => document.getElementById(id);
-  const CAMPOS = ['titulo', 'artista', 'tono', 'nota', 'enlace'];
+  const CAMPOS = ['titulo', 'artista', 'tono', 'nota', 'enlace', 'letra'];
   const TONOS = ['C', 'C#', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
     .flatMap(t => [t, t + 'm']);
   // Mismos límites que lib/limpiar.js (el servidor corta lo que pase de aquí; test/probar.mjs comprueba que coinciden).
-  const LIM = { titulo: 200, artista: 200, nota: 300, enlace: 300, partes: 30, nombre: 60, prog: 500, pista: 200, letra: 1500 };
+  const LIM = { titulo: 200, artista: 200, nota: 300, enlace: 300, partes: 30, nombre: 60, prog: 500, pista: 200, letra: 1500, letraCancion: 12000 };
   const lista = () => app.data.canciones;
   const nuevoId = () => {
     try { return crypto.randomUUID().replace(/-/g, '').slice(0, 16); } catch (e) { /* navegador viejo */ }
@@ -194,7 +194,7 @@
   }
 
   function abrirForm(i) {
-    const c = i >= 0 ? lista()[i] : { titulo: '', artista: '', tono: '', nota: '', enlace: '', partes: [] };
+    const c = i >= 0 ? lista()[i] : { titulo: '', artista: '', tono: '', nota: '', enlace: '', letra: '', partes: [] };
     const id = c.id || nuevoId();   // un id fijo por canción: si reintentas guardar, nunca se duplica
     const campo = (etiqueta, ctl) => el('label', { className: 'campo' }, el('span', {}, etiqueta), ctl);
     const f = (k, props = {}) => el('input', { id: 'f-' + k, value: c[k] || '', maxLength: LIM[k], ...props });
@@ -204,10 +204,12 @@
       id: 'f-partes', rows: 8, value: partesATexto(c.partes), oninput: mostrarRevision, 'aria-describedby': 'avisos',
       placeholder: 'Intro: G D | Em C\nVerso: G D | Em C // una línea que te ubique\n> letra del verso, una línea por renglón\nCoro (D): D G | Bm A'
     });
+    const contarLetra = () => { const n = $('f-letra').value.length; $('f-letra-n').textContent = n + ' / ' + LIM.letraCancion + ' caracteres'; };
+    const letra = el('textarea', { id: 'f-letra', rows: 10, value: c.letra || '', maxLength: LIM.letraCancion, oninput: contarLetra, placeholder: '[Coro]\n[Am]Cuando salga el [F]sol\n[C]y la noche [G]cante' });
     const botonGuardar = el('button', { type: 'button', className: 'primario' }, 'Guardar');
     const guardarForm = async () => {
       const v = k => $('f-' + k).value.trim();
-      const n = { titulo: v('titulo'), artista: v('artista'), tono: v('tono'), nota: v('nota'), enlace: v('enlace'), partes: textoAPartes($('f-partes').value) };
+      const n = { titulo: v('titulo'), artista: v('artista'), tono: v('tono'), nota: v('nota'), enlace: v('enlace'), letra: $('f-letra').value.trim(), partes: textoAPartes($('f-partes').value) };
       const mal = !n.titulo ? ['f-titulo', 'Escribe el nombre de la canción.']
         : !n.tono ? ['f-tono', 'Elige el tono.']
         : n.enlace && !/^https?:\/\/\S+$/i.test(n.enlace) ? ['f-enlace', 'El link debe empezar con http:// o https://']
@@ -251,9 +253,12 @@
       campo('Partes y acordes (opcional)', partes),
       el('p', { className: 'pista-ayuda' }, 'Una parte por línea: Nombre (tono): acordes // pista. El (tono) solo si la parte modula. Marca el compás con |. La pista es una línea corta: no pegues la letra de la canción (derechos de autor).'),
       el('ul', { id: 'avisos' }),
+      campo('Letra con acordes (opcional)', letra),
+      el('p', { className: 'pista-ayuda' }, 'Escribe cada acorde entre corchetes justo antes de la sílaba donde cambia: [Am]Cuando salga el [F]sol. Una línea que solo tiene [Coro] o [Verso 1] es un título de sección. Deja una línea en blanco entre bloques. ', el('span', { id: 'f-letra-n' })),
       el('p', { id: 'f-msg', className: 'aviso-e' })
     ], [i >= 0 && c.id && el('button', { type: 'button', className: 'peligro', onclick: borrar }, 'Papelera'), sp(), botonGuardar]);
     mostrarRevision();
+    contarLetra();
     if (i < 0) $('f-titulo').focus();
   }
 

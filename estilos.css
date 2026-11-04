@@ -308,3 +308,35 @@ button:active { background: var(--fila); color: var(--ink); border-color: var(--
 .es-fila { display: flex; gap: .5rem; justify-content: space-between; }
 @media (max-width: 340px) { .cbarra button { padding-left: .5rem; padding-right: .5rem; } }
 @media print { .escucha { display: none !important; } }
+
+/* Letra con acordes (hoja) y modo presentación */
+.vistas { padding-top: .2rem; }
+.v-acordes .hoja-caja { display: none; }
+.v-letra .parte, .v-letra .pista-enfoque { display: none; }
+.hoja-barra { margin: .2rem 0 .6rem; }
+.hoja { font-size: calc(1.1rem * var(--z, 1)); line-height: 1.3; padding-bottom: 1rem; overflow-wrap: anywhere; }
+.hl { margin: 0 0 .15rem; white-space: pre-wrap; }
+.hl.con-ac { margin-top: .15em; margin-bottom: .3em; }
+.hl.con-ac .sg { margin-top: .5em; }
+.hv { height: .5em; }
+.hs { font: 700 .8em/1.2 var(--sans); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: .8em 0 .1em; }
+.sg { display: inline-flex; flex-direction: column; vertical-align: bottom; }
+.ac { font: 700 .82em/1.15 ui-monospace, Menlo, Consolas, monospace; color: var(--accent); padding-right: .35em; min-height: 1.15em; white-space: pre; }
+.tx { white-space: pre-wrap; min-height: 1.3em; }
+.hl:not(.con-ac) .sg { display: inline; }
+@media print { .vistas, .hoja-barra { display: none !important; } .hoja { color: #000; } .ac { color: #000; } }
+body.presentando { overflow: hidden; }
+.presentar { position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); --pr-tam: 30px; }
+.pr-barra { flex: none; display: flex; flex-wrap: wrap; gap: .3rem; align-items: center; padding: max(.5rem, env(safe-area-inset-top, 0px)) max(.6rem, env(safe-area-inset-right, 0px)) .5rem max(.6rem, env(safe-area-inset-left, 0px)); border-bottom: 2px solid var(--ink); background: var(--bg); }
+.pr-barra button { min-width: 40px; min-height: 44px; padding: .3rem .4rem; font-weight: 700; }
+.pr-barra button[aria-pressed=true] { border: 2px solid var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.pr-vel { color: var(--muted); font-size: .9rem; min-width: 2rem; text-align: center; }
+.pr-texto { flex: 1; overflow-y: auto; padding: 1rem max(1rem, env(safe-area-inset-right, 0px)) 0 max(1rem, env(safe-area-inset-left, 0px)); font-size: var(--pr-tam); line-height: 1.3; outline: none; overscroll-behavior: contain; }
+.pr-texto > h2 { font: 700 .8em/1.2 var(--tit); color: var(--muted); margin: 0 0 .8em; }
+.pr-texto .hoja { font-size: 1em; max-width: 60rem; margin: 0 auto; }
+.pr-texto .ac { font-size: .75em; }
+.pr-fin { height: 70vh; }
+.presentar.sin-ac .ac { display: none; }
+.presentar.sin-ac .hl.con-ac { margin-top: 0; }
+.presentar.sin-ac .sg { display: inline; }
+@media print { .presentar { display: none !important; } }

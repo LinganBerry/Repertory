@@ -252,6 +252,85 @@
     $('cancion').scrollTop = 0;
   }
 
+  // Vista de la canción cuando tiene letra: acordes por partes o hoja de acordes con letra. Se recuerda mientras navegas.
+  let vistaLetra = false;
+
+  // Hoja de acordes: cada acorde queda justo encima de la sílaba donde cambia.
+  function dibujarHoja(lineas) {
+    return el('div', { className: 'hoja' }, lineas.map(l => l.t === 'v' ? el('div', { className: 'hv' })
+      : l.t === 's' ? el('h3', { className: 'hs' }, l.x)
+      : el('div', { className: 'hl' + (l.conAc ? ' con-ac' : '') }, l.segs.map(s => el('span', { className: 'sg' }, s.ac && el('b', { className: 'ac' }, s.ac), el('span', { className: 'tx' }, s.tx))))));
+  }
+
+  // Modo presentación: la letra a pantalla completa con desplazamiento automático de velocidad ajustable.
+  let presentando = null;
+  function cerrarPresentar() {
+    if (!presentando) return;
+    const p = presentando; presentando = null;
+    cancelAnimationFrame(p.raf); document.removeEventListener('keydown', p.tecla, true);
+    p.capa.remove(); document.body.classList.remove('presentando');
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }
+  function presentar(c, hoja) {
+    cerrarPresentar();
+    const pref = { vel: 28, tam: 30, ac: true };
+    try { Object.assign(pref, JSON.parse(localStorage.getItem('repertorio-presentar') || '{}')); } catch (e) { /* sin preferencias guardadas */ }
+    const guardar = () => { try { localStorage.setItem('repertorio-presentar', JSON.stringify(pref)); } catch (e) { /* nada */ } };
+    const lim = (v, a, b) => Math.max(a, Math.min(b, v));
+    pref.vel = lim(Number(pref.vel) || 28, 5, 150); pref.tam = lim(Number(pref.tam) || 30, 16, 72);
+    const est = { pausado: true, pausaHasta: 0, pos: 0, ult: 0 };
+    const cuerpo = el('div', { className: 'pr-texto', tabIndex: -1 }, el('h2', {}, c.titulo), dibujarHoja(hoja), el('div', { className: 'pr-fin' }));
+    const etVel = el('span', { className: 'pr-vel', 'aria-live': 'polite', title: 'Velocidad' });
+    const bPausa = el('button', { type: 'button', className: 'pr-pausa', title: 'Pausa o seguir (Espacio)' }, '');
+    const bAc = el('button', { type: 'button', 'aria-pressed': 'true', 'aria-label': 'Acordes', title: 'Mostrar u ocultar los acordes' }, 'Ac');
+    const capa = el('div', { className: 'presentar', rol: 'dialog', 'aria-modal': 'true', 'aria-label': 'Presentación: ' + c.titulo });
+    const pintar = () => {
+      capa.style.setProperty('--pr-tam', pref.tam + 'px'); capa.classList.toggle('sin-ac', !pref.ac);
+      bAc.setAttribute('aria-pressed', String(pref.ac)); etVel.textContent = String(Math.round(pref.vel));
+      bPausa.textContent = est.pausado ? '▶' : '⏸'; bPausa.setAttribute('aria-label', est.pausado ? 'Seguir' : 'Pausa');
+    };
+    const alternar = () => { est.pausado = !est.pausado; est.pos = cuerpo.scrollTop; pintar(); };
+    const vel = d => { pref.vel = lim(pref.vel + d, 5, 150); guardar(); pintar(); };
+    const tam = d => { pref.tam = lim(pref.tam + d, 16, 72); guardar(); pintar(); };
+    bPausa.onclick = alternar; bAc.onclick = () => { pref.ac = !pref.ac; guardar(); pintar(); };
+    capa.append(
+      el('div', { className: 'pr-barra' },
+        el('button', { type: 'button', 'aria-label': 'Cerrar (Esc)', title: 'Cerrar (Esc)', onclick: cerrarPresentar }, '✕'), bPausa,
+        el('button', { type: 'button', 'aria-label': 'Más lento', onclick: () => vel(-5) }, '−'), etVel,
+        el('button', { type: 'button', 'aria-label': 'Más rápido', onclick: () => vel(5) }, '+'),
+        el('button', { type: 'button', 'aria-label': 'Letra más chica', onclick: () => tam(-3) }, 'A−'),
+        el('button', { type: 'button', 'aria-label': 'Letra más grande', onclick: () => tam(3) }, 'A+'), bAc),
+      cuerpo);
+    // Tocar el texto pausa o sigue. Mover la letra con el dedo o la rueda la deja quieta un momento.
+    cuerpo.addEventListener('click', alternar);
+    const manual = () => { est.pausaHasta = performance.now() + 2000; };
+    cuerpo.addEventListener('wheel', manual, { passive: true }); cuerpo.addEventListener('touchmove', manual, { passive: true });
+    const tecla = e => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const k = e.key;
+      if (k === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); cerrarPresentar(); }
+      else if (k === ' ' || k === 'k') { e.preventDefault(); e.stopImmediatePropagation(); alternar(); }
+      else if (k === '+' || k === '=') { e.preventDefault(); e.stopImmediatePropagation(); vel(5); }
+      else if (k === '-') { e.preventDefault(); e.stopImmediatePropagation(); vel(-5); }
+      else if (k === 'ArrowLeft' || k === 'ArrowRight') { e.preventDefault(); e.stopImmediatePropagation(); }
+      else if (/^(ArrowUp|ArrowDown|PageUp|PageDown|Home|End)$/.test(k)) { manual(); e.stopImmediatePropagation(); }
+    };
+    document.addEventListener('keydown', tecla, true);
+    const paso = t => {
+      if (!presentando) return;
+      presentando.raf = requestAnimationFrame(paso);
+      const dt = Math.min(0.1, Math.max(0, (t - est.ult) / 1000)); est.ult = t;
+      if (est.pausado || performance.now() < est.pausaHasta) { est.pos = cuerpo.scrollTop; return; }
+      est.pos += pref.vel * dt; cuerpo.scrollTop = est.pos;
+      if (cuerpo.scrollTop < est.pos - 2) { est.pausado = true; est.pos = cuerpo.scrollTop; pintar(); }   // llegó al final
+    };
+    presentando = { capa, tecla, raf: 0 };
+    document.body.append(capa); document.body.classList.add('presentando');
+    pintar(); cuerpo.focus({ preventScroll: true });
+    try { const r = capa.requestFullscreen && capa.requestFullscreen({ navigationUI: 'hide' }); if (r && r.catch) r.catch(() => {}); } catch (e) { /* sin pantalla completa */ }
+    presentando.raf = requestAnimationFrame(paso);
+  }
+
   // Escuchar tu piano: el motor se carga solo al tocar el botón, para no pesar en el resto de la página.
   let cargandoEscucha = null;
   function abrirEscucha() {
@@ -262,7 +341,11 @@
   let obsTitulo = null;
   function mostrar() {
     if (window.Escucha) window.Escucha.parar();
+    cerrarPresentar();
     const c = actual, caja = $('cancion');
+    const hoja = c.letra && window.Hoja ? window.Hoja.interpretar(c.letra) : [];
+    const conHoja = hoja.length > 0, verLetra = conHoja && vistaLetra;
+    const cambiarVista = letra => { vistaLetra = letra; const cu = caja.querySelector('.ccuerpo'); cu.classList.toggle('v-letra', letra); cu.classList.toggle('v-acordes', !letra); caja.querySelectorAll('.vistas button').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.v === 'letra') === letra))); };
     const partes = (c.partes || []).filter(p => p.prog);
     const pos = orden.indexOf(c);
     const enlace = /^https?:\/\//i.test(c.enlace || '') ? c.enlace : '';
@@ -276,11 +359,17 @@
         el('button', { type: 'button', id: 'escuchar', title: 'Escuchar tu piano', 'aria-label': 'Escuchar tu piano', onclick: abrirEscucha }, 'Escuchar'),
         el('button', { type: 'button', id: 'zmenos', 'aria-label': 'Letra más chica', onclick: () => cambiarZoom(-.15) }, 'A−'),
         el('button', { type: 'button', id: 'zmas', 'aria-label': 'Letra más grande', onclick: () => cambiarZoom(.15) }, 'A+')),
-      el('div', { className: 'ccuerpo' },
+      el('div', { className: 'ccuerpo ' + (verLetra ? 'v-letra' : 'v-acordes') },
         el('h2', {}, c.titulo),
         el('p', { className: 'a' }, [c.artista, c.nota].filter(Boolean).join(' · ')),
         el('p', { className: 'tonos' }, pastilla(c.tono)),
         enlace && el('p', { className: 'noimp' }, el('a', { href: enlace, target: '_blank', rel: 'noopener noreferrer' }, 'Escuchar referencia ↗')),
+        conHoja && el('div', { className: 'pastillas vistas noimp', rol: 'group', 'aria-label': 'Vista de la canción' },
+          el('button', { type: 'button', 'data-v': 'acordes', 'aria-pressed': String(!verLetra), onclick: () => cambiarVista(false) }, 'Acordes'),
+          el('button', { type: 'button', 'data-v': 'letra', 'aria-pressed': String(verLetra), onclick: () => cambiarVista(true) }, 'Letra')),
+        conHoja && el('div', { className: 'hoja-caja' },
+          el('p', { className: 'noimp hoja-barra' }, el('button', { type: 'button', onclick: () => presentar(c, hoja) }, '▶ Presentar')),
+          dibujarHoja(hoja)),
         partes.length > 0 && !yaVisto() && el('p', { className: 'a noimp pista-enfoque' }, 'Toca una parte para enfocarla.'),
         ...(partes.length ? partes.map((p, k) => parte(p, k)) : [el('p', { className: 'vacio' }, 'Aún no hay partes ni acordes para esta canción.')]),
         el('p', { className: 'noimp' }, el('button', { type: 'button', onclick: () => print() }, 'Imprimir'))),
@@ -333,6 +422,7 @@
   }
   function cerrarCancion() {
     if (window.Escucha) window.Escucha.parar();
+    cerrarPresentar();
     actual = null;
     $('cancion').hidden = true;
     document.body.classList.remove('fija');
