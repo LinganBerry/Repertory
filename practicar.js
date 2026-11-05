@@ -32,9 +32,19 @@
   const todas = () => { const m = new Map(); for (const s of [...datos.servidor, ...datos.pend]) m.set(s.id, s); return [...m.values()]; };
   let sync = { estado: datos.pend.length ? 'pendiente' : 'local', texto: '' };
 
+  // POST con tiempo límite: con mala señal no se queda colgado. Si vence, lanza un error con e.tiempo = true.
+  async function enviar(url, cuerpo, ms = 20000) {
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms);
+    try {
+      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo), signal: ctl.signal });
+      const j = await r.json().catch(() => ({}));
+      if (ctl.signal.aborted) throw new Error('tiempo');
+      return { r, j };
+    } catch (e) { if (ctl.signal.aborted) { e.tiempo = true; } throw e; }
+    finally { clearTimeout(t); }
+  }
   async function llamar(accion, extra = {}) {
-    const r = await fetch('/api/progreso', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token(), accion, ...extra }) });
-    const j = await r.json().catch(() => ({}));
+    const { r, j } = await enviar('/api/progreso', { token: token(), accion, ...extra });
     return { ok: r.ok, status: r.status, j };
   }
   async function sincronizar() {
@@ -91,11 +101,10 @@
       if (!pass.value) { pass.focus(); return; }
       msg.textContent = 'Entrando…';
       try {
-        const r = await fetch('/api/entrar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clave: pass.value }) });
-        const j = await r.json().catch(() => ({}));
+        const { r, j } = await enviar('/api/entrar', { clave: pass.value });
         if (!r.ok || !j.token) { msg.textContent = j.error || 'No se pudo entrar (error ' + r.status + ').'; pass.select(); return; }
         guardarToken(j.token, rec.checked); pass.value = ''; await sincronizar(); pintarInicio();
-      } catch (e) { msg.textContent = 'Sin conexión con el servidor.'; }
+      } catch (e) { msg.textContent = e.tiempo ? 'Tardó demasiado. Revisa tu señal e intenta de nuevo.' : 'Sin conexión con el servidor.'; }
     };
     pass.addEventListener('keydown', e => { if (e.key === 'Enter') entrar(); });
     const conPase = !!token();
