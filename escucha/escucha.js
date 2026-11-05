@@ -23,8 +23,9 @@
     { sufijo: 'sus2', notas: [[0, 3], [2, 3], [7, 1.5]], esencial: [2], rareza: .3 },
     { sufijo: 'add9', notas: [[0, 3], [4, 3], [7, 1.2], [2, 2.5]], esencial: [4, 2], rareza: .5 },
     { sufijo: 'm(add9)', notas: [[0, 3], [3, 3], [7, 1.2], [2, 2.5]], esencial: [3, 2], rareza: .9 },
-    { sufijo: '6', notas: [[0, 3], [4, 3], [7, 1.2], [9, 2.5]], esencial: [4, 9], rareza: .7 },
-    { sufijo: 'm6', notas: [[0, 3], [3, 3], [7, 1.2], [9, 2.5]], esencial: [3, 9], rareza: .9 },
+    // Las sextas llevan la quinta como esencial: sin ella, Mi♭–Sol–Do es Cm/E♭ (tríada menor invertida) y no "Mi♭6" (hallazgo 1).
+    { sufijo: '6', notas: [[0, 3], [4, 3], [7, 1.2], [9, 2.5]], esencial: [4, 7, 9], rareza: .7 },
+    { sufijo: 'm6', notas: [[0, 3], [3, 3], [7, 1.2], [9, 2.5]], esencial: [3, 7, 9], rareza: .9 },
     { sufijo: 'dim', notas: [[0, 3], [3, 3], [6, 3]], esencial: [3, 6], rareza: .6 },
     { sufijo: 'm7b5', notas: [[0, 3], [3, 3], [6, 3], [10, 2.5]], esencial: [3, 6, 10], rareza: .8 },
     { sufijo: 'aug', notas: [[0, 3], [4, 3], [8, 3]], esencial: [4, 8], rareza: .9 },
