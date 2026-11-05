@@ -20,6 +20,11 @@ const MAX_IMPORTAR = 300;
 const responder = (cuerpo, status = 200) =>
   Response.json(cuerpo, { status, headers: { 'Cache-Control': 'no-store' } });
 
+// Lista pública: el borde de Vercel la guarda 10 s (y hasta 30 s más mientras se renueva), así las visitas no leen Blob cada vez.
+// El navegador no la guarda (max-age=0): siempre pregunta al borde.
+const responderPublico = cuerpo =>
+  Response.json(cuerpo, { headers: { 'Cache-Control': 'public, max-age=0, s-maxage=10, stale-while-revalidate=30' } });
+
 const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 const clave = c => norm(c.titulo) + '|' + norm(c.artista);
 const nuevoId = () => randomBytes(8).toString('hex');
@@ -51,7 +56,7 @@ async function modificar(cambiar) {
 }
 async function respaldoDelDia(anterior) {
   const dia = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Santo_Domingo' }); // AAAA-MM-DD
-  try { await crear(`repertorio/historial/${dia}.json`, anterior); }
+  try { await crear(`repertorio/historial/${dia}.json`, anterior, { recordar: true }); }
   catch (e) { if (!(e instanceof ExisteError)) console.error('respaldo del día:', e); }   // un fallo aquí no impide guardar
 }
 
@@ -75,12 +80,12 @@ const publica = c => { const { borrada, ...resto } = c; return resto; };
 
 export async function GET() {
   try {
-    const r = await leer(RUTA);
+    const r = await leer(RUTA, { conEtag: false });   // solo lectura: no hace falta la huella
     if (!r) return responder({ error: 'Aún no hay datos guardados' }, 404);
     const d = r.data;
     if (!Array.isArray(d.canciones)) d.canciones = [];
     asegurarIds(d);
-    return responder({ version: 2, nombre: d.nombre || '', intro: d.intro || '', actualizado: d.actualizado || '',
+    return responderPublico({ version: 2, nombre: d.nombre || '', intro: d.intro || '', actualizado: d.actualizado || '',
       canciones: (d.canciones || []).filter(c => !c.borrada).map(publica) });
   } catch (e) {
     console.error('GET /api/canciones:', e);
@@ -172,7 +177,7 @@ export async function POST(request) {
 
   try {
     if (cuerpo.accion === 'papelera') {
-      const r = await leer(RUTA);
+      const r = await leer(RUTA, { conEtag: false });
       if (r?.data && Array.isArray(r.data.canciones)) asegurarIds(r.data);
       return responder({ canciones: (r?.data?.canciones || []).filter(c => c.borrada).map(publica) });
     }
