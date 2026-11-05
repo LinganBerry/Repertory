@@ -15,7 +15,8 @@ const { limpiarSesion, MAX_SESIONES } = await import('../lib/progreso.js');
 const auth = await import('../lib/auth.js');
 const { LIMITES } = await import('../lib/limpiar.js');
 
-const limpiarTodo = () => { memoria.clear(); registro.length = 0; };
+const { olvidarSabidas } = await import('../lib/almacen.js');
+const limpiarTodo = () => { memoria.clear(); registro.length = 0; olvidarSabidas(); };
 const post = (modulo, cuerpo, cabeceras = {}) =>
   modulo.POST(new Request('http://prueba.local/api', { method: 'POST', body: typeof cuerpo === 'string' ? cuerpo : JSON.stringify(cuerpo), headers: { 'content-type': 'application/json', ...cabeceras } }));
 const ver = () => canciones.GET();
@@ -203,6 +204,35 @@ test('copia del día: el primer cambio guarda el estado anterior en historial/',
   const copia = memoria.get(`repertorio/historial/${dia}.json`);
   assert.ok(copia, 'existe la copia del día');
   assert.equal(JSON.parse(copia.texto).canciones.length, 1, 'conserva el estado anterior al primer cambio del día');
+});
+
+test('copia del día: tras el primer respaldo no se vuelve a intentar ni a consultar en cada guardado', async () => {
+  limpiarTodo();
+  const token = await pase();
+  for (const t of ['Uno', 'Dos', 'Tres', 'Cuatro', 'Cinco']) await guardar(token, cancion({ titulo: t }));
+  const historial = registro.filter(o => o.ruta.startsWith('repertorio/historial/'));
+  assert.deepEqual(historial.map(o => o.op), ['put'], 'un solo intento de crear el respaldo, sin lecturas extra: ' + JSON.stringify(historial));
+});
+
+test('GET público: el borde lo guarda unos segundos, el navegador no, y no pide la huella (head)', async () => {
+  limpiarTodo();
+  const token = await pase();
+  await guardar(token, cancion());
+  registro.length = 0;
+  const r = await ver();
+  assert.equal(r.status, 200);
+  const cc = r.headers.get('cache-control');
+  assert.match(cc, /s-maxage=10/); assert.match(cc, /stale-while-revalidate=30/); assert.match(cc, /max-age=0/); assert.doesNotMatch(cc, /no-store/);
+  assert.equal(registro.filter(o => o.op === 'head').length, 0, 'sin head en el GET');
+  assert.equal(registro.filter(o => o.op === 'get').length, 1);
+});
+test('GET sin datos y los errores NO se guardan en el borde; la papelera tampoco', async () => {
+  limpiarTodo();
+  assert.equal((await ver()).headers.get('cache-control'), 'no-store');
+  const token = await pase();
+  await guardar(token, cancion());
+  const p = await post(canciones, { token, accion: 'papelera' });
+  assert.equal(p.headers.get('cache-control'), 'no-store');
 });
 
 test('8 guardados simultáneos: ninguno se pierde (control de concurrencia)', async () => {
