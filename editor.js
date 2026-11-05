@@ -93,14 +93,25 @@
 
   // --- comunicación con el servidor ---
   // Si no hay pase (o venció), pide la contraseña (encima de lo que tengas abierto) y repite la acción solo.
+  // POST con tiempo límite: con mala señal no se queda colgado. Si vence, lanza un error con e.tiempo = true.
+  async function enviar(url, cuerpo, ms = 20000) {
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms);
+    try {
+      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo), signal: ctl.signal });
+      const j = await r.json().catch(() => ({}));
+      if (ctl.signal.aborted) throw new Error('tiempo');
+      return { r, j };
+    } catch (e) { if (ctl.signal.aborted) { e.tiempo = true; } throw e; }
+    finally { clearTimeout(t); }
+  }
+  const MSG_TIEMPO = 'Tardó demasiado en responder. Revisa tu señal; si era una canción nueva, mira primero si ya se guardó antes de repetir.';
   async function llamar(body) {
     for (let intento = 0; intento < 2; intento++) {
       if (!token && !(await pedirLogin(intento ? 'Tu sesión venció. Entra de nuevo.' : '', Boolean(abierta)))) break;
       let r, j;
       try {
-        r = await fetch('/api/canciones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, token }) });
-        j = await r.json().catch(() => ({}));
-      } catch (e) { return { ok: false, status: 0, j: { error: 'Sin conexión con el servidor.' } }; }
+        ({ r, j } = await enviar('/api/canciones', { ...body, token }));
+      } catch (e) { return { ok: false, status: 0, j: { error: e.tiempo ? MSG_TIEMPO : 'Sin conexión con el servidor.' } }; }
       if (r.status === 401) { token = ''; olvidarSesion(); continue; }
       return { ok: r.ok, status: r.status, j };
     }
@@ -111,7 +122,8 @@
     try { navigator.vibrate && navigator.vibrate([10, 25, 15]); } catch (e) { /* nada */ }
   };
   const recargar = async () => {
-    const r = await fetch('/api/canciones', { cache: 'no-store' });
+    // La lista pública se guarda unos segundos en el borde de Vercel: con un parámetro distinto se ve lo recién guardado.
+    const r = await fetch('/api/canciones?fresco=' + Date.now(), { cache: 'no-store' });
     if (r.ok) app.data = await r.json();
   };
 
@@ -160,8 +172,7 @@
         boton.disabled = true;
         msg.textContent = 'Entrando…';
         try {
-          const r = await fetch('/api/entrar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clave: pass.value }) });
-          const j = await r.json().catch(() => ({}));
+          const { r, j } = await enviar('/api/entrar', { clave: pass.value });
           if (!r.ok || !j.token) { msg.textContent = j.error || 'No se pudo entrar (error ' + r.status + ').'; boton.disabled = false; pass.select(); return; }
           token = j.token;
           guardarSesion(token, fija.checked);
@@ -169,7 +180,7 @@
           estado('Listo');
           resolver(true);
         } catch (err) {
-          msg.textContent = 'Sin conexión con el servidor.';
+          msg.textContent = err.tiempo ? 'Tardó demasiado. Revisa tu señal e intenta de nuevo.' : 'Sin conexión con el servidor.';
           boton.disabled = false;
         }
       };
