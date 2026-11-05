@@ -526,6 +526,13 @@
   document.addEventListener('visibilitychange', () => { if (!document.hidden) reintentar(); });
   // Modo offline: sw.js guarda la página y las canciones en el dispositivo (con internet siempre manda lo más nuevo).
   if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => { /* nada */ }));
+  // Pide que el navegador no borre la copia guardada si falta espacio (Android lo hace con lo que no está protegido).
+  // Solo con la app instalada: ahí Chrome lo concede sin preguntar (y Firefox no muestra un aviso con la página en pestaña).
+  const pedirPersistencia = () => {
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persisted().then(ya => ya || navigator.storage.persist()).catch(() => { /* nada */ }); } catch (e) { /* nada */ }
+  };
+  if ((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone) pedirPersistencia();
+  addEventListener('appinstalled', pedirPersistencia);
   // Franja de 12 tonos (los mismos colores de las pastillas): C, C#, D … B.
   for (let i = 0; i < 12; i++) {
     const seg = el('span');
