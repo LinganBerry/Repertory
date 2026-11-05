@@ -327,6 +327,32 @@ test('PRACTICAR (teléfono): sesión de 10 preguntas en clave de sol, resultado 
   sinErrores(n); n.cerrar();
 });
 
+test('PRACTICAR: una sesión inválida no traba la cola: las buenas se guardan y la mala se aparta', async () => {
+  memoria.clear();
+  const a = await navegador('');
+  await abrirPractica(a);
+  [...a.d.querySelectorAll('[data-tema="fa"] button')].find(b => /Empezar · 10/.test(b.textContent)).click();
+  await esperar(() => a.w.RepertorioPractica.estadoSesion()?.preg, 'sesión en clave de fa');
+  await sesionCompleta(a, 10, 0);
+  await esperar(() => a.$('pr-resultado'), 'resultado');
+  [...a.d.querySelectorAll('#practica button')].find(b => b.textContent === 'Otro ejercicio').click();
+  await esperar(() => a.d.querySelector('#practica details'), 'formulario de entrada');
+  a.d.querySelector('#pr-pass').value = PASE; a.d.querySelector('#practica details .primario').click();
+  await esperar(() => /Sincronizado/.test(a.$('pr-estado')?.textContent || ''), 'estado sincronizado');
+  const P = a.w.RepertorioPractica;
+  const buena = id => ({ id, t: 'fa', l: 1, f: '2026-11-05', n: 2, a: 1, ms: 5000, q: [['fa:c4', 1, 1000], ['fa:d4', 0, 2000]] });
+  P.datos.pend.push(buena('buenauno1'), { ...buena('mala'), id: 'x' }, buena('buenados2'));   // el id 'x' no es válido
+  await P.sincronizar();
+  await esperar(() => /apartada/.test(a.$('pr-estado')?.textContent || ''), 'aviso de sesión apartada');
+  assert.equal(P.datos.pend.length, 0, 'la cola quedó vacía: la mala no la traba');
+  assert.deepEqual([...P.datos.apartadas.map(s => s.id)], ['x'], 'la mala quedó apartada, no perdida');
+  const ids = JSON.parse(memoria.get('repertorio/progreso.json').texto).sesiones.map(s => s.id);
+  assert.ok(ids.includes('buenauno1') && ids.includes('buenados2') && !ids.includes('x'), 'las dos buenas llegaron al servidor: ' + ids);
+  assert.match(a.$('pr-estado').textContent, /1 sesión no era válida/);
+  assert.equal(JSON.parse(a.w.localStorage.getItem('repertorio-practica-v1')).apartadas.length, 1, 'la apartada sobrevive al recargar');
+  sinErrores(a); a.cerrar();
+});
+
 test('PRACTICAR: entrar con la contraseña sincroniza, y otro dispositivo ve el mismo progreso', async () => {
   memoria.clear();
   const a = await navegador('');
