@@ -27,8 +27,10 @@
 
   // --- estado y sincronización ---
   // servidor: lo último que se sabe del servidor; pend: sesiones hechas aquí que el servidor aún no confirmó.
-  const datos = leer(GUARDADO, { servidor: [], pend: [] });
-  const persistir = () => guardar(GUARDADO, { servidor: datos.servidor.slice(-500), pend: datos.pend.slice(-200) });
+  // apartadas: sesiones que el servidor rechazó por no ser válidas; se guardan aquí (no se pierden) pero ya no bloquean el envío.
+  const datos = leer(GUARDADO, { servidor: [], pend: [], apartadas: [] });
+  if (!Array.isArray(datos.apartadas)) datos.apartadas = [];
+  const persistir = () => guardar(GUARDADO, { servidor: datos.servidor.slice(-500), pend: datos.pend.slice(-200), apartadas: datos.apartadas.slice(-50) });
   const todas = () => { const m = new Map(); for (const s of [...datos.servidor, ...datos.pend]) m.set(s.id, s); return [...m.values()]; };
   let sync = { estado: datos.pend.length ? 'pendiente' : 'local', texto: '' };
 
@@ -47,21 +49,44 @@
     const { r, j } = await enviar('/api/progreso', { token: token(), accion, ...extra });
     return { ok: r.ok, status: r.status, j };
   }
+  // El servidor rechaza un lote entero (400 o 413) si una sesión no es válida. Se prueba de una en una: las buenas se guardan y las malas se apartan.
+  const loteRechazado = r => r.status === 400 || r.status === 413;
+  async function enviarUnaPorUna(lote) {
+    const hechas = [], malas = [];
+    for (const s of lote) {
+      const r = await llamar('sesiones', { sesiones: [s] });
+      if (r.ok) hechas.push(s);
+      else if (loteRechazado(r)) malas.push(s);
+      else return { hechas, malas, corte: r };   // 401, 5xx, etc.: se corta y lo demás sigue pendiente
+    }
+    return { hechas, malas, corte: null };
+  }
+  const quitarDePend = lista => { const ids = new Set(lista.map(s => s.id)); datos.pend = datos.pend.filter(s => !ids.has(s.id)); };
   async function sincronizar() {
     if (!token()) { sync = { estado: datos.pend.length ? 'pendiente' : 'local' }; return pintarEstado(); }
     sync = { estado: 'sincronizando' }; pintarEstado();
+    let apartadasAhora = 0;
     try {
       while (datos.pend.length) {
         const lote = datos.pend.slice(0, 20);
         const r = await llamar('sesiones', { sesiones: lote });
         if (r.status === 401) { olvidarToken(); sync = { estado: 'sin-pase' }; return pintarEstado(); }
-        if (!r.ok) { sync = { estado: 'error', texto: r.j.error || 'No se pudo guardar.' }; return pintarEstado(); }
-        const ids = new Set(lote.map(s => s.id));
-        datos.servidor.push(...lote); datos.pend = datos.pend.filter(s => !ids.has(s.id)); persistir();
+        if (r.ok) {
+          datos.servidor.push(...lote); quitarDePend(lote); persistir();
+        } else if (loteRechazado(r)) {
+          const u = lote.length === 1 ? { hechas: [], malas: lote, corte: null } : await enviarUnaPorUna(lote);
+          datos.servidor.push(...u.hechas); datos.apartadas.push(...u.malas); apartadasAhora += u.malas.length;
+          quitarDePend([...u.hechas, ...u.malas]); persistir();
+          if (u.corte) {
+            if (u.corte.status === 401) { olvidarToken(); sync = { estado: 'sin-pase' }; return pintarEstado(); }
+            sync = { estado: 'error', texto: u.corte.j.error || 'No se pudo guardar.' }; return pintarEstado();
+          }
+        } else { sync = { estado: 'error', texto: r.j.error || 'No se pudo guardar.' }; return pintarEstado(); }
       }
       const r = await llamar('leer');
       if (r.status === 401) { olvidarToken(); sync = { estado: 'sin-pase' }; return pintarEstado(); }
-      if (r.ok && Array.isArray(r.j.sesiones)) { datos.servidor = r.j.sesiones; persistir(); sync = { estado: 'ok' }; }
+      const aviso = apartadasAhora ? (apartadasAhora === 1 ? '1 sesión no era válida y quedó apartada en este dispositivo.' : apartadasAhora + ' sesiones no eran válidas y quedaron apartadas en este dispositivo.') : '';
+      if (r.ok && Array.isArray(r.j.sesiones)) { datos.servidor = r.j.sesiones; persistir(); sync = { estado: 'ok', texto: aviso }; }
       else sync = { estado: 'error', texto: r.j.error || 'No se pudo leer el progreso.' };
     } catch (e) { sync = { estado: 'sin-red' }; }
     pintarEstado();
@@ -73,7 +98,8 @@
     sincronizando: 'Sincronizando…', ok: 'Sincronizado con tus otros dispositivos.',
     'sin-red': 'Sin conexión: se sincronizará cuando vuelva la señal.', 'sin-pase': 'Tu sesión venció. Entra de nuevo para sincronizar.', error: 'No se pudo sincronizar.'
   };
-  const pintarEstado = () => { const n = $('pr-estado'); if (n) n.textContent = (TEXTO_ESTADO[sync.estado] || '') + (sync.texto ? ' ' + sync.texto : ''); };
+  const textoEstado = () => (TEXTO_ESTADO[sync.estado] || '') + (sync.texto ? ' ' + sync.texto : '');
+  const pintarEstado = () => { const n = $('pr-estado'); if (n) n.textContent = textoEstado(); };
 
   // --- pantalla ---
   const caja = el('div', { id: 'practica', hidden: true, tabIndex: -1, 'aria-modal': 'true', 'aria-label': 'Practicar' });
@@ -110,7 +136,7 @@
     const conPase = !!token();
     const estado = el('div', { className: 'parte' },
       el('p', { className: 'pr-datos' }, el('b', {}, 'Hoy: '), hoyN + ' preguntas · ', el('b', {}, 'Racha: '), racha + (racha === 1 ? ' día' : ' días')),
-      el('p', { className: 'a', id: 'pr-estado', 'aria-live': 'polite' }, TEXTO_ESTADO[sync.estado] || ''),
+      el('p', { className: 'a', id: 'pr-estado', 'aria-live': 'polite' }, textoEstado()),
       !conPase && el('details', {}, el('summary', {}, 'Entrar para sincronizar'),
         el('label', { className: 'campo' }, el('span', {}, 'Contraseña del editor'), pass),
         el('label', { className: 'campo' }, rec, ' Recordar en este dispositivo (30 días)'),
@@ -368,7 +394,7 @@
         repasar.length ? el('div', { className: 'parte' }, el('h3', {}, 'Para repasar'), el('div', { className: 'chips' }, ...repasar.map(([k, i]) => el('span', { className: 'chip' }, el('b', {}, N.rotulo(k)), el('i', { className: 'rom' }, pct(i.a / i.v)))))) : null,
         el('p', {}, el('button', { type: 'button', className: 'primario', id: 'pr-repetir', onclick: () => (cfg.diaria ? empezarDiaria() : empezar(cfg.tema, cfg.nivel, cfg.total)) }, cfg.diaria ? 'Otra sesión diaria' : 'Repetir'), ' ',
           el('button', { type: 'button', onclick: () => { pintarInicio(); } }, 'Otro ejercicio')),
-        el('p', { className: 'a', id: 'pr-estado', 'aria-live': 'polite' }, TEXTO_ESTADO[sync.estado] || '')));
+        el('p', { className: 'a', id: 'pr-estado', 'aria-live': 'polite' }, textoEstado())));
     $('pr-resultado').focus();
   }
 
