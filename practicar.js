@@ -16,12 +16,8 @@
   const nodoSvg = texto => document.importNode(new DOMParser().parseFromString(texto, 'image/svg+xml').documentElement, true);
 
   const CFG = { pausa: 650, minutos: 15 };                                     // ms antes de pasar sola a la siguiente tras un acierto
-  const SESION = 'repertorio-sesion-v3', GUARDADO = 'repertorio-practica-v1', PREF = 'repertorio-practica-pref';
-  const leer = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } };
-  const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sin espacio: no pasa nada grave */ } };
-  const token = () => { try { return sessionStorage.getItem(SESION) || localStorage.getItem(SESION) || ''; } catch (e) { return ''; } };
-  const olvidarToken = () => { try { sessionStorage.removeItem(SESION); localStorage.removeItem(SESION); } catch (e) { /* nada */ } };
-  const guardarToken = (v, fija) => { olvidarToken(); try { (fija ? localStorage : sessionStorage).setItem(SESION, v); } catch (e) { /* nada */ } };
+  const GUARDADO = 'repertorio-practica-v1', PREF = 'repertorio-practica-pref';
+  const { leer, guardar, leerPase: token, olvidarPase: olvidarToken, guardarPase: guardarToken, enviar } = window.RepertorioLocal;
   const nuevoId = () => { try { return crypto.randomUUID().replace(/-/g, '').slice(0, 16); } catch (e) { return Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join(''); } };
   const hoy = () => new Date().toLocaleDateString('en-CA');       // AAAA-MM-DD en tu zona horaria
 
@@ -34,17 +30,6 @@
   const todas = () => { const m = new Map(); for (const s of [...datos.servidor, ...datos.pend]) m.set(s.id, s); return [...m.values()]; };
   let sync = { estado: datos.pend.length ? 'pendiente' : 'local', texto: '' };
 
-  // POST con tiempo límite: con mala señal no se queda colgado. Si vence, lanza un error con e.tiempo = true.
-  async function enviar(url, cuerpo, ms = 20000) {
-    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms);
-    try {
-      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo), signal: ctl.signal });
-      const j = await r.json().catch(() => ({}));
-      if (ctl.signal.aborted) throw new Error('tiempo');
-      return { r, j };
-    } catch (e) { if (ctl.signal.aborted) { e.tiempo = true; } throw e; }
-    finally { clearTimeout(t); }
-  }
   async function llamar(accion, extra = {}) {
     const { r, j } = await enviar('/api/progreso', { token: token(), accion, ...extra });
     return { ok: r.ok, status: r.status, j };

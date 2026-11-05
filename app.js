@@ -145,8 +145,7 @@
   }
 
   // --- tamaño de letra: se recuerda en el dispositivo (localStorage) ---
-  const leer = (k, def) => { try { return JSON.parse(localStorage.getItem(k)) ?? def; } catch (e) { return def; } };
-  const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* nada */ } };
+  const { leer, guardar } = window.RepertorioLocal;
   let zoom = Math.min(1.9, Math.max(.85, Number(leer('repertorio-zoom', 1)) || 1));
   let actual = null, ultima = null, orden = [];
 

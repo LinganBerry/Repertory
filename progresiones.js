@@ -129,8 +129,7 @@
     return n;
   };
   const PREF = 'repertorio-prog-pref', EST = 'repertorio-prog-v1';
-  const leer = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
-  const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sin espacio: no pasa nada grave */ } };
+  const { leer, guardar } = window.RepertorioLocal;
   const seg = ms => (ms / 1000).toFixed(1) + ' s';
 
   const PREF0 = { calidad: 'ambos', tono: 'azar', repasar: true };

@@ -112,8 +112,7 @@
   };
   const nodoSvg = texto => document.importNode(new DOMParser().parseFromString(texto, 'image/svg+xml').documentElement, true);
   const PREF = 'repertorio-retos-pref', EST = 'repertorio-retos-v1';
-  const leer = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
-  const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sin espacio: no pasa nada grave */ } };
+  const { leer, guardar } = window.RepertorioLocal;
   const seg = ms => (ms / 1000).toFixed(1) + ' s';
 
   const PREF0 = { calidad: 'ambos', inversiones: false, tiempo: 0, teclado: true, repasar: true };

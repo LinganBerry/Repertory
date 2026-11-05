@@ -20,10 +20,7 @@
   };
 
   // Sesión: el servidor cambia la contraseña por un pase que vence a los 30 días. La contraseña NO se guarda.
-  const SESION = 'repertorio-sesion-v3';
-  const leerSesion = () => { try { return sessionStorage.getItem(SESION) || localStorage.getItem(SESION) || ''; } catch (e) { return ''; } };
-  const olvidarSesion = () => { try { sessionStorage.removeItem(SESION); localStorage.removeItem(SESION); } catch (e) { /* nada */ } };
-  const guardarSesion = (v, fija) => { olvidarSesion(); try { (fija ? localStorage : sessionStorage).setItem(SESION, v); } catch (e) { /* nada */ } };
+  const { leerPase: leerSesion, olvidarPase: olvidarSesion, guardarPase: guardarSesion, enviar } = window.RepertorioLocal;
   let token = leerSesion();
 
   // Partes: una por línea, "Nombre (tono): acordes // pista". Tono y pista son opcionales; | marca el compás.
@@ -93,17 +90,6 @@
 
   // --- comunicación con el servidor ---
   // Si no hay pase (o venció), pide la contraseña (encima de lo que tengas abierto) y repite la acción solo.
-  // POST con tiempo límite: con mala señal no se queda colgado. Si vence, lanza un error con e.tiempo = true.
-  async function enviar(url, cuerpo, ms = 20000) {
-    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms);
-    try {
-      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo), signal: ctl.signal });
-      const j = await r.json().catch(() => ({}));
-      if (ctl.signal.aborted) throw new Error('tiempo');
-      return { r, j };
-    } catch (e) { if (ctl.signal.aborted) { e.tiempo = true; } throw e; }
-    finally { clearTimeout(t); }
-  }
   const MSG_TIEMPO = 'Tardó demasiado en responder. Revisa tu señal; si era una canción nueva, mira primero si ya se guardó antes de repetir.';
   async function llamar(body) {
     for (let intento = 0; intento < 2; intento++) {
