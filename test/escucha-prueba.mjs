@@ -133,6 +133,40 @@ test('Seguidor: la primera inversión de un acorde menor se nombra con su bajo, 
     assert.deepEqual(nombres(ev), ['Cm/D#'], 'Do menor con Mib abajo, desde la nota ' + (base + 3));
   }
 });
+// Hallazgo 3: con grabaciones reales (Do mayor en 5 octavas) el motor detecta bien las notas, pero el Seguidor no avisaba el acorde
+// en 2 de 10 casos. Estas pruebas repiten esos tiempos (en segundos desde el golpe) con las notas que entregó el modelo.
+test('Seguidor: un chispazo del ataque (armónico suelto) no tapa el golpe real que llega 0,2 s después', () => {
+  const ev = tocar(new Seguidor(), [
+    { en: .0, notas: [71], dura: .09 },                    // Si4: chispazo del ataque, se apaga enseguida
+    { en: .2, notas: [64, 67], dura: .9 },                 // Mi4 y Sol4 (el golpe de verdad)
+    { en: .21, notas: [60, 72], dura: .9 },                // Do4 y Do5
+  ], { hasta: 1.6 });
+  assert.deepEqual(nombres(ev), ['C']);
+});
+test('Seguidor: el bajo que tarda en confirmarse (0,14 s) sigue siendo el mismo golpe', () => {
+  const ev = tocar(new Seguidor(), [
+    { en: .03, notas: [55], dura: .9 },                    // Sol3
+    { en: .05, notas: [52], dura: .9 },                    // Mi3
+    { en: .17, notas: [48], dura: .9 },                    // Do3 (el bajo llega tarde)
+  ], { hasta: 1.6 });
+  assert.deepEqual(nombres(ev), ['C']);
+});
+test('Seguidor: en la octava grave, los chispazos del ataque no se cuelan en el nombre (nada de C6 ni F#dim/C)', () => {
+  const ev = tocar(new Seguidor(), [
+    { en: .0, notas: [66, 69], dura: .07 },                // Fa#4 y La4: chispazos
+    { en: .06, notas: [43], dura: 1 }, { en: .1, notas: [36], dura: 1 }, { en: .13, notas: [40], dura: 1 },   // Sol2, Do2, Mi2
+  ], { hasta: 1.6 });
+  assert.equal(nombres(ev).at(-1), 'C');
+  assert.ok(!nombres(ev).some(n => /dim|6/.test(n)), 'avisos: ' + nombres(ev).join(' > '));
+});
+test('Seguidor: pasar al siguiente acorde cambia el nombre aunque el bajo tarde un poco', () => {
+  const ev = tocar(new Seguidor(), [
+    { en: .1, notas: [48, 52, 55], dura: .5 },             // C
+    { en: 1.0, notas: [62, 59], dura: .6 }, { en: 1.15, notas: [43], dura: .6 },   // G con el bajo 0,15 s tarde
+  ], { hasta: 2.4 });
+  assert.deepEqual(nombres(ev), ['C', 'G']);
+});
+
 test('Seguidor: cada golpe nuevo avisa; repetir el mismo acorde no repite el aviso', () => {
   const ev = tocar(new Seguidor(), [
     { en: .1, notas: [48, 52, 55], dura: .5 },
