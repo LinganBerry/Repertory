@@ -127,11 +127,13 @@
         subida: .35,                     // cuánto debe subir una nota para contar como golpe nuevo aunque ya sonara
         graveMax: 50,                    // de aquí hacia abajo una nota es "bajo" (re 3); las notas de un arpegio suelen quedar más arriba
         duracionArpegio: 3.2, revision: .3, esperaDos: .5, fin: .5, huecoNuevo: .45,
+        fantasmaMax: .15,                // una nota que se apaga antes de 0,15 s es un chispazo del ataque (armónico), no cuenta para el nombre
+        bajoTardio: .3,                  // el bajo suele tardar en confirmarse: si llega hasta 0,3 s después del golpe, sigue siendo el mismo golpe
       }, op);
       this.reiniciar();
     }
     reiniciar() {
-      this.racha = new Map(); this.anillo = []; this.ultimoOnset = new Map();
+      this.racha = new Map(); this.anillo = []; this.ultimoOnset = new Map(); this.visto = new Map();
       this.grupo = null; this.vacioDesde = null; this.nombre = null;
     }
     // trama = { t: segundos, notas: [{ midi, prob }], probs?: Float32Array(88) de A0 a C8 }
@@ -141,7 +143,7 @@
       const probs = trama.probs || null;
       const reciente = k => { let m = 1; for (const a of this.anillo) if (a[k] < m) m = a[k]; return this.anillo.length ? m : 0; };
 
-      for (const m of act.keys()) this.racha.set(m, (this.racha.get(m) || 0) + 1);
+      for (const m of act.keys()) { this.racha.set(m, (this.racha.get(m) || 0) + 1); this.visto.set(m, t); }
       for (const m of [...this.racha.keys()]) if (!act.has(m)) this.racha.delete(m);
 
       const nuevas = [];
@@ -161,9 +163,12 @@
     _abrirOSumar(t, nuevas, act) {
       let g = this.grupo;
       const bajoNuevo = nuevas.some(m => m <= this.graveMax && (!g || m % 12 !== g.bajoPc));
-      const nuevo = !g
+      // Si ninguna nota del grupo sigue sonando y entran 2 o más a la vez, es otro golpe: lo anterior fue un chispazo del ataque.
+      const muerto = !!g && nuevas.length >= 2 && ![...g.notas.keys()].some(m => act.has(m));
+      const nuevo = !g || muerto
         || t - g.inicio > this.duracionArpegio
-        || (t - g.inicio > .08 && (nuevas.length >= 3 || bajoNuevo))
+        || (t - g.inicio > .08 && nuevas.length >= 3)
+        || (t - g.inicio > this.bajoTardio && bajoNuevo)
         || (t - g.ultimo > this.huecoNuevo && nuevas.length >= 2)
         || t - g.ultimo > 1.2;
       // Un golpe de bloque se corrige solo durante un instante; después, notas sueltas encima (melodía) no lo cambian.
@@ -182,7 +187,8 @@
       // Una melodía suelta no es un acorde: hace falta un bajo (arpegio) o un golpe de 3 o más notas a la vez.
       if (g.bajoPc === null && g.bloque < 3) return salida;
       g.pendiente = false;
-      const propias = [...g.notas.keys()].sort((a, b) => a - b);
+      const fantasma = m => !act.has(m) && this.visto.get(m) - (this.ultimoOnset.get(m) ?? -9) < this.fantasmaMax;
+      const propias = [...g.notas.keys()].filter(m => !fantasma(m)).sort((a, b) => a - b);
       const secundarias = [...act.keys()].filter(m => !g.notas.has(m) && (this.racha.get(m) || 0) >= this.confirmar);
       let notas = propias;
       const pcsPropios = new Set(propias.map(m => m % 12)).size;
