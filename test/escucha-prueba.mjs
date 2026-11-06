@@ -167,6 +167,20 @@ test('Seguidor: pasar al siguiente acorde cambia el nombre aunque el bajo tarde 
   assert.deepEqual(nombres(ev), ['C', 'G']);
 });
 
+// Respaldo: si un golpe de 3 o más notas no recibe nombre por la lógica de grupos, se nombra lo que suena estable.
+test('Seguidor: un acorde que se toca "rodando" (notas separadas 0,18 s, sin bajo) igual recibe su nombre', () => {
+  const ev = tocar(new Seguidor(), [
+    { en: .0, notas: [60], dura: 1.4 }, { en: .18, notas: [64], dura: 1.2 }, { en: .36, notas: [67], dura: 1 },
+  ], { hasta: 2.2 });
+  assert.deepEqual(nombres(ev), ['C']);
+});
+test('Seguidor: el respaldo no cambia el acorde por una melodía encima ni porque se apague una nota', () => {
+  const melodia = tocar(new Seguidor(), [{ en: .1, notas: [48, 52, 55], dura: 2.4 }, { en: 1.2, notas: [69], dura: .9 }], { hasta: 3 });
+  assert.deepEqual(nombres(melodia), ['C'], 'melodía encima del acorde');
+  const se_apaga = tocar(new Seguidor(), [{ en: .1, notas: [48], dura: 1 }, { en: .1, notas: [52, 55, 60], dura: 2 }], { hasta: 3 });
+  assert.deepEqual(nombres(se_apaga), ['C'], 'el bajo se apaga y el acorde sigue siendo C (no C/E)');
+});
+
 test('Seguidor: cada golpe nuevo avisa; repetir el mismo acorde no repite el aviso', () => {
   const ev = tocar(new Seguidor(), [
     { en: .1, notas: [48, 52, 55], dura: .5 },
