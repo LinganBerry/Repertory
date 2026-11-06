@@ -127,6 +127,8 @@
         subida: .35,                     // cuánto debe subir una nota para contar como golpe nuevo aunque ya sonara
         graveMax: 50,                    // de aquí hacia abajo una nota es "bajo" (re 3); las notas de un arpegio suelen quedar más arriba
         duracionArpegio: 3.2, revision: .3, esperaDos: .5, fin: .5, huecoNuevo: .45,
+        estableMin: .25,                 // respaldo: si un golpe de 3+ notas no recibió nombre, se nombra lo que suena estable durante este tiempo
+        ventanaBloque: .4,               // las notas que entran dentro de este tiempo se cuentan como un mismo golpe
         fantasmaMax: .15,                // una nota que se apaga antes de 0,15 s es un chispazo del ataque (armónico), no cuenta para el nombre
         bajoTardio: .3,                  // el bajo suele tardar en confirmarse: si llega hasta 0,3 s después del golpe, sigue siendo el mismo golpe
       }, op);
@@ -134,6 +136,7 @@
     }
     reiniciar() {
       this.racha = new Map(); this.anillo = []; this.ultimoOnset = new Map(); this.visto = new Map();
+      this.firma = ''; this.firmaDesde = 0; this.ultimoBloque = -9; this.sinNombre = false;
       this.grupo = null; this.vacioDesde = null; this.nombre = null;
     }
     // trama = { t: segundos, notas: [{ midi, prob }], probs?: Float32Array(88) de A0 a C8 }
@@ -158,7 +161,36 @@
       if (this.grupo && this.vacioDesde !== null && t - this.vacioDesde > this.fin) this.grupo = null;
 
       if (nuevas.length) this._abrirOSumar(t, nuevas, act);
-      return this._evaluar(t, act);
+      const salida = this._evaluar(t, act);
+      return salida.length ? salida : this._respaldo(t, act);
+    }
+    // Respaldo: si entró un golpe de 3 o más clases de nota y la lógica de grupos no le puso nombre, se nombra lo que suena estable.
+    // Solo se activa con un golpe nuevo (no con notas que se apagan ni con una melodía encima), y como mucho una vez por golpe.
+    _respaldo(t, act) {
+      const notas = [...act.keys()].sort((a, b) => a - b), firma = notas.join(',');
+      if (firma !== this.firma) { this.firma = firma; this.firmaDesde = t; }
+      let ult = -9; const clases = new Set();
+      for (const [m, o] of this.ultimoOnset) if (act.has(m) && t - o <= this.ventanaBloque) { clases.add(m % 12); if (o > ult) ult = o; }
+      if (clases.size >= 3 && ult > this.ultimoBloque) { this.ultimoBloque = ult; this.sinNombre = true; }
+      if (!this.sinNombre || t - this.firmaDesde < this.estableMin || new Set(notas.map(m => m % 12)).size < 3) return [];
+      this.sinNombre = false;
+      return this._nombrar(t, notas, act, this.firmaDesde, null);
+    }
+    // Nombre de un conjunto de notas (con la lista de la canción si la hay) y aviso si cambia el que se muestra.
+    _nombrar(t, notas, act, inicio, g) {
+      const libre = nombrarLibre(notas, { bemoles: this.bemoles });
+      let r = libre;
+      if (this.candidatos && this.candidatos.length) {
+        const ev = new Array(12).fill(0);
+        for (const m of notas) ev[m % 12] = Math.max(ev[m % 12], act.get(m) || 0, .7);
+        for (const [m, p] of act) if (!notas.includes(m)) ev[m % 12] = Math.max(ev[m % 12], .5 * (p || 0));
+        const c = elegirDeLista(ev, notas, this.candidatos, this.umbralLista);
+        if (c) r = { ...libre, nombre: c.nombre, clase: 'lista', libre: libre.nombre };
+      }
+      this.sinNombre = false;
+      if (r.nombre === this.nombre) return [];
+      this.nombre = r.nombre;
+      return [{ tipo: 'golpe', t, inicio, notas, ...r }];
     }
     _abrirOSumar(t, nuevas, act) {
       let g = this.grupo;
@@ -197,6 +229,7 @@
       const nPcs = new Set(notas.map(m => m % 12)).size;
       if (nPcs < 3 && !(nPcs === 2 && t - g.inicio >= this.esperaDos)) { if (nPcs === 2) g.pendiente = true; return salida; }
       const libre = nombrarLibre(notas, { bemoles: this.bemoles });
+      this.sinNombre = false;   // este golpe ya recibió nombre: el respaldo no interviene
       let r = libre;
       if (this.candidatos && this.candidatos.length) {
         const ev = new Array(12).fill(0);
