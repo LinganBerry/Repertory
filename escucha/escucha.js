@@ -127,6 +127,7 @@
         subida: .35,                     // cuánto debe subir una nota para contar como golpe nuevo aunque ya sonara
         graveMax: 50,                    // de aquí hacia abajo una nota es "bajo" (re 3); las notas de un arpegio suelen quedar más arriba
         duracionArpegio: 3.2, revision: .3, esperaDos: .5, fin: .5, huecoNuevo: .45,
+        parpadeo: .12,                   // una nota que desaparece menos de esto y vuelve es el mismo sonido (el modelo parpadea hasta ~0,11 s), no un golpe nuevo
         estableMin: .25,                 // respaldo: si un golpe de 3+ notas no recibió nombre, se nombra lo que suena estable durante este tiempo
         ventanaBloque: .4,               // las notas que entran dentro de este tiempo se cuentan como un mismo golpe
         fantasmaMax: .15,                // una nota que se apaga antes de 0,15 s es un chispazo del ataque (armónico), no cuenta para el nombre
@@ -136,7 +137,7 @@
     }
     reiniciar() {
       this.racha = new Map(); this.anillo = []; this.ultimoOnset = new Map(); this.visto = new Map();
-      this.firma = ''; this.firmaDesde = 0; this.ultimoBloque = -9; this.sinNombre = false;
+      this.firma = ''; this.firmaDesde = 0; this.ultimoBloque = -9; this.sinNombre = false; this.nombrados = []; this.tNombre = -9;
       this.grupo = null; this.vacioDesde = null; this.nombre = null;
     }
     // trama = { t: segundos, notas: [{ midi, prob }], probs?: Float32Array(88) de A0 a C8 }
@@ -147,7 +148,12 @@
       const reciente = k => { let m = 1; for (const a of this.anillo) if (a[k] < m) m = a[k]; return this.anillo.length ? m : 0; };
 
       for (const m of act.keys()) { this.racha.set(m, (this.racha.get(m) || 0) + 1); this.visto.set(m, t); }
-      for (const m of [...this.racha.keys()]) if (!act.has(m)) this.racha.delete(m);
+      for (const m of [...this.racha.keys()]) if (!act.has(m) && t - (this.visto.get(m) ?? -9) > this.parpadeo) {
+        this.racha.delete(m);
+        // un chispazo del ataque que ya se apagó: el grupo se vuelve a nombrar sin él
+        const gr = this.grupo;
+        if (gr && gr.notas.has(m) && this.visto.get(m) - (this.ultimoOnset.get(m) ?? -9) < this.fantasmaMax) { gr.pendiente = true; gr.sinCambio = 0; }
+      }
 
       const nuevas = [];
       for (const [m, r] of this.racha) {
@@ -172,9 +178,29 @@
       let ult = -9; const clases = new Set();
       for (const [m, o] of this.ultimoOnset) if (act.has(m) && t - o <= this.ventanaBloque) { clases.add(m % 12); if (o > ult) ult = o; }
       if (clases.size >= 3 && ult > this.ultimoBloque) { this.ultimoBloque = ult; this.sinNombre = true; }
+      // Cambio de mano: se apaga una nota del acorde nombrado y entra otra nueva (una melodía encima no apaga nada del acorde).
+      else if (this.nombrados.length && this.nombrados.some(m => !this.racha.has(m))) {
+        let nueva = -9; for (const [m, o] of this.ultimoOnset) if (act.has(m) && o > this.tNombre && o > nueva) nueva = o;
+        if (nueva > this.ultimoBloque) { this.ultimoBloque = nueva; this.sinNombre = true; }
+      }
       if (!this.sinNombre || t - this.firmaDesde < this.estableMin || new Set(notas.map(m => m % 12)).size < 3) return [];
       this.sinNombre = false;
       return this._nombrar(t, notas, act, this.firmaDesde, null);
+    }
+    // Con 2 clases de nota nuevas, las que siguen sonando (pedal, notas compartidas con el acorde anterior) completan el acorde.
+    // No se suman todas: se prueba con 1 o 2 de ellas y se elige lo mínimo que mejor encaja con una plantilla de acorde.
+    _completar(propias, sec) {
+      const cand = [];
+      for (let i = 0; i < sec.length; i++) { cand.push([sec[i]]); for (let j = i + 1; j < sec.length; j++) cand.push([sec[i], sec[j]]); }
+      let mejor = null;
+      for (const extra of cand) {
+        const n = [...new Set([...propias, ...extra])].sort((a, b) => a - b);
+        if (new Set(n.map(m => m % 12)).size < 3) continue;
+        const r = nombrarLibre(n, { bemoles: this.bemoles });
+        const p = r.puntaje - .9 * new Set(extra.map(m => m % 12)).size - (r.clase === 'acorde' ? 0 : 9);
+        if (!mejor || p > mejor.p) mejor = { p, n };
+      }
+      return mejor && mejor.n;
     }
     // Nombre de un conjunto de notas (con la lista de la canción si la hay) y aviso si cambia el que se muestra.
     _nombrar(t, notas, act, inicio, g) {
@@ -187,7 +213,7 @@
         const c = elegirDeLista(ev, notas, this.candidatos, this.umbralLista);
         if (c) r = { ...libre, nombre: c.nombre, clase: 'lista', libre: libre.nombre };
       }
-      this.sinNombre = false;
+      this.sinNombre = false; this.nombrados = notas; this.tNombre = t;
       if (r.nombre === this.nombre) return [];
       this.nombre = r.nombre;
       return [{ tipo: 'golpe', t, inicio, notas, ...r }];
@@ -196,8 +222,14 @@
       let g = this.grupo;
       const bajoNuevo = nuevas.some(m => m <= this.graveMax && (!g || m % 12 !== g.bajoPc));
       // Si ninguna nota del grupo sigue sonando y entran 2 o más a la vez, es otro golpe: lo anterior fue un chispazo del ataque.
-      const muerto = !!g && nuevas.length >= 2 && ![...g.notas.keys()].some(m => act.has(m));
-      const nuevo = !g || muerto
+      const sinVivas = !!g && ![...g.notas.keys()].some(m => act.has(m));
+      const muerto = sinVivas && (nuevas.length >= 2 || g.emitido);
+      // Cambio de acorde con el anterior aún sonando: entran 2 o más clases de nota que no eran del acorde nombrado (no es un arpegio ni una nota suelta).
+      const recientes = [...act.keys()].filter(m => t - (this.ultimoOnset.get(m) ?? -9) <= this.ventanaBloque);
+      // "del acorde" = las clases de nota con las que el grupo recibió su primer nombre (las que se sumaron después no cuentan)
+      const rafaga = !!g && g.emitido && !!g.clases0 && t - g.inicio > .5 && new Set(recientes.map(m => m % 12).filter(c => !g.clases0.has(c))).size >= 2;
+      if (rafaga) nuevas = recientes;
+      const nuevo = !g || muerto || rafaga
         || t - g.inicio > this.duracionArpegio
         || (t - g.inicio > .08 && nuevas.length >= 3)
         || (t - g.inicio > this.bajoTardio && bajoNuevo)
@@ -225,11 +257,12 @@
       let notas = propias;
       const pcsPropios = new Set(propias.map(m => m % 12)).size;
       // Con 2 clases de nota nuevas se completan con las que siguen sonando (pedal); con 1 sola, no: sería adivinar.
-      if (pcsPropios === 2 && secundarias.length) notas = [...new Set([...propias, ...secundarias])].sort((a, b) => a - b);
+      if (pcsPropios === 2 && secundarias.length) notas = this._completar(propias, secundarias) || [...new Set([...propias, ...secundarias])].sort((a, b) => a - b);
       const nPcs = new Set(notas.map(m => m % 12)).size;
       if (nPcs < 3 && !(nPcs === 2 && t - g.inicio >= this.esperaDos)) { if (nPcs === 2) g.pendiente = true; return salida; }
       const libre = nombrarLibre(notas, { bemoles: this.bemoles });
       this.sinNombre = false;   // este golpe ya recibió nombre: el respaldo no interviene
+      this.nombrados = notas; this.tNombre = t;
       let r = libre;
       if (this.candidatos && this.candidatos.length) {
         const ev = new Array(12).fill(0);
@@ -240,6 +273,7 @@
       }
       if (r.nombre === g.nombre) return salida;
       g.nombre = r.nombre;
+      if (!g.clases0) g.clases0 = new Set(notas.map(m => m % 12));
       if (r.nombre === this.nombre) { g.emitido = true; return salida; }   // mismo acorde que ya se muestra
       this.nombre = r.nombre;
       salida.push({ tipo: g.emitido ? 'revision' : 'golpe', t, inicio: g.inicio, notas, ...r });
