@@ -181,6 +181,37 @@ test('Seguidor: el respaldo no cambia el acorde por una melodía encima ni porqu
   assert.deepEqual(nombres(se_apaga), ['C'], 'el bajo se apaga y el acorde sigue siendo C (no C/E)');
 });
 
+// Progresiones (acorde tras acorde): el panel no se queda pegado al anterior aunque este siga sonando un poco (pedal) o comparta notas.
+test('Seguidor: Do a La menor con el Do aún sonando 0,3 s (pedal): cambia a Am', () => {
+  const ev = tocar(new Seguidor(), [
+    { en: .1, notas: [48, 52, 55], dura: 1.3 },            // C (se apaga 0,3 s después de que entre el siguiente)
+    { en: 1.0, notas: [45, 57, 60, 64], dura: 1.2 },       // Am: el bajo La2 y La3–Do4–Mi4
+  ], { hasta: 2.6 });
+  assert.equal(nombres(ev).at(-1), 'Am', nombres(ev).join(' > '));
+});
+test('Seguidor: Do♯m a Fa♯m, notas entrando una a una mientras el acorde anterior se apaga', () => {
+  const ev = tocar(new Seguidor(), [
+    { en: .1, notas: [49, 52, 56], dura: 1.5 },            // C#m (suena hasta 1.6)
+    { en: 1.5, notas: [66], dura: .09 },                   // chispazo del ataque
+    { en: 1.55, notas: [57], dura: 1 }, { en: 1.6, notas: [61], dura: 1 }, { en: 1.68, notas: [54], dura: 1 },   // F#m
+  ], { hasta: 3 });
+  assert.equal(nombres(ev).at(-1), 'F#m', nombres(ev).join(' > '));
+});
+test('Seguidor: un chispazo grave del ataque (Re5 sobre Sol♯m) se corrige solo: queda G#m, no G#dim/D', () => {
+  const ev = tocar(new Seguidor(), [
+    { en: .1, notas: [74], dura: .1 },                     // chispazo
+    { en: .14, notas: [87, 80, 83], dura: 1.2 },
+  ], { hasta: 2 });
+  assert.equal(nombres(ev).at(-1), 'G#m', nombres(ev).join(' > '));
+});
+test('Seguidor: una nota compartida entre dos acordes no impide el cambio (Fa♯m a La)', () => {
+  const ev = tocar(new Seguidor(), [
+    { en: .1, notas: [54, 57, 61], dura: 1.2 },            // F#m
+    { en: 1.0, notas: [57, 61, 64], dura: 1.4 },           // A: comparte La y Do♯, entra Mi; el Fa♯ se apaga
+  ], { hasta: 2.8 });
+  assert.equal(nombres(ev).at(-1), 'A', nombres(ev).join(' > '));
+});
+
 test('Seguidor: cada golpe nuevo avisa; repetir el mismo acorde no repite el aviso', () => {
   const ev = tocar(new Seguidor(), [
     { en: .1, notas: [48, 52, 55], dura: .5 },
