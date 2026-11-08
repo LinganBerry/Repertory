@@ -212,6 +212,44 @@ test('Seguidor: una nota compartida entre dos acordes no impide el cambio (Fa♯
   assert.equal(nombres(ev).at(-1), 'A', nombres(ev).join(' > '));
 });
 
+// Con grabaciones reales el modelo inventa un bajo una octava debajo de una nota firme (Sol2 bajo un Sol3) mientras el acorde sigue sonando.
+test('Seguidor: un bajo fantasma (Sol2 bajo un Sol3 que ya suena) no cambia Do a Do/Sol', () => {
+  const ev = tocar(new Seguidor(), [
+    { en: .1, notas: [48, 52, 55], dura: 1.3 },
+    { en: 1.4, notas: [52, 55], dura: 2 },                 // Mi3 y Sol3 siguen
+    { en: 1.4, notas: [43], dura: .9 },                    // Sol2 que aparece solo, 1,3 s después
+    { en: 1.78, notas: [48], dura: 1.6 },                  // y el Do3 rebota de vuelta
+  ], { hasta: 4 });
+  assert.deepEqual(nombres(ev), ['C']);
+});
+test('Seguidor: un bajo de verdad que entra junto con su acorde sí se toma (Sol2 + Do3–Mi3–Sol3 = C/G)', () => {
+  const ev = tocar(new Seguidor(), [{ en: .1, notas: [43, 48, 52, 55], dura: 1 }], { hasta: 1.6 });
+  assert.deepEqual(nombres(ev), ['C/G']);
+});
+
+// Piano de iglesia: dos manos y PEDAL. Las notas del acorde anterior siguen sonando varios segundos y no deben contaminar el nombre del siguiente.
+test('Seguidor: con pedal, Si♭ a Sol menor no se vuelve Sol menor 7 (el Fa del acorde anterior sigue sonando)', () => {
+  const ev = tocar(new Seguidor(), [
+    { en: .1, notas: [46, 58, 65, 70, 74], dura: 4.5 },          // Bb: Si♭2 Si♭3 Fa4 Si♭4 Re5 (el pedal las deja sonar)
+    { en: 1.7, notas: [43, 55, 67, 79], dura: 3 },               // Gm: Sol2 Sol3 Sol4 Sol5; Si♭4 y Re5 siguen de antes
+  ], { hasta: 5 });
+  assert.deepEqual(nombres(ev), ['A#', 'Gm']);
+});
+test('Seguidor: con pedal, Re♯ a Fa menor: el acorde nuevo manda y no vuelve a "Re♯6/9" por lo que sigue sonando', () => {
+  const ev = tocar(new Seguidor(), [
+    { en: .1, notas: [39, 51, 75, 79, 82], dura: 5 },            // D#: Re♯2 Re♯3 Re♯5 Sol5 Si♭5 (pedal)
+    { en: 1.6, notas: [41, 68, 72, 77, 80], dura: 3 },           // Fm: Fa2 Sol♯4 Do5 Fa5 Sol♯5
+  ], { hasta: 5 });
+  assert.equal(nombres(ev).at(-1), 'Fm', nombres(ev).join(' > '));
+});
+test('Seguidor: con pedal, Do menor tras Sol menor (dos notas en común) cambia y se queda en Cm', () => {
+  const ev = tocar(new Seguidor(), [
+    { en: .1, notas: [43, 55, 67, 70, 74, 79], dura: 5 },        // Gm
+    { en: 1.6, notas: [36, 48, 63, 67, 72], dura: 3 },           // Cm: Do2 Do3 Mi♭4 Sol4 Do5
+  ], { hasta: 5 });
+  assert.equal(nombres(ev).at(-1), 'Cm', nombres(ev).join(' > '));
+});
+
 test('Seguidor: cada golpe nuevo avisa; repetir el mismo acorde no repite el aviso', () => {
   const ev = tocar(new Seguidor(), [
     { en: .1, notas: [48, 52, 55], dura: .5 },
