@@ -127,6 +127,8 @@
         subida: .35,                     // cuánto debe subir una nota para contar como golpe nuevo aunque ya sonara
         graveMax: 50,                    // de aquí hacia abajo una nota es "bajo" (re 3); las notas de un arpegio suelen quedar más arriba
         duracionArpegio: 3.2, revision: .3, esperaDos: .5, fin: .5, huecoNuevo: .45,
+        costeExtra: 2.4,                 // lo que "cuesta" sumar a un acorde una clase de nota que solo sigue sonando (no fue tocada ahora)
+        cabezaOctava: 20,                // cuadros (≈0,23 s) de ventaja que debe tener la nota de arriba para tomar la de abajo por un fantasma
         parpadeo: .12,                   // una nota que desaparece menos de esto y vuelve es el mismo sonido (el modelo parpadea hasta ~0,11 s), no un golpe nuevo
         estableMin: .25,                 // respaldo: si un golpe de 3+ notas no recibió nombre, se nombra lo que suena estable durante este tiempo
         ventanaBloque: .4,               // las notas que entran dentro de este tiempo se cuentan como un mismo golpe
@@ -144,6 +146,9 @@
     alimentar(trama) {
       const t = trama.t, act = new Map();
       for (const n of trama.notas) if (n.midi >= this.minMidi && n.midi <= this.maxMidi) act.set(n.midi, n.prob == null ? 1 : n.prob);
+      // Bajo fantasma: el modelo a veces "ve" una nota una octava abajo (Sol2 bajo un Sol3 firme). Si la nota de arriba ya sonaba bastante antes
+      // (más de 0,23 s) y la de abajo recién aparece, se ignora: daría un bajo falso (C/G en vez de C) y cambiaría el acorde sin que se toque otro.
+      for (const m of [...act.keys()]) if (m <= this.graveMax && act.has(m + 12) && (this.racha.get(m + 12) || 0) > (this.racha.get(m) || 0) + this.cabezaOctava) act.delete(m);
       const probs = trama.probs || null;
       const reciente = k => { let m = 1; for (const a of this.anillo) if (a[k] < m) m = a[k]; return this.anillo.length ? m : 0; };
 
@@ -185,19 +190,30 @@
       }
       if (!this.sinNombre || t - this.firmaDesde < this.estableMin || new Set(notas.map(m => m % 12)).size < 3) return [];
       this.sinNombre = false;
-      return this._nombrar(t, notas, act, this.firmaDesde, null);
+      // Con pedal siguen sonando las notas del acorde anterior: se nombra con las que entraron en este golpe y solo se suma de lo sostenido lo que completa.
+      const desde = this.ultimoBloque - this.ventanaBloque;
+      const frescas = notas.filter(m => (this.ultimoOnset.get(m) ?? -9) >= desde);
+      const nf = new Set(frescas.map(m => m % 12)).size;
+      let base = notas;
+      if (nf >= 3) base = frescas;
+      else if (frescas.length) base = this._completar(frescas, notas.filter(m => !frescas.includes(m)), nf) || notas;
+      return this._nombrar(t, base, act, this.firmaDesde, null);
     }
-    // Con 2 clases de nota nuevas, las que siguen sonando (pedal, notas compartidas con el acorde anterior) completan el acorde.
-    // No se suman todas: se prueba con 1 o 2 de ellas y se elige lo mínimo que mejor encaja con una plantilla de acorde.
-    _completar(propias, sec) {
+    // Con 1 o 2 clases de nota nuevas, las que siguen sonando (pedal, notas compartidas con el acorde anterior) completan el acorde.
+    // No se suman todas: se prueba con 1 a 3 de ellas y se elige lo mínimo que mejor encaja con una plantilla de acorde. Cada clase que solo
+    // "sigue sonando" cuesta (costeExtra): sin eso, el Fa que quedó del acorde anterior volvía Sol menor en Sol menor 7.
+    _completar(propias, sec, nPropias) {
       const cand = [];
-      for (let i = 0; i < sec.length; i++) { cand.push([sec[i]]); for (let j = i + 1; j < sec.length; j++) cand.push([sec[i], sec[j]]); }
+      for (let i = 0; i < sec.length; i++) {
+        cand.push([sec[i]]);
+        for (let j = i + 1; j < sec.length; j++) { cand.push([sec[i], sec[j]]); if (nPropias === 1) for (let k = j + 1; k < sec.length; k++) cand.push([sec[i], sec[j], sec[k]]); }
+      }
       let mejor = null;
       for (const extra of cand) {
         const n = [...new Set([...propias, ...extra])].sort((a, b) => a - b);
         if (new Set(n.map(m => m % 12)).size < 3) continue;
         const r = nombrarLibre(n, { bemoles: this.bemoles });
-        const p = r.puntaje - .9 * new Set(extra.map(m => m % 12)).size - (r.clase === 'acorde' ? 0 : 9);
+        const p = r.puntaje - this.costeExtra * new Set(extra.map(m => m % 12).filter(c => !propias.some(q => q % 12 === c))).size - (r.clase === 'acorde' ? 0 : 9);
         if (!mejor || p > mejor.p) mejor = { p, n };
       }
       return mejor && mejor.n;
@@ -227,7 +243,10 @@
       // Cambio de acorde con el anterior aún sonando: entran 2 o más clases de nota que no eran del acorde nombrado (no es un arpegio ni una nota suelta).
       const recientes = [...act.keys()].filter(m => t - (this.ultimoOnset.get(m) ?? -9) <= this.ventanaBloque);
       // "del acorde" = las clases de nota con las que el grupo recibió su primer nombre (las que se sumaron después no cuentan)
-      const rafaga = !!g && g.emitido && !!g.clases0 && t - g.inicio > .5 && new Set(recientes.map(m => m % 12).filter(c => !g.clases0.has(c))).size >= 2;
+      const clasesRec = new Set(recientes.map(m => m % 12));
+      const ajenas = g && g.clases0 ? [...clasesRec].filter(c => !g.clases0.has(c)).length : 0;
+      // 2 clases ajenas, o un golpe de 3 clases distintas con al menos 1 ajena (Si♭ a Sol menor comparten 2 notas y solo cambia 1)
+      const rafaga = !!g && g.emitido && !!g.clases0 && t - g.inicio > .5 && (ajenas >= 2 || (clasesRec.size >= 3 && ajenas >= 1));
       if (rafaga) nuevas = recientes;
       const nuevo = !g || muerto || rafaga
         || t - g.inicio > this.duracionArpegio
@@ -250,6 +269,8 @@
       if (++g.sinCambio < this.estabilidad || !g.pendiente) return salida;
       // Una melodía suelta no es un acorde: hace falta un bajo (arpegio) o un golpe de 3 o más notas a la vez.
       if (g.bajoPc === null && g.bloque < 3) return salida;
+      // Eco final: cuando casi todas las notas del acorde ya se apagaron, el nombre no se toca (el eco que rebota no es otro acorde).
+      if (g.emitido && [...g.notas.keys()].filter(m => act.has(m)).length < 3) { g.pendiente = false; return salida; }
       g.pendiente = false;
       const fantasma = m => !act.has(m) && this.visto.get(m) - (this.ultimoOnset.get(m) ?? -9) < this.fantasmaMax;
       const propias = [...g.notas.keys()].filter(m => !fantasma(m)).sort((a, b) => a - b);
@@ -257,7 +278,7 @@
       let notas = propias;
       const pcsPropios = new Set(propias.map(m => m % 12)).size;
       // Con 2 clases de nota nuevas se completan con las que siguen sonando (pedal); con 1 sola, no: sería adivinar.
-      if (pcsPropios === 2 && secundarias.length) notas = this._completar(propias, secundarias) || [...new Set([...propias, ...secundarias])].sort((a, b) => a - b);
+      if (pcsPropios <= 2 && secundarias.length) notas = this._completar(propias, secundarias, pcsPropios) || (pcsPropios === 2 ? [...new Set([...propias, ...secundarias])].sort((a, b) => a - b) : propias);
       const nPcs = new Set(notas.map(m => m % 12)).size;
       if (nPcs < 3 && !(nPcs === 2 && t - g.inicio >= this.esperaDos)) { if (nPcs === 2) g.pendiente = true; return salida; }
       const libre = nombrarLibre(notas, { bemoles: this.bemoles });
@@ -311,7 +332,7 @@
     'kernel-load-failed': 'No se pudo cargar el motor. Con internet, reintenta.',
   };
 
-  let panel = null, caja = null, detector = null, seguidor = null, sesion = 0, vigilante = 0, avisoSilencio = 0, ultimasNotas = '', modeloActual = 'piano';
+  let panel = null, caja = null, detector = null, seguidor = null, sesion = 0, avisoSilencio = 0, ultimasNotas = '';
 
   const listaDeLaCancion = () => [...new Set([...caja.querySelectorAll('.chip b, .hoja .ac')].map(e => e.textContent.trim()))].map(leerAcorde).filter(Boolean);
   function marcar(nombre) {
@@ -356,7 +377,6 @@
     try {
       const { create } = await import(rutaMotor());
       if (mia !== sesion) return;
-      modeloActual = 'piano';
       let ultimoError = null;
       detector = create({
         model: 'piano',
@@ -367,15 +387,6 @@
       if (mia !== sesion) { try { detector.stop(); } catch (e) { /* ya parado */ } return; }
       if (!ok) { pintar('error', { msg: mensajeDe(ultimoError) }); limpiar(); return; }
       pintar('escuchando');
-      // Si el teléfono no da abasto con el modelo de piano, pasa al ligero (50 ms, casi igual de preciso).
-      let apretado = 0;
-      vigilante = setInterval(() => {
-        try {
-          const carga = detector && detector.stats && detector.stats.cpuLoad;
-          apretado = carga > .8 ? apretado + 1 : 0;
-          if (apretado >= 3 && modeloActual === 'piano') { modeloActual = 'fast'; detector.setModel('fast'); apretado = 0; }
-        } catch (e) { /* sin estadística: se queda como está */ }
-      }, 1000);
       // Si el sonido no arranca solo (el navegador lo deja en pausa hasta un toque), se avisa.
       avisoSilencio = setTimeout(() => {
         const lin = panel && panel.querySelector('#es-notas');
@@ -389,7 +400,7 @@
   }
 
   function limpiar() {
-    clearInterval(vigilante); vigilante = 0; clearTimeout(avisoSilencio); avisoSilencio = 0; ultimasNotas = '';
+    clearTimeout(avisoSilencio); avisoSilencio = 0; ultimasNotas = '';
     if (detector) { try { detector.stop(); } catch (e) { /* ya parado */ } detector = null; }
     seguidor = null;
     if (caja) marcar('');
