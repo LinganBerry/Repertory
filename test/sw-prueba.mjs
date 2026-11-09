@@ -39,8 +39,8 @@ const redOk = { fetch: async r => new Response(new URL(r.url).pathname.startsWit
 
 test('instalación: guarda la página y los datos, pero NO precarga Tone.js, Tonal ni el piano', async () => {
   const e = entorno(redOk); await e.instalar();
-  const guardado = [...e.almacenes.get('acordes-v15').keys()];
-  for (const u of ['/', '/index.html', '/estilos.css', '/app.js', '/teoria.js', '/notacion.js', '/lecciones.js', '/practicar.js', '/editor.js', '/canciones.js', '/local.js', '/manifest.webmanifest', '/icono-192.png', '/api/canciones']) assert.ok(guardado.includes(u), 'falta ' + u);
+  const guardado = [...e.almacenes.get('acordes-v16').keys()];
+  for (const u of ['/', '/index.html', '/estilos.css', '/app.js', '/teoria.js', '/notacion.js', '/lecciones.js', '/practicar.js', '/editor.js', '/canciones.js', '/local.js', '/romanos.js', '/analisis.js', '/manifest.webmanifest', '/icono-192.png', '/api/canciones']) assert.ok(guardado.includes(u), 'falta ' + u);
   for (const u of ['/escucha/escucha.js', '/escucha/pitchplease/pitchplease.js', '/escucha/pitchplease/engine/worklet.js', '/escucha/pitchplease/engine/incport.wasm', '/escucha/pitchplease/models/piano.bin']) assert.ok(guardado.includes(u), 'falta guardar el motor de escucha: ' + u);
   assert.ok(!guardado.some(u => u.startsWith('/vendor/')), 'no debe precargar /vendor/: ' + guardado.filter(u => u.startsWith('/vendor/')));
 });
@@ -84,7 +84,7 @@ test('los archivos de teoría se guardan la primera vez que se piden y luego sir
 
 // ---- Paquete completo (hallazgo 6): la página y sus archivos se guardan juntos o no se guardan ----
 const nav = (ruta = '/') => ({ url: ORIGEN + ruta, method: 'GET', mode: 'navigate' });
-const marcaEn = (e, t, ok) => e.almacenes.get('acordes-v15').set('/__paquete', new Response(JSON.stringify({ t, ok })));
+const marcaEn = (e, t, ok) => e.almacenes.get('acordes-v16').set('/__paquete', new Response(JSON.stringify({ t, ok })));
 const paquete = e => vm.runInContext('PAQUETE', e.ctx);
 
 test('paquete: todos los archivos de la lista existen de verdad en el proyecto', async () => {
@@ -97,7 +97,7 @@ test('paquete: si un archivo no baja, la instalación falla y no queda nada a me
   const red = { fetch: async r => new URL(r.url).pathname === '/hoja.js' ? new Response('no', { status: 404 }) : redOk.fetch(r) };
   const e = entorno(red);
   await assert.rejects(e.instalar());
-  const guardado = [...(e.almacenes.get('acordes-v15') || new Map()).keys()].filter(u => u !== '/__paquete');
+  const guardado = [...(e.almacenes.get('acordes-v16') || new Map()).keys()].filter(u => u !== '/__paquete');
   assert.deepEqual(guardado, [], 'ningún archivo suelto guardado');
 });
 
@@ -106,7 +106,7 @@ test('paquete: con internet un archivo sale de la red pero NO se guarda suelto (
   red.fetch = async r => new Response('nuevo:' + new URL(r.url).pathname, { status: 200 });
   const r = await (await e.pedir(pedido('/app.js'))).resp;
   assert.equal(await r.text(), 'nuevo:/app.js');
-  assert.equal(await (await e.almacenes.get('acordes-v15').get('/app.js')).clone().text(), 'ok:/app.js', 'la copia sigue siendo la del paquete');
+  assert.equal(await (await e.almacenes.get('acordes-v16').get('/app.js')).clone().text(), 'ok:/app.js', 'la copia sigue siendo la del paquete');
 });
 
 test('paquete: sin internet todos los archivos salen de la misma copia, marcados', async () => {
@@ -149,7 +149,7 @@ test('paquete: con internet se renueva completo, como mucho una vez por hora', a
   marcaEn(e, 0, true);                                                       // hace más de una hora
   red.fetch = async r => new Response('v2:' + new URL(r.url).pathname, { status: 200 });
   ev = await e.pedir(nav(), { resultingClientId: 'a' }); await ev.resp; await ev.espera;
-  const copia = e.almacenes.get('acordes-v15');
+  const copia = e.almacenes.get('acordes-v16');
   for (const u of paquete(e)) assert.equal(await copia.get(u).clone().text(), 'v2:' + u, 'renovado: ' + u);
 });
 
@@ -158,7 +158,7 @@ test('paquete: una renovación que falla a medias no toca la copia anterior', as
   marcaEn(e, 0, true);
   red.fetch = async r => new URL(r.url).pathname === '/teoria.js' ? new Response('no', { status: 500 }) : new Response('v2:' + new URL(r.url).pathname, { status: 200 });
   const ev = await e.pedir(nav(), { resultingClientId: 'a' }); await ev.resp; await ev.espera;
-  const copia = e.almacenes.get('acordes-v15');
+  const copia = e.almacenes.get('acordes-v16');
   assert.equal(await copia.get('/app.js').clone().text(), 'ok:/app.js', 'la copia anterior sigue entera');
   assert.equal(JSON.parse(await copia.get('/__paquete').clone().text()).ok, false, 'queda anotado el fallo (se reintenta a los 10 min)');
 });

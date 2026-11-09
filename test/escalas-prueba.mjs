@@ -9,7 +9,7 @@ vm.runInContext(await readFile(new URL('../vendor/tonal.min.js', import.meta.url
 vm.runInContext(await readFile(new URL('../escalas.js', import.meta.url), 'utf8'), ctx);
 const E = ctx.Escalas, T = ctx.Tonal;
 const J = x => JSON.parse(JSON.stringify(x));
-const MODOS = [['ionian', 'Jónico', 'mayor'], ['dorian', 'Dórico'], ['phrygian', 'Frigio'], ['lydian', 'Lidio'], ['mixolydian', 'Mixolidio'], ['aeolian', 'Eólico', 'menor natural'], ['locrian', 'Locrio']];
+const MODOS = [['ionian', 'Jónico', 'mayor'], ['mixolydian', 'Mixolidio'], ['aeolian', 'Eólico', 'menor natural']];
 const datos = { T, modos: MODOS };
 const semilla = s => () => { s = (s * 1664525 + 1013904223) % 4294967296; return s / 4294967296; };
 const IDS = [...MODOS.map(m => m[0]), ...E.OTRAS.map(o => o[0])];
@@ -23,31 +23,27 @@ test('armar: cada tónica elige el nombre más limpio y nunca sale un doble sost
     assert.equal(T.Note.get(r.tonica).chroma, pc, 'la tónica es la pedida');
   }
   assert.ok(nulos <= 3, 'casi todas las combinaciones se pueden escribir limpias: ' + nulos);
-  assert.deepEqual(J(E.armar(T, 2, 'dorian').notas), ['D', 'E', 'F', 'G', 'A', 'B', 'C']);
-  assert.equal(E.armar(T, 8, 'locrian').tonica, 'G#', 'Ab locrio tendría dobles bemoles: se usa G#');
-  assert.equal(E.armar(T, 3, 'lydian').tonica, 'Eb');
+  assert.deepEqual(J(E.armar(T, 2, 'mixolydian').notas), ['D', 'E', 'F#', 'G', 'A', 'B', 'C']);
+  assert.equal(E.armar(T, 8, 'aeolian').tonica, 'G#', 'Ab eólico llevaría 7 bemoles: se usa G# (5 sostenidos)');
+  assert.equal(E.armar(T, 3, 'mixolydian').tonica, 'Eb', 'D# mixolidio llevaría dobles sostenidos: se usa Eb');
   assert.equal(E.armar(T, 6, 'major pentatonic').tonica, 'F#');
 });
 
 test('grados: cada escala se compara con la mayor (♭ y ♯ bien puestos)', () => {
   const g = id => E.grados(T, T.Scale.get('C ' + id).intervals).map(x => x.texto).join(' ');
   assert.equal(g('ionian'), '1 2 3 4 5 6 7');
-  assert.equal(g('dorian'), '1 2 ♭3 4 5 6 ♭7');
-  assert.equal(g('phrygian'), '1 ♭2 ♭3 4 5 ♭6 ♭7');
-  assert.equal(g('lydian'), '1 2 3 ♯4 5 6 7');
   assert.equal(g('mixolydian'), '1 2 3 4 5 6 ♭7');
   assert.equal(g('aeolian'), '1 2 ♭3 4 5 ♭6 ♭7');
-  assert.equal(g('locrian'), '1 ♭2 ♭3 4 ♭5 ♭6 ♭7');
   assert.equal(g('harmonic minor'), '1 2 ♭3 4 5 ♭6 7');
   assert.equal(g('melodic minor'), '1 2 ♭3 4 5 6 7');
   assert.equal(g('major pentatonic'), '1 2 3 5 6');
   assert.equal(g('minor pentatonic'), '1 ♭3 4 5 ♭7');
 });
 
-test('lista: los 7 modos, las otras 4 escalas, o todas (sin repetir la mayor ni la menor natural)', () => {
+test('lista: los 3 modos, las otras 4 escalas, o todas (sin repetir la mayor ni la menor natural)', () => {
   assert.deepEqual(J(E.lista(MODOS, 'modos')).map(x => x.id), MODOS.map(m => m[0]));
   assert.deepEqual(J(E.lista(MODOS, 'otras')).map(x => x.id), J(E.OTRAS).map(o => o[0]));
-  assert.equal(E.lista(MODOS, 'todas').length, 11);
+  assert.equal(E.lista(MODOS, 'todas').length, 7);
 });
 
 test('crearReto: respeta el tipo, escribe bien el título y las notas, y no repite la anterior', () => {
@@ -69,31 +65,49 @@ test('crearReto: respeta el tipo, escribe bien el título y las notas, y no repi
   assert.equal(E.crearReto({ T, modos: [] }, { tipo: 'modos' }, azar), null);
 });
 
-test('crearReto: textos del jónico, el dórico y los cambios respecto a la mayor', () => {
+test('crearReto: textos del jónico, el mixolidio y los cambios respecto a la mayor', () => {
   const azar = semilla(21), buscar = id => { for (let i = 0; i < 2000; i++) { const r = E.crearReto(datos, { tipo: 'todas' }, azar); if (r.item === id) return J(r); } };
-  const jo = buscar('ionian'), dor = buscar('dorian'), mel = buscar('melodic minor');
+  const jo = buscar('ionian'), mix = buscar('mixolydian'), mel = buscar('melodic minor');
   assert.ok(jo.titulo.endsWith('jónico (mayor)')); assert.deepEqual(jo.cambia, []);
-  assert.ok(dor.titulo.endsWith('dórico')); assert.deepEqual(dor.cambia, ['♭3', '♭7']); assert.equal(dor.grados, '1 2 ♭3 4 5 6 ♭7 1');
+  assert.ok(mix.titulo.endsWith('mixolidio')); assert.deepEqual(mix.cambia, ['♭7']); assert.equal(mix.grados, '1 2 3 4 5 6 ♭7 1');
   assert.ok(mel.titulo.endsWith('menor melódica')); assert.deepEqual(mel.cambia, ['♭3']);
 });
 
 test('repasar: con lo fallado activado, sale más seguido; sin activarlo, no influye', () => {
-  const est = E.vacias(); for (let i = 0; i < 5; i++) E.registrar(est, 'locrian', false, 0);
-  const cuenta = op => { const azar = semilla(5); let n = 0; for (let i = 0; i < 400; i++) if (E.crearReto(datos, op, azar, null, est).item === 'locrian') n++; return n; };
+  const est = E.vacias(); for (let i = 0; i < 5; i++) E.registrar(est, 'mixolydian', false, 0);
+  const cuenta = op => { const azar = semilla(5); let n = 0; for (let i = 0; i < 400; i++) if (E.crearReto(datos, op, azar, null, est).item === 'mixolydian') n++; return n; };
   const con = cuenta({ tipo: 'modos', repasar: true }), sin = cuenta({ tipo: 'modos', repasar: false });
-  assert.ok(con > sin * 1.6, `con repaso ${con} vs sin ${sin}`);
+  assert.ok(con > sin * 1.4, `con repaso ${con} vs sin ${sin}`);
 });
 
 test('estadísticas: registrar, limpiar datos alterados y resumir solo lo que existe', () => {
   const est = E.vacias();
-  E.registrar(est, 'dorian', true, 4000); E.registrar(est, 'dorian', true, 2000); E.registrar(est, 'lydian', false, 0); E.registrar(est, 'lydian', false, 0); E.registrar(est, 'lydian', true, 3000);
+  E.registrar(est, 'mixolydian', true, 4000); E.registrar(est, 'mixolydian', true, 2000); E.registrar(est, 'aeolian', false, 0); E.registrar(est, 'aeolian', false, 0); E.registrar(est, 'aeolian', true, 3000);
   E.registrar(est, 'bebop', false, 0);
   const r = J(E.resumen(est, MODOS));
   assert.equal(r.v, 5); assert.equal(r.a, 3);
-  assert.deepEqual(r.repasar.map(x => x.id), ['lydian']);
-  assert.equal(est.items.dorian.mejor, 2000);
-  const sucio = J(E.limpiar({ items: { dorian: { v: 3, a: 9, ms: -5, mejor: 'x' }, 'Raro!': { v: 1, a: 1 }, '../x': { v: 1 }, lydian: null } }));
-  assert.deepEqual(Object.keys(sucio.items), ['dorian']);
-  assert.deepEqual(sucio.items.dorian, { v: 3, a: 3, ms: 0, mejor: 0 });
+  assert.deepEqual(r.repasar.map(x => x.id), ['aeolian']);
+  assert.equal(est.items.mixolydian.mejor, 2000);
+  const sucio = J(E.limpiar({ items: { mixolydian: { v: 3, a: 9, ms: -5, mejor: 'x' }, 'Raro!': { v: 1, a: 1 }, '../x': { v: 1 }, aeolian: null } }));
+  assert.deepEqual(Object.keys(sucio.items), ['mixolydian']);
+  assert.deepEqual(sucio.items.mixolydian, { v: 3, a: 3, ms: 0, mejor: 0 });
   assert.deepEqual(J(E.limpiar(null)), { items: {} }); assert.deepEqual(J(E.limpiar('hola')), { items: {} });
+});
+
+test('podar: el progreso guardado de modos que ya no existen se borra, y el de los que quedan se conserva', () => {
+  const est = E.vacias();
+  E.registrar(est, 'dorian', true, 1000); E.registrar(est, 'locrian', false, 0); E.registrar(est, 'mixolydian', true, 2000); E.registrar(est, 'harmonic minor', true, 3000);
+  E.podar(est, MODOS);
+  assert.deepEqual(Object.keys(est.items).sort(), ['harmonic minor', 'mixolydian']);
+});
+
+test('los modos Dórico, Frigio, Lidio y Locrio ya no existen en ningún archivo de la página', async () => {
+  const { readdir } = await import('node:fs/promises');
+  const raiz = new URL('../', import.meta.url);
+  const archivos = (await readdir(raiz)).filter(f => /\.(js|html|css|md)$/.test(f) && f !== 'sw.js');
+  for (const f of archivos) {
+    const txt = await readFile(new URL(f, raiz), 'utf8');
+    const hallado = /d[óo]rico|frigio|lidio(?!.*mixo)|locrio|dorian|phrygian|lydian|locrian/i.exec(txt.replace(/mixolidio|mixolydian/gi, ''));
+    assert.equal(hallado, null, f + ' todavía menciona: ' + (hallado && hallado[0]));
+  }
 });

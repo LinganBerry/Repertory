@@ -724,3 +724,111 @@ test('RETOS DE ACORDES: tiempo por acorde (al acabarse cuenta como fallo y muest
   assert.ok(n.$('rt-empezar-10') && !n.$('rt-expiro') && !n.$('rt-barra'));
   sinErrores(n); n.cerrar();
 });
+
+// Estas pruebas reemplazan los datos del almacén falso: van al final para no alterar a las demás.
+const sembrar = lista => memoria.set('repertorio/canciones.json', { texto: JSON.stringify({ version: 2, nombre: 'Acordes y Tonos', intro: '', canciones: lista.map(([t, tono, ...partes], i) => ({ id: 'id' + i + 'x' + t.length, titulo: t, artista: 'Artista ' + i, tono, partes: partes.map(([nombre, prog]) => ({ nombre, tono: '', prog, letra: '', pista: '' })) })) }), etag: '"e0"' });
+
+test('CANCIÓN: tip de teoría y canciones con la misma progresión, clickeables, con "Volver a" y sin callejón sin salida', async () => {
+  memoria.clear();
+  sembrar([
+    ['Aleluya', 'G', ['Verso', 'G D Em C'], ['Puente', 'C G Am F']],
+    ['Brillas', 'C', ['Coro', 'C G Am F']],
+    ['Cristo', 'D', ['Verso', 'Bm G D A']],
+    ['Distinta', 'G', ['Verso', 'G C D G']],
+    ['Vacía', 'G'],
+  ]);
+  const n = await navegador();
+  const { d, $, tecla } = n;
+  await esperar(() => d.querySelectorAll('#lista .fila').length === 5, 'las 5 canciones');
+  const fila = t => [...d.querySelectorAll('#lista .fila .abrir')].find(b => b.querySelector('.t').textContent === t);
+  const caja = $('cancion');
+  fila('Aleluya').click();
+  await esperar(() => !caja.hidden, 'abrir Aleluya');
+
+  const tip = caja.querySelector('.tip');
+  assert.ok(tip, 'hay tip de teoría');
+  assert.equal(tip.querySelector('.tip-t').textContent, 'Los cuatro acordes del pop');
+  assert.match(tip.querySelector('.tip-ej').textContent, /G – D – Em – C.*I – V – vi – IV.*Verso/);
+
+  const rel = caja.querySelector('.rel');
+  assert.ok(rel, 'hay canciones con la misma progresión');
+  const filas = [...rel.querySelectorAll('.fila')];
+  assert.deepEqual(filas.map(f => f.querySelector('.t').textContent), ['Brillas', 'Cristo'], 'las iguales primero, luego las del mismo ciclo; Distinta y Vacía no salen');
+  assert.match(filas[0].textContent, /Coro · I V vi IV/); assert.doesNotMatch(filas[0].textContent, /mismo ciclo/);
+  assert.match(filas[1].textContent, /Verso · vi IV I V · mismo ciclo/);
+  assert.equal(rel.querySelector('.rel-mas'), null, 'con pocas no hay botón "Ver las"');
+  assert.equal(caja.querySelector('.volver-rel'), null, 'aún no vienes de otra canción');
+
+  filas[0].querySelector('.abrir').click();
+  await esperar(() => caja.getAttribute('aria-label') === 'Brillas', 'saltar a Brillas');
+  assert.match(caja.querySelector('.volver-rel').textContent, /Volver a «Aleluya»/);
+  assert.deepEqual([...caja.querySelectorAll('.rel .fila .t')].map(x => x.textContent).sort(), ['Aleluya', 'Cristo'], 'desde Brillas se ven las demás: no hay callejón sin salida');
+  assert.equal(caja.scrollTop, 0);
+
+  [...caja.querySelectorAll('.rel .fila .abrir')].find(b => b.textContent.includes('Cristo')).click();
+  await esperar(() => caja.getAttribute('aria-label') === 'Cristo', 'saltar a Cristo');
+  caja.querySelector('.volver-rel').click();
+  await esperar(() => caja.getAttribute('aria-label') === 'Brillas', 'volver a Brillas');
+  caja.querySelector('.volver-rel').click();
+  await esperar(() => caja.getAttribute('aria-label') === 'Aleluya', 'volver a Aleluya');
+  assert.equal(caja.querySelector('.volver-rel'), null, 'ya no hay a dónde volver');
+
+  tecla(d, 'Escape');
+  await esperar(() => caja.hidden || caja.classList.contains('oculta'), 'Esc cierra todo de una vez');
+  fila('Brillas').click(); await esperar(() => !caja.hidden, 'abrir Brillas desde la lista');
+  assert.equal(caja.querySelector('.volver-rel'), null, 'al abrir desde la lista no arrastra el camino anterior');
+  tecla(d, 'Escape');
+
+  fila('Distinta').click(); await esperar(() => !caja.hidden, 'abrir Distinta');
+  assert.ok(caja.querySelector('.tip'), 'tiene tip'); assert.equal(caja.querySelector('.rel'), null, 'sin canciones iguales no se muestra la sección vacía');
+  tecla(d, 'Escape');
+  fila('Vacía').click(); await esperar(() => !caja.hidden, 'abrir Vacía');
+  assert.equal(caja.querySelector('.tip'), null); assert.equal(caja.querySelector('.rel'), null);
+  sinErrores(n); n.cerrar();
+});
+
+test('CANCIÓN: con muchas canciones iguales se muestran 4 y "Ver las N" abre el resto', async () => {
+  memoria.clear();
+  sembrar(['A', 'B', 'C', 'D', 'E', 'F'].map((t, i) => ['Canción ' + t, ['G', 'C', 'D', 'A', 'E', 'F'][i], ['Coro', ['G D Em C', 'C G Am F', 'D A Bm G', 'A E F#m D', 'E B C#m A', 'F C Dm Bb'][i]]]));
+  const n = await navegador();
+  const { d, $ } = n;
+  await esperar(() => d.querySelectorAll('#lista .fila').length === 6, 'las 6 canciones');
+  d.querySelector('#lista .fila .abrir').click();
+  const caja = $('cancion'); await esperar(() => !caja.hidden, 'abrir una');
+  const visibles = () => [...caja.querySelectorAll('.rel .fila')].filter(f => !f.hidden).length;
+  assert.equal(caja.querySelectorAll('.rel .fila').length, 5); assert.equal(visibles(), 4);
+  const mas = caja.querySelector('.rel-mas');
+  assert.equal(mas.textContent, 'Ver las 5'); assert.equal(mas.getAttribute('aria-expanded'), 'false');
+  mas.click(); assert.equal(visibles(), 5); assert.equal(mas.textContent, 'Ver menos'); assert.equal(mas.getAttribute('aria-expanded'), 'true');
+  mas.click(); assert.equal(visibles(), 4);
+  sinErrores(n); n.cerrar();
+});
+
+test('PRACTICAR · Progresiones: el nombre de la canción abre la canción encima, y Esc o atrás vuelve al reto sin salir de Practicar', async () => {
+  memoria.clear();
+  sembrar([['Aleluya', 'G', ['Coro', 'G D Em C']], ['Brillas', 'C', ['Coro', 'C G Am F']]]);
+  const n = await navegador();
+  const { d, $, tecla, w } = n;
+  await esperar(() => d.querySelectorAll('#lista .fila').length === 2, 'las 2 canciones');
+  const pr = await abrirPractica(n);
+  pr.querySelector('#pr-progs-ir').click();
+  await esperar(() => $('pg-empezar-5') && !$('pg-empezar-5').disabled, 'menú de progresiones');
+  $('pg-empezar-5').click();
+  await esperar(() => $('pg-toque'), 'primer reto');
+  assert.equal($('pg-abrir'), null, 'antes de ver la respuesta no se muestra de qué canción es');
+  $('pg-toque').click();
+  await esperar(() => $('pg-abrir'), 'respuesta revelada');
+  const titulo = $('pg-revela').textContent.match(/Es «([^»]+)»/)[1];
+  assert.equal($('pg-abrir').textContent, 'Abrir «' + titulo + '»');
+  $('pg-abrir').click();
+  const caja = $('cancion');
+  await esperar(() => !caja.hidden && caja.getAttribute('aria-label') === titulo, 'se abre ' + titulo);
+  assert.ok(caja.querySelector('.tip'), 'y trae su tip de teoría');
+  tecla(d, 'Escape');
+  await esperar(() => caja.hidden, 'Esc cierra la canción');
+  await new Promise(r => setTimeout(r, 400));
+  assert.equal(pr.hidden, false, 'Practicar sigue abierto');
+  assert.ok($('pg-revela'), 'y el reto sigue en pantalla, con su respuesta');
+  assert.ok(w.RepertorioApp.cerroCancionEn > 0);
+  sinErrores(n); n.cerrar();
+});
