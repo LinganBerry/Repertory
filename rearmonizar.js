@@ -134,7 +134,7 @@
       { id: 'sixth', name: 'Sexta', apply: c => {
         if (!isTriad(c) && !isSeventh(c)) return null;
         if (isMajorish(c)) return { chords: [c.tonic + '6'], why: `${c.tonic}6 pone la 6ª (${up(c.tonic, 9)}) donde iría la séptima: rellena igual que un maj7 pero sin sonar a jazz, y cierra bien porque no deja tensión pendiente.` };
-        if (isMinorish(c)) return { chords: [c.tonic + 'm6'], why: `${c.tonic}m6 sube la 6ª mayor (${up(c.tonic, 9)}) sobre el menor: es el color dórico, menor pero sin la caída del m7. Ojo, esa nota puede salirse de la tonalidad.` };
+        if (isMinorish(c)) return { chords: [c.tonic + 'm6'], why: `${c.tonic}m6 sube la 6ª mayor (${up(c.tonic, 9)}) sobre el menor: es un menor más abierto, sin la caída del m7. Ojo, esa nota puede salirse de la tonalidad.` };
         return null;
       } },
       { id: 'ninth', name: 'Novena', apply: c => {

@@ -47,13 +47,13 @@ Sin cuentas de usuario, sin comunidad, sin registro. El editor se abre tocando 5
 5. Opcional: `node scripts/generar-respaldo.mjs repertorio-copia.json` y sube el `canciones.js` resultante.
 
 ## Pruebas (no necesitan internet ni Vercel)
-- `npm test` → 53 pruebas: servidor (límite de intentos, pases, agregar/editar/papelera, importación, copia del día, guardados simultáneos, sin rutas de borrado), scripts, contraste de colores AA, modo sin conexión (`sw.js`) y la lógica de Practicar (preguntas, claves, niveles, estadísticas, dibujo del pentagrama).
+- `npm test` → servidor (límite de intentos, pases, agregar/editar/papelera, importación, copia del día, guardados simultáneos, sin rutas de borrado), scripts, contraste de colores AA, modo sin conexión (`sw.js`) y la lógica de Practicar (preguntas, claves, niveles, estadísticas, dibujo del pentagrama).
 - `npm i --no-save jsdom@30 && npm run test:e2e` → 13 pruebas en un navegador simulado: entrar, agregar una canción "desde el teléfono", verla y abrirla "desde la PC" con teclado, Teoría > Tonalidades, el aviso sin conexión y Practicar (sesiones, teclado, oído con audio simulado, progreso sincronizado entre dos dispositivos) y el audio compartido con un Tone simulado.
 - `npm run contraste` → tabla de contraste de todos los pares de colores de `estilos.css`.
 - Límites: usan un almacén falso en memoria (no el Blob real de Vercel), y jsdom no dibuja ni suena (el audio se prueba con un Tone simulado: se verifica qué notas se programan, no cómo suenan). Falta probar en navegadores reales y medir con Lighthouse.
 
 ## Archivos
-`api/canciones.js` (leer y guardar) · `api/entrar.js` (contraseña) · `lib/` (auth, almacén, intentos, limpieza) · `app.js` (página) · `editor.js` (editor) · `teoria.js` + `vendor/` (teoría y piano) · `notacion.js` + `retos.js` (retos de acordes) · `listas.js` (listas del culto) · `practicar.js` (ejercicios) · `api/progreso.js` + `lib/progreso.js` (progreso sincronizado) · `sw.js` (modo sin internet) · `manifest.webmanifest` + `icono-*.png` (instalar como app) · `scripts/` (comparar, generar respaldo, contraste) · `test/`.
+`api/canciones.js` (leer y guardar) · `api/entrar.js` (contraseña) · `lib/` (auth, almacén, intentos, limpieza) · `app.js` (página) · `romanos.js` + `analisis.js` (números romanos, tips y canciones relacionadas) · `editor.js` (editor) · `teoria.js` + `vendor/` (teoría y piano) · `notacion.js` + `retos.js` (retos de acordes) · `listas.js` (listas del culto) · `practicar.js` (ejercicios) · `api/progreso.js` + `lib/progreso.js` (progreso sincronizado) · `sw.js` (modo sin internet) · `manifest.webmanifest` + `icono-*.png` (instalar como app) · `scripts/` (comparar, generar respaldo, contraste) · `test/`.
 
 ## Escuchar tu piano (carpeta `escucha/`)
 
@@ -70,6 +70,7 @@ Botón **Escuchar** en la pantalla de cada canción: detecta por el micrófono q
 
 - En el editor hay un campo **Letra con acordes (opcional)**. Cada acorde va entre corchetes justo antes de la sílaba donde cambia: `[Am]Cuando salga el [F]sol`. Una línea que solo tiene `[Coro]` o `[Verso 1]` es un título de sección. Cualquier corchete mal puesto se muestra como texto y no rompe nada.
 - Si la canción tiene letra, en su pantalla aparecen las pestañas **Acordes** y **Letra** (se recuerda la última que usaste). La hoja pone cada acorde sobre su sílaba (`hoja.js` interpreta el texto; `app.js` lo dibuja).
+- Al final de cada canción hay un **Tip de teoría** (progresión conocida, acorde prestado, dominante secundario, modulación… siempre sacado de sus acordes reales) y las **canciones con la misma progresión** (en números romanos, en cualquier tono): cada una se abre con un toque y «Volver a…» regresa. En Practicar → Progresiones, el nombre de la canción también se abre. Lo calcula `analisis.js` con los números romanos de `romanos.js`.
 - **▶ Presentar** abre la letra a pantalla completa con desplazamiento automático. Empieza en pausa: toca el texto (o Espacio) para seguir o pausar. Botones: velocidad − / +, tamaño A− / A+, y **Ac** para ocultar los acordes. Si mueves la letra con el dedo o la rueda, se queda quieta 2 segundos. Esc la cierra. La velocidad y el tamaño se recuerdan en el dispositivo.
 - Límite: 12 000 caracteres por canción (`LIMITES.letraCancion` en `lib/limpiar.js`, copia en `editor.js`).
 - Los acordes de la hoja también se suman a la lista que usa **Escuchar**.

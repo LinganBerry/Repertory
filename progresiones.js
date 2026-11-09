@@ -191,12 +191,19 @@
     ses.hechas.push({ item: r.item, rotulo: rotulo(r), bien: cuenta, ms: ses.ms });
     siguiente();
   }
+  // Abre la canción del reto encima de Practicar (el atrás o Esc la cierra y vuelves al reto).
+  function abrirDelReto(r) {
+    const A = window.RepertorioApp, id = String(r.item).split('|')[0];
+    const c = A && A.data && (A.data.canciones || []).find(x => claveCancion(x) === id);
+    if (c) A.abrirCancion(c, document.getElementById('pg-abrir'));
+  }
   function pintarReto() {
     const r = ses.reto, f = ses.fase, ultimo = ses.i >= ses.total;
     const boton = (texto, id, fn, primario) => el('button', { type: 'button', id, className: primario ? 'primario' : '', onclick: fn }, texto);
     const revelado = f === 'pregunta' ? null : el('div', { className: 'parte', id: 'pg-revela', 'aria-live': 'polite' },
       el('h3', {}, 'En ' + r.destino.replace(/m$/, ' menor').replace(/^([A-G][#b]?)$/, '$1 mayor')), el('p', { className: 'rt-prog', id: 'pg-acordes' }, r.acordes),
       el('p', { className: 'a' }, `Es «${r.titulo}»${r.artista ? ' — ' + r.artista : ''} · ${r.parte}`),
+      el('button', { type: 'button', id: 'pg-abrir', className: 'abrir-cancion', onclick: () => abrirDelReto(r) }, 'Abrir «' + r.titulo + '»'),
       r.destino !== r.tono ? el('p', { className: 'a' }, `En el tono de la canción (${r.tono}): ${r.original}`) : null);
     const botones = f === 'pregunta' ? [boton('Ya la toqué', 'pg-toque', () => revelar('toque'), true), boton('No me sale (ver)', 'pg-ver', () => revelar('visto'))]
       : f === 'toque' ? [el('p', { className: 'a', id: 'pg-tiempo' }, 'Tardaste ' + seg(ses.ms) + '. ¿La tocaste bien?'), boton('Sí, bien', 'pg-bien', () => responder(true), true), boton('Fallé', 'pg-fallo', () => responder(false))]

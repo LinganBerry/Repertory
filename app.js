@@ -163,47 +163,8 @@
 
   // --- pantalla completa por canción: capa propia, el gesto de atrás del teléfono la cierra ---
   // Compás marcado a mano con "|"; sin barras, los acordes van seguidos.
-  // --- números romanos ---
-  // Se calculan por NOMBRE de nota, no solo por semitonos: así F en G es ♭VII y nunca ♯VI.
-  //  1) el grado sale de la distancia de letras entre el tono y la raíz (G → F = séptimo grado);
-  //  2) la alteración (♭/♯) sale de comparar la raíz con ese grado en la escala del tono;
-  //  3) mayúscula/minúscula y sufijo salen de la calidad del acorde.
-  // Tono mayor: escala mayor. Tono menor: escala menor natural (III, VI y VII salen sin alteración).
-  const LETRAS = 'CDEFGAB', PC_LETRA = [0, 2, 4, 5, 7, 9, 11];
-  const ESC_MAYOR = [0, 2, 4, 5, 7, 9, 11], ESC_MENOR = [0, 2, 3, 5, 7, 8, 10];
-  const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
-  const nota = s => {
-    const m = /^([A-G])([#♯b♭]*)/.exec(s || '');
-    return m && { letra: LETRAS.indexOf(m[1]), alt: [...m[2]].reduce((a, x) => a + (x === '#' || x === '♯' ? 1 : -1), 0), largo: m[0].length };
-  };
-  const clase = n => (PC_LETRA[n.letra] + n.alt + 120) % 12;
-  function grado(n, tono) {
-    const d = (n.letra - tono.nota.letra + 7) % 7;
-    const esperado = (clase(tono.nota) + (tono.menor ? ESC_MENOR : ESC_MAYOR)[d]) % 12;
-    const dif = ((clase(n) - esperado + 18) % 12) - 6;
-    return { d, alt: dif > 0 ? '♯'.repeat(dif) : '♭'.repeat(-dif) };
-  }
-  function romano(acorde, tonoTexto) {
-    const n0 = nota(tonoTexto);
-    const tono = n0 && { nota: n0, menor: tonoTexto.slice(n0.largo).startsWith('m') };
-    const barra = /^(.*?)\/([A-G][#♯b♭]*)$/.exec(acorde || '');
-    const base = barra ? barra[1] : (acorde || ''), bajo = barra && nota(barra[2]);
-    const raiz = nota(base);
-    if (!tono || !raiz) return '';
-    const { d, alt } = grado(raiz, tono);
-    const q = base.slice(raiz.largo);
-    let menor = false, suf = q, m;
-    if ((m = /^(dim|o|°)/.exec(q))) { menor = true; suf = '°' + q.slice(m[0].length); }
-    else if ((m = /^(m7b5|m7♭5|min7b5|ø)/.exec(q))) { menor = true; suf = m[0] === 'ø' ? 'ø' + q.slice(1) : 'ø7' + q.slice(m[0].length); }
-    else if ((m = /^(min|m|-)(?!aj)/.exec(q))) { menor = true; suf = q.slice(m[0].length); }
-    else if ((m = /^(aug|\+)/.exec(q))) suf = '+' + q.slice(m[0].length);
-    const num = menor ? ROMANOS[d].toLowerCase() : ROMANOS[d];
-    let r = alt + num + suf;
-    if (bajo) { const b = grado(bajo, tono); r += '/' + b.alt + (b.d + 1); }  // bajo = grado de la escala (D/F# en G → V/7)
-    return r;
-  }
-  // Separadores de acorde: espacio o guion pegado a otro acorde (F#-G-A). Un guion seguido de número (A-7) es "menor", no separador.
-  const compases = prog => prog.split('|').map(g => g.trim().split(/\s+/).flatMap(t => t.split(/-(?=[A-G])/)).filter(t => t && t !== '-')).filter(g => g.length);
+  // --- números romanos y compases: viven en romanos.js (se pueden probar sin pantalla) ---
+  const { romano, compases } = window.Romanos;
 
   // Vibración corta al tocar (Android; el iPhone no la permite y simplemente no vibra).
   const vibra = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { /* nada */ } };
@@ -214,6 +175,7 @@
 
   // Enfoque: un toque en una parte atenúa las demás; otro toque en la misma restaura.
   let foco = -1;
+  let desde = [];   // canciones por las que vienes al saltar de una canción a otra con la misma progresión (para poder volver)
   function aplicarFoco() {
     const caja = $('cancion');
     caja.classList.toggle('enfoque', foco >= 0);
@@ -245,11 +207,62 @@
     const i = orden.indexOf(actual) + d;
     if (i < 0 || i >= orden.length) return;
     actual = ultima = orden[i];
+    foco = -1; desde = [];
+    history.replaceState({ cancion: true }, '');
+    mostrar();
+    $('cancion').scrollTop = 0;
+  }
+
+  // Salta a otra canción sin cerrar la pantalla (el atrás del teléfono sigue cerrando todo; "Volver a…" regresa a la anterior).
+  function irARelacionada(c) {
+    desde.push(actual);
+    actual = ultima = c;
     foco = -1;
     history.replaceState({ cancion: true }, '');
     mostrar();
     $('cancion').scrollTop = 0;
   }
+  function volverARelacionada() {
+    if (!desde.length) return;
+    actual = ultima = desde.pop();
+    foco = -1;
+    history.replaceState({ cancion: true }, '');
+    mostrar();
+    $('cancion').scrollTop = 0;
+  }
+  const bloqueTip = c => {
+    const t = window.Analisis && window.Analisis.tip(c);
+    return t && el('section', { className: 'tip noimp', 'aria-label': 'Tip de teoría' },
+      el('h3', {}, 'Tip de teoría'),
+      el('p', { className: 'tip-t' }, t.titulo),
+      el('p', {}, t.texto),
+      t.ejemplo && el('p', { className: 'tip-ej' }, el('b', {}, t.ejemplo.acordes), el('i', { className: 'rom' }, t.ejemplo.romanos), el('span', { className: 'a' }, t.ejemplo.parte)));
+  };
+  const VISIBLES_REL = 4;
+  const bloqueRelacionadas = c => {
+    const rel = window.Analisis ? window.Analisis.relacionadas(c, data.canciones) : [];
+    if (!rel.length) return null;
+    const fila = (r, i) => {
+      const m = r.coincidencias[0];
+      return el('div', { className: 'fila', hidden: i >= VISIBLES_REL },
+        el('button', { type: 'button', className: 'abrir', onclick: () => irARelacionada(r.c) },
+          el('span', { className: 't' }, r.c.titulo),
+          r.c.artista && el('span', { className: 'a' }, r.c.artista),
+          el('span', { className: 'a' }, m.suya + ' · ' + m.romanos + (m.tipo === 'ciclo' ? ' · mismo ciclo' : ''))),
+        pastilla(r.c.tono));
+    };
+    const filas = rel.map(fila);
+    const mas = rel.length > VISIBLES_REL && el('button', { type: 'button', className: 'rel-mas', onclick: e => {
+      const abierto = e.currentTarget.getAttribute('aria-expanded') === 'true';
+      filas.forEach((f, i) => { if (i >= VISIBLES_REL) f.hidden = abierto; });
+      e.currentTarget.setAttribute('aria-expanded', String(!abierto));
+      e.currentTarget.textContent = abierto ? 'Ver las ' + rel.length : 'Ver menos';
+    }, 'aria-expanded': 'false' }, 'Ver las ' + rel.length);
+    return el('section', { className: 'rel noimp', 'aria-label': 'Canciones con la misma progresión' },
+      el('h3', {}, 'Canciones con la misma progresión'),
+      el('p', { className: 'a' }, 'Misma secuencia de acordes (en números romanos), en cualquier tono.'),
+      ...filas, mas);
+  };
 
   // Vista de la canción cuando tiene letra: acordes por partes o hoja de acordes con letra. Se recuerda mientras navegas.
   let vistaLetra = false;
@@ -359,6 +372,7 @@
         el('button', { type: 'button', id: 'zmenos', 'aria-label': 'Letra más chica', onclick: () => cambiarZoom(-.15) }, 'A−'),
         el('button', { type: 'button', id: 'zmas', 'aria-label': 'Letra más grande', onclick: () => cambiarZoom(.15) }, 'A+')),
       el('div', { className: 'ccuerpo ' + (verLetra ? 'v-letra' : 'v-acordes') },
+        desde.length > 0 && el('button', { type: 'button', className: 'volver-rel noimp', onclick: volverARelacionada }, '← Volver a «' + desde[desde.length - 1].titulo + '»'),
         el('h2', {}, c.titulo),
         el('p', { className: 'a' }, [c.artista, c.nota].filter(Boolean).join(' · ')),
         el('p', { className: 'tonos' }, pastilla(c.tono)),
@@ -371,6 +385,7 @@
           dibujarHoja(hoja)),
         partes.length > 0 && !yaVisto() && el('p', { className: 'a noimp pista-enfoque' }, 'Toca una parte para enfocarla.'),
         ...(partes.length ? partes.map((p, k) => parte(p, k)) : [el('p', { className: 'vacio' }, 'Aún no hay partes ni acordes para esta canción.')]),
+        bloqueTip(c), bloqueRelacionadas(c),
         el('p', { className: 'noimp' }, el('button', { type: 'button', onclick: () => print() }, 'Imprimir'))),
       el('div', { className: 'cpie noimp' },
         el('button', { type: 'button', title: 'Anterior (←)', disabled: pos <= 0, onclick: () => irA(-1) }, '‹ Anterior'),
@@ -413,7 +428,7 @@
     origenFoco = origen || document.activeElement;
     actual = ultima = c;
     orden = lista && lista.length ? lista.slice() : visibles().map(r => r.c);
-    foco = -1;
+    foco = -1; desde = [];
     history.pushState({ cancion: true }, '');
     mostrar();
     $('cancion').focus({ preventScroll: true });
@@ -422,7 +437,7 @@
   function cerrarCancion() {
     if (window.Escucha) window.Escucha.parar();
     cerrarPresentar();
-    actual = null;
+    actual = null; desde = [];
     $('cancion').hidden = true;
     document.body.classList.remove('fija');
     soltarPantalla();
@@ -430,7 +445,8 @@
     if (origenFoco && origenFoco.isConnected) origenFoco.focus({ preventScroll: true });
     origenFoco = null;
   }
-  window.addEventListener('popstate', () => { if (actual) cerrarCancion(); });
+  // Si el atrás cierra una canción abierta encima de Practicar o Teoría, esas capas no deben tomarlo como su propio "atrás".
+  window.addEventListener('popstate', () => { if (actual) { app.cerroCancionEn = performance.now(); cerrarCancion(); } });
 
   function fila({ c, i }) {
     const cuerpo = el('button', { type: 'button', className: 'abrir', onclick: e => abrirCancion(c, e.currentTarget) },
@@ -490,10 +506,11 @@
 
   // Interfaz que usa editor.js (solo se carga con ?editar)
   const app = window.RepertorioApp = {
-    el, norm, render, abrirCancion, pastilla, romano, compases,
+    el, norm, render, abrirCancion, irARelacionada, pastilla, romano, compases,
     buscar: q => { const palabras = fichas(q); return data.canciones.map(c => ({ c, p: puntaje(c, palabras) })).filter(x => x.p !== null).sort((a, b) => a.p - b.p || a.c.titulo.localeCompare(b.c.titulo, 'es')).map(x => x.c); },
     get data() { return data; },
     set data(d) { data = d; render(); },
+    cerroCancionEn: -1e9,
     acciones: null
   };
 

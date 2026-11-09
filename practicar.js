@@ -428,6 +428,8 @@
   // Atrás dentro de Practicar (sesión, resultado, lección, estadísticas) vuelve al menú de Practicar; solo desde el menú se sale.
   window.addEventListener('popstate', () => {
     if (caja.hidden) return;
+    const A = window.RepertorioApp;
+    if (A && performance.now() - A.cerroCancionEn < 300) return;   // ese atrás cerró la canción que abriste desde aquí
     if (pantalla === 'inicio') return cerrar();
     if (pantalla === 'retos' && modRetos && modRetos.atras()) { history.pushState({ practica: true }, ''); return; }
     if (ses && ses.hechas.length >= 3) guardarSesion();        // igual que al salir: una sesión a medias se conserva

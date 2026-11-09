@@ -1,4 +1,4 @@
-// Retos de escalas y modos: sale "D dórico" (o "Bb menor armónica"...), la tocas en tu piano subiendo una octava y la compruebas.
+// Retos de escalas y modos: sale "D mixolidio" (o "Bb menor armónica"...), la tocas en tu piano subiendo una octava y la compruebas.
 // Los modos y las notas salen de Tonal (vendor/tonal.min.js, la misma librería de Teoría): nada inventado a mano. No usa sonido ni internet.
 // La lógica no usa el DOM y se prueba en test/. La pantalla se abre desde Practicar.
 (function (raiz) {
@@ -77,6 +77,12 @@
     if (bien) { x.a++; if (ms > 0) { x.ms += ms; x.mejor = x.mejor ? Math.min(x.mejor, ms) : ms; } }
     return est;
   }
+  // Quita del progreso guardado lo de modos que ya no existen (así no se arrastra basura en el teléfono).
+  function podar(est, modos) {
+    const ok = new Set(lista(modos, 'todas').map(x => x.id));
+    for (const k of Object.keys(est.items)) if (!ok.has(k)) delete est.items[k];
+    return est;
+  }
   function resumen(est, modos) {
     const por = new Map(lista(modos, 'todas').map(x => [x.id, x]));
     const filas = Object.entries(est.items).filter(([k]) => por.has(k)).map(([k, x]) => ({ ...por.get(k), ...x }));
@@ -85,7 +91,7 @@
     return { v, a, repasar };
   }
 
-  const api = { TONICAS, OTRAS, lista, armar, grados, crearReto, vacias, limpiar, registrar, resumen, CFG: { guardia: 350 } };
+  const api = { TONICAS, OTRAS, lista, armar, grados, crearReto, vacias, limpiar, podar, registrar, resumen, CFG: { guardia: 350 } };
   raiz.Escalas = api;
   if (typeof document === 'undefined') return;
 
@@ -118,8 +124,8 @@
         el('p', {}, 'Sale una escala o un modo en una tónica al azar. Tócala en tu piano, subiendo una octava, y luego compruébala. No usa sonido ni internet.'),
         !datos ? el('p', { id: 'es-vacio' }, 'No se pudo cargar la teoría. Abre la pantalla Teoría una vez con internet y vuelve aquí.') : null,
         el('div', { className: 'parte' }, el('h3', {}, 'Qué practicar'),
-          el('div', { className: 'tg', rol: 'group', 'aria-label': 'Qué practicar' }, opcion('tipo', 'modos', 'Los 7 modos'), opcion('tipo', 'otras', 'Otras escalas'), opcion('tipo', 'todas', 'Todo')),
-          el('p', { className: 'a' }, pref.tipo === 'otras' ? 'Menor armónica, menor melódica y pentatónicas.' : 'Jónico, dórico, frigio, lidio, mixolidio, eólico y locrio.')),
+          el('div', { className: 'tg', rol: 'group', 'aria-label': 'Qué practicar' }, opcion('tipo', 'modos', 'Los modos'), opcion('tipo', 'otras', 'Otras escalas'), opcion('tipo', 'todas', 'Todo')),
+          el('p', { className: 'a' }, pref.tipo === 'otras' ? 'Menor armónica, menor melódica y pentatónicas.' : 'Jónico (mayor), mixolidio y eólico (menor natural).')),
         el('div', { className: 'parte' }, el('h3', {}, 'Repasar lo que fallo'),
           el('div', { className: 'tg', rol: 'group', 'aria-label': 'Repasar lo que fallo' }, opcion('repasar', true, 'Sí'), opcion('repasar', false, 'No'))),
         el('p', {}, el('button', { type: 'button', className: 'primario', id: 'es-empezar-5', disabled: !datos, onclick: () => empezar(5) }, 'Empezar · 5'), ' ',
@@ -204,7 +210,7 @@
     est = limpiar(leer(EST));
     menu(); caja.focus({ preventScroll: true });
     const t = raiz.RepertorioTeoria;
-    if (t && t.cargarTonal) t.cargarTonal().then(T => { datos = { T, modos: t.modos }; if (vista === 'menu') menu(true); }).catch(() => { /* queda el aviso del menú */ });
+    if (t && t.cargarTonal) t.cargarTonal().then(T => { datos = { T, modos: t.modos }; podar(est, datos.modos); if (vista === 'menu') menu(true); }).catch(() => { /* queda el aviso del menú */ });
   };
   api.atras = () => {
     if (vista === 'sesion' || vista === 'resultado') { menu(); return true; }
