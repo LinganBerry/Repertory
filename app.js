@@ -164,7 +164,11 @@
   // --- pantalla completa por canción: capa propia, el gesto de atrás del teléfono la cierra ---
   // Compás marcado a mano con "|"; sin barras, los acordes van seguidos.
   // --- números romanos y compases: viven en romanos.js (se pueden probar sin pantalla) ---
-  const { romano, compases } = window.Romanos;
+  const { romano, nashville, compases } = window.Romanos;
+  // Cómo se ven los acordes: letras (C G Am F), romanos (I V vi IV) o números Nashville (1 5 6m 4). Se recuerda en el dispositivo.
+  const VISTAS_ACORDES = [['letras', 'Letras'], ['romanos', 'Romanos'], ['numeros', 'Números']];
+  const guardadaVista = leer('repertorio-acordes-vista', 'letras');
+  let vistaAcordes = VISTAS_ACORDES.some(v => v[0] === guardadaVista) ? guardadaVista : 'letras';
 
   // Vibración corta al tocar (Android; el iPhone no la permite y simplemente no vibra).
   const vibra = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { /* nada */ } };
@@ -190,7 +194,7 @@
     const gs = compases(p.prog);
     // Cada compás va junto (no se parte entre dos líneas) y la barra | lo cierra.
     const hijos = gs.map((g, i) => el('span', { className: 'compas' },
-      ...g.map(a => el('span', { className: 'chip' }, el('b', {}, a), el('i', { className: 'rom' }, romano(a, p.tono || actual.tono)))),
+      ...g.map(a => el('span', { className: 'chip' }, el('b', {}, a), el('i', { className: 'rom' }, romano(a, p.tono || actual.tono)), el('i', { className: 'nas' }, nashville(a, p.tono || actual.tono)))),
       i < gs.length - 1 && el('span', { className: 'barra' }, '|')));
     const alternar = () => { marcarVisto(); foco = foco === k ? -1 : k; aplicarFoco(); };
     return el('section', { className: 'parte' + (norm(p.nombre).trim() === 'coro' ? ' coro' : ''), tabIndex: 0, rol: 'button', 'aria-pressed': 'false',
@@ -361,6 +365,12 @@
     const partes = (c.partes || []).filter(p => p.prog);
     const pos = orden.indexOf(c);
     const enlace = /^https?:\/\//i.test(c.enlace || '') ? c.enlace : '';
+    const cambiarAcordes = v => {
+      vistaAcordes = v; guardar('repertorio-acordes-vista', v);
+      const cu = caja.querySelector('.ccuerpo');
+      for (const [id] of VISTAS_ACORDES) cu.classList.toggle('n-' + id, id === v);
+      caja.querySelectorAll('.n-sel button').forEach(b => b.setAttribute('aria-pressed', String(b.getAttribute('data-n') === v)));
+    };
     caja.classList.remove('oculta');
     ultimoY = 0;
     caja.setAttribute('aria-label', c.titulo);
@@ -371,7 +381,7 @@
         el('button', { type: 'button', id: 'escuchar', title: 'Escuchar tu piano', 'aria-label': 'Escuchar tu piano', onclick: abrirEscucha }, 'Escuchar'),
         el('button', { type: 'button', id: 'zmenos', 'aria-label': 'Letra más chica', onclick: () => cambiarZoom(-.15) }, 'A−'),
         el('button', { type: 'button', id: 'zmas', 'aria-label': 'Letra más grande', onclick: () => cambiarZoom(.15) }, 'A+')),
-      el('div', { className: 'ccuerpo ' + (verLetra ? 'v-letra' : 'v-acordes') },
+      el('div', { className: 'ccuerpo ' + (verLetra ? 'v-letra' : 'v-acordes') + ' n-' + vistaAcordes },
         desde.length > 0 && el('button', { type: 'button', className: 'volver-rel noimp', onclick: volverARelacionada }, '← Volver a «' + desde[desde.length - 1].titulo + '»'),
         el('h2', {}, c.titulo),
         el('p', { className: 'a' }, [c.artista, c.nota].filter(Boolean).join(' · ')),
@@ -383,6 +393,8 @@
         conHoja && el('div', { className: 'hoja-caja' },
           el('p', { className: 'noimp hoja-barra' }, el('button', { type: 'button', onclick: () => presentar(c, hoja) }, '▶ Presentar')),
           dibujarHoja(hoja)),
+        partes.length > 0 && el('div', { className: 'pastillas n-sel noimp', rol: 'group', 'aria-label': 'Cómo ver los acordes' },
+          ...VISTAS_ACORDES.map(([id, texto]) => el('button', { type: 'button', 'data-n': id, 'aria-pressed': String(id === vistaAcordes), onclick: () => cambiarAcordes(id) }, texto))),
         partes.length > 0 && !yaVisto() && el('p', { className: 'a noimp pista-enfoque' }, 'Toca una parte para enfocarla.'),
         ...(partes.length ? partes.map((p, k) => parte(p, k)) : [el('p', { className: 'vacio' }, 'Aún no hay partes ni acordes para esta canción.')]),
         bloqueTip(c), bloqueRelacionadas(c),

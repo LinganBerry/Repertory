@@ -4,11 +4,11 @@
 // La copia de la página (BASE + ESCUCHA) es UN PAQUETE: se baja completo o no se guarda, y se renueva completo (no archivo por archivo),
 // así sin internet nunca se mezcla HTML de una versión con JS de otra. Cambia CACHE solo si cambia esta estrategia o la lista de archivos.
 // La primera visita debe ser con internet. No toca el editor ni los POST (guardar / entrar).
-const CACHE = 'acordes-v17';
+const CACHE = 'acordes-v18';
 // Tone.js, Tonal y las muestras del piano NO se precargan: se guardan la primera vez que abres Teoría (con internet).
 // Motor de escucha (PitchPlease, ~1,2 MB): se guarda junto con la página para que Escuchar funcione sin internet.
 const ESCUCHA = ['/escucha/escucha.js', '/escucha/pitchplease/pitchplease.js', '/escucha/pitchplease/engine/errors.js', '/escucha/pitchplease/engine/fft.js', '/escucha/pitchplease/engine/incport-relaxed.wasm', '/escucha/pitchplease/engine/incport-wasm.js', '/escucha/pitchplease/engine/incport.js', '/escucha/pitchplease/engine/incport.wasm', '/escucha/pitchplease/engine/kernel-load.js', '/escucha/pitchplease/engine/kernels.js', '/escucha/pitchplease/engine/load.js', '/escucha/pitchplease/engine/models.js', '/escucha/pitchplease/engine/music.js', '/escucha/pitchplease/engine/processor.js', '/escucha/pitchplease/engine/resample.js', '/escucha/pitchplease/engine/tracker.js', '/escucha/pitchplease/engine/worklet.js', '/escucha/pitchplease/models/piano.bin'];
-const BASE = ['/', '/index.html', '/estilos.css', '/app.js', '/hoja.js', '/romanos.js', '/analisis.js', '/local.js', '/canciones.js', '/editor.js', '/teoria.js', '/notacion.js', '/lecciones.js', '/practicar.js', '/retos.js', '/progresiones.js', '/escalas.js', '/sorpresa.js', '/rearmonizar.js', '/preparar.js', '/listas.js', '/manifest.webmanifest', '/icono-192.png'];
+const BASE = ['/', '/index.html', '/estilos.css', '/app.js', '/hoja.js', '/romanos.js', '/analisis.js', '/local.js', '/canciones.js', '/editor.js', '/teoria.js', '/notacion.js', '/lecciones.js', '/practicar.js', '/retos.js', '/progresiones.js', '/escalas.js', '/sorpresa.js', '/improvisar.js', '/rearmonizar.js', '/preparar.js', '/listas.js', '/manifest.webmanifest', '/icono-192.png'];
 const API = '/api/canciones';
 const ESPERA_MS = 4000;          // si la red tarda más, se muestra la copia guardada
 const ESPERA_FRESCA_MS = 12000;  // archivos de una página que ya salió de la red: se espera más para no mezclar versiones

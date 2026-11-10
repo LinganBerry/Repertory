@@ -18,7 +18,8 @@
     { n: 1, nombre: 'Adornos', texto: 'El mismo acorde con una nota más: add9, sus2, sus4 y sexta.', reglas: ['ninth', 'sus2', 'sus4', 'sixth'] },
     { n: 2, nombre: 'Más color y notas de paso', texto: 'Séptimas, un disminuido entre dos acordes, el relativo y el mediante.', reglas: ['seventh', 'dimPassing', 'diatonicPassing', 'relative', 'mediant'] },
     { n: 3, nombre: 'Dominantes y ii-V', texto: 'Acordes que preparan al siguiente: dominante secundario, ii-V y líneas.', reglas: ['secondaryDominant', 'iiV', 'secondaryIIV', 'dominantColor', 'alteredDominant', 'minorLine', 'majorLine'] },
-    { n: 4, nombre: 'Prestados y sustitutos', texto: 'Menor prestado, puerta trasera, tritono y otros sustitutos.', reglas: ['modalInterchange', 'plagalMinor', 'backdoor', 'tritone', 'chromaticApproach', 'rootlessDominant', 'dimDominant'] }
+    { n: 4, nombre: 'Prestados y sustitutos', texto: 'Menor prestado, puerta trasera, tritono y otros sustitutos.', reglas: ['modalInterchange', 'plagalMinor', 'backdoor', 'tritone', 'chromaticApproach', 'rootlessDominant', 'dimDominant'] },
+    { n: 5, nombre: 'Ciclos y bajo caminando', texto: 'Cadenas de dominantes que caen por quintas y bajos que caminan hacia el siguiente acorde (muy usados en gospel y jazz).', reglas: ['backCycle', 'bassWalk'] }
   ];
   const nivelDe = id => (NIVELES.find(x => x.reglas.includes(id)) || {}).n || 0;
 
@@ -184,6 +185,16 @@
         const ii = up(c.tonic, 2) + (isMinorish(c) ? 'm7b5' : 'm7'), v = up(c.tonic, 7) + '7';
         return { chords: [ii, v, c.symbol], why: `${ii} y ${v} son el ii–V propio de ${c.symbol}: en vez de llegar de golpe, el acorde se prepara con su cadencia prestada. Sirve para convertir un compás quieto en tres acordes.` };
       } },
+      { id: 'backCycle', name: 'Ciclo de dominantes', apply: c => {
+        const v2 = up(c.tonic, 2) + '7', v1 = up(c.tonic, 7) + '7';
+        return { chords: [v2, v1, c.symbol], why: `${v2} es el V de ${v1}, y ${v1} es el V de ${c.symbol}: dos dominantes seguidos que caen de quinta en quinta hasta llegar a ${c.symbol}. Cada acorde empuja al siguiente, y el que llega se siente como la meta.` };
+      } },
+      { id: 'bassWalk', name: 'Bajo caminando', apply: (c, next) => {
+        if (!next || !isMajorish(c) || !isTriad(c)) return null;
+        if ((Note.chroma(next.tonic) - Note.chroma(c.tonic) + 12) % 12 !== 5) return null;   // solo hacia el acorde de una cuarta arriba (I → IV)
+        const tercera = up(c.tonic, 4), sub = c.tonic + '/' + tercera;
+        return { chords: [c.symbol, sub], why: `${sub} es el mismo ${c.symbol} con su 3ª (${tercera}) en el bajo: el bajo camina ${c.tonic} → ${tercera} → ${next.tonic} por grados y llega a ${next.symbol} sin dar un salto. El acorde casi no cambia; cambia el movimiento de abajo.` };
+      } },
       { id: 'minorLine', name: 'Línea cromática interna', apply: c => {
         if (!isMinorish(c) || !(isTriad(c) || isSeventh(c))) return null;
         return { chords: [c.tonic + 'm', c.tonic + 'mMaj7', c.tonic + 'm7', c.tonic + 'm6'], why: `El acorde no cambia: baja una voz por dentro, ${c.tonic} → ${up(c.tonic, 11)} → ${up(c.tonic, 10)} → ${up(c.tonic, 9)}. El paso raro es ${c.tonic}mMaj7, y es justo el que hace la gracia.` };
@@ -196,10 +207,13 @@
     ];
 
     // Para cada acorde (los que no se pueden leer, como N.C., no llevan sugerencias): las opciones de ese nivel, sin repetir y sin lo que no cambie nada.
-    function opciones(simbolos, nivel, tono) {
+    // acumular = true: también salen las ideas de los niveles anteriores (para ver todo hasta ese nivel, por ejemplo jazz = niveles 1 a 4).
+    function opciones(simbolos, nivel, tono, acumular = false) {
       const cs = simbolos.map(s => { const c = Chord.get(s); return c.empty || !c.tonic ? null : c; });
       const key = llaveDe(tono, cs);
-      const delNivel = (NIVELES.find(x => x.n === nivel) || NIVELES[0]).reglas.map(id => RULES.find(r => r.id === id));   // en el orden del nivel: lo más simple primero
+      const actual = NIVELES.find(x => x.n === nivel) || NIVELES[0];
+      const ids = acumular ? NIVELES.filter(x => x.n <= actual.n).flatMap(x => x.reglas) : actual.reglas;
+      const delNivel = ids.map(id => RULES.find(r => r.id === id));   // en el orden de los niveles: lo más simple primero
       return cs.map((c, i) => {
         if (!c) return [];
         const vistas = new Set([c.symbol]), out = [];
@@ -234,10 +248,12 @@
     n.append(...kids.flat().filter(k => k != null && k !== false));
     return n;
   };
-  const NIVEL = 'repertorio-rearm-nivel';
+  const NIVEL = 'repertorio-rearm-nivel', SUMA = 'repertorio-rearm-suma';
+  const leerSuma = () => { try { return localStorage.getItem(SUMA) === '1'; } catch (e) { return false; } };
+  const guardarSuma = v => { try { localStorage.setItem(SUMA, v ? '1' : '0'); } catch (e) { /* sin espacio: no pasa nada grave */ } };
   const leer = () => { try { return Number(localStorage.getItem(NIVEL)); } catch (e) { return 1; } };
   const guardar = n => { try { localStorage.setItem(NIVEL, String(n)); } catch (e) { /* sin espacio: no pasa nada grave */ } };
-  let caja = null, volverFn = null, vista = 'menu', nivel = 1, M = null, cargando = false;
+  let caja = null, volverFn = null, vista = 'menu', nivel = 1, suma = false, M = null, cargando = false;
   let cancion = null, parteIx = 0, grupos = [], flat = [], sel = -1, cambios = {}, ops = [];
   const barra = (izq, centro) => el('div', { className: 'cbarra' }, izq, el('span', { className: 'ctitulo' }, centro));
   const atrasBtn = (texto, titulo) => el('button', { type: 'button', title: titulo, onclick: () => history.back() }, texto);
@@ -253,7 +269,10 @@
         type: 'button', 'data-nivel': String(x.n), 'aria-pressed': String(nivel === x.n),
         onclick: () => { nivel = x.n; guardar(nivel); alCambiar(); const b = caja.querySelector(`[data-nivel="${x.n}"]`); if (b) b.focus({ preventScroll: true }); }
       }, String(x.n)))),
-      el('p', { className: 'a', id: 'rr-nivel-texto' }, `${NIVELES[nivel - 1].nombre}: ${NIVELES[nivel - 1].texto}`));
+      el('p', { className: 'a', id: 'rr-nivel-texto' }, `${NIVELES[nivel - 1].nombre}: ${NIVELES[nivel - 1].texto}`),
+      el('p', {}, el('button', { type: 'button', id: 'rr-suma', 'aria-pressed': String(suma),
+        onclick: () => { suma = !suma; guardarSuma(suma); alCambiar(); const b = caja.querySelector('#rr-suma'); if (b) b.focus({ preventScroll: true }); } }, 'Sumar niveles anteriores')),
+      el('p', { className: 'a', id: 'rr-suma-texto' }, suma ? (nivel === 1 ? 'Activado, pero el nivel 1 no tiene anteriores.' : `Se ven las ideas de los niveles 1 a ${nivel} juntas (para jazz: nivel 4).`) : 'Apagado: solo se ven las ideas de este nivel.'));
   }
 
   function menu(conservar) {
@@ -275,7 +294,7 @@
   function prepararParte() {
     const p = cancion.partes[parteIx], app = raiz.RepertorioApp;
     grupos = app.compases(p.prog); flat = grupos.flat();
-    ops = M.opciones(flat, nivel, p.tono || cancion.tono);
+    ops = M.opciones(flat, nivel, p.tono || cancion.tono, suma);
   }
   const versionTexto = () => { let i = 0; return grupos.map(g => g.map(a => { const k = i++; return cambios[k] ? cambios[k].acordes.join(' ') : a; }).join(' ')).join(' | '); };
 
@@ -309,7 +328,7 @@
     const puesto = cambios[sel] && cambios[sel].id === o.id;
     return el('div', { className: 'rr-idea', 'data-regla': o.id },
       el('p', { className: 'rt-prog' }, o.acordes.join(' → ')),
-      el('p', { className: 'a' }, o.regla),
+      el('p', { className: 'a' }, o.regla + (suma ? ' · nivel ' + o.nivel : '')),
       el('p', { className: 'a' }, o.porque),
       el('p', { className: 'a' }, 'Notas: ' + o.acordes.map((s, k) => s + ' (' + o.notas[k].join(' ') + ')').join(' · ')),
       el('p', {}, el('button', { type: 'button', className: 'rr-oir', onclick: () => oir(o) }, 'Oír'), ' ',
@@ -330,6 +349,7 @@
   api.abrir = (cajaPracticar, volver) => {
     caja = cajaPracticar; volverFn = volver; cancion = null; cambios = {}; sel = -1;
     const g = leer(); nivel = g >= 1 && g <= NIVELES.length ? g : 1;
+    suma = leerSuma();
     menu(); caja.focus({ preventScroll: true });
     const t = raiz.RepertorioTeoria;
     if (M) return;

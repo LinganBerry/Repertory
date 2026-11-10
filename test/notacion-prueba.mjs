@@ -272,3 +272,38 @@ test('resumen de 7 días, puntos débiles y más lentos', () => {
   assert.deepEqual([...N.lentos(est, 2).map(x => x.item)], ['sol:G4', 'sol:E4']); assert.equal(N.lentos(est, 2)[0].seg, 4.5);
   assert.equal(N.debiles({ items: {} }).length, 0); assert.equal(N.lentos({ items: {} }).length, 0);
 });
+
+test('oído: progresiones con los acordes correctos, en cualquier tono, y el servidor acepta su ítem', () => {
+  const T = N.TEMAS['prog-oido'], rng = semilla(21);
+  assert.equal(T.grupo, 'Oído'); assert.equal(T.modo, 'prog'); assert.equal(T.prefijo, 'ap');
+  assert.deepEqual(JSON.parse(JSON.stringify(T.niveles.map(n => n.ids.length))), [4, 7, 11]);
+  const forma = { I: [0, 4, 7], ii: [2, 5, 9], IV: [5, 9, 12], V: [7, 11, 14], vi: [9, 12, 16], bVII: [10, 14, 17], iv: [5, 8, 12], i: [0, 3, 7], bVI: [8, 12, 15], bIII: [3, 7, 10], iii: [4, 7, 11] };
+  const tonos = new Set();
+  for (const nv of T.niveles) {
+    const vistos = new Set();
+    for (let i = 0; i < 300; i++) {
+      const p = N.crearPregunta('prog-oido', nv.id, { items: {} }, rng, null);
+      vistos.add(p.respuesta.id);
+      const toks = p.respuesta.id.split('-');
+      assert.equal(p.pasos.length, toks.length);
+      const tonica = p.pasos[0].midis[0] + 12 - (forma[toks[0]][0]);   // fundamental del primer acorde, una octava arriba, menos su grado
+      tonos.add(((tonica % 12) + 12) % 12);
+      toks.forEach((tk, k) => {
+        const ms = JSON.parse(JSON.stringify(p.pasos[k].midis));
+        assert.deepEqual(ms.slice(1).map(m => m - tonica), forma[tk], tk);
+        assert.equal(ms[0], tonica + forma[tk][0] - 12, 'fundamental una octava abajo');
+        assert.equal(p.pasos[k].en, k * 1100);
+      });
+      assert.ok(p.item.startsWith('ap:') && /^ap:[A-Za-z0-9-]{1,21}$/.test(p.item), p.item);
+      assert.match(p.detalle, /^\(en [A-G][♯b]? (mayor|menor): /);
+      assert.ok(N.comprobar(p, { id: p.respuesta.id })); assert.ok(!N.comprobar(p, { id: 'otra' }));
+      const b = N.botones('prog-oido', nv.id);
+      assert.ok(b.opciones.some(o => o.id === p.respuesta.id) && b.opciones.every(o => /^[iIvV♭ –]+$/.test(o.texto)), 'botones con números romanos');
+      const s = limpiarSesion({ id: 'prueba000001', t: 'prog-oido', l: nv.id, f: '2026-11-10', n: 1, a: 1, ms: 1500, q: [[p.item, 1, 1500]] });
+      assert.ok(s, 'el servidor acepta la sesión con ' + p.item);
+    }
+    assert.equal(vistos.size, nv.ids.length, 'salen todas las del nivel ' + nv.id);
+  }
+  assert.ok(tonos.size >= 10, 'se usan casi todos los tonos');
+  assert.equal(N.rotulo('ap:I-IV-V-I'), 'I-IV-V-I');
+});

@@ -41,8 +41,26 @@
     if (bajo) { const b = grado(bajo, tono); r += '/' + b.alt + (b.d + 1); }  // bajo = grado de la escala (D/F# en G → V/7)
     return r;
   }
+  // --- Sistema Nashville: el grado como NÚMERO (1 a 7), con ♭ o ♯ delante y el sufijo del acorde tal como está escrito ---
+  // Siempre se cuenta en la escala MAYOR de la tónica (también en tono menor: en Am, Am = 1m, C = ♭3, Dm = 4m, E = 5), por nombre de nota.
+  // La séptima de un dominante va en superíndice para no confundirla con otro número: B7 en G = 3⁷, D9 en G = 5⁹.
+  const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const alto = s => s.replace(/^\d+/, d => [...d].map(x => SUP[Number(x)]).join(''));
+  function nashville(acorde, tonoTexto) {
+    const n0 = nota(tonoTexto);
+    const tono = n0 && { nota: n0, menor: false };
+    const barra = /^(.*?)\/([A-G][#♯b♭]*)$/.exec(acorde || '');
+    const base = barra ? barra[1] : (acorde || ''), bajo = barra && nota(barra[2]);
+    const raiz = nota(base);
+    if (!tono || !raiz) return '';
+    const { d, alt } = grado(raiz, tono);
+    const suf = alto(base.slice(raiz.largo).replace(/^(min(?!aj)|-)/, 'm'));
+    let r = alt + (d + 1) + suf;
+    if (bajo) { const b = grado(bajo, tono); r += '/' + b.alt + (b.d + 1); }
+    return r;
+  }
   // Separadores de acorde: espacio o guion pegado a otro acorde (F#-G-A). Un guion seguido de número (A-7) es "menor", no separador.
   const compases = prog => prog.split('|').map(g => g.trim().split(/\s+/).flatMap(t => t.split(/-(?=[A-G])/)).filter(t => t && t !== '-')).filter(g => g.length);
 
-  raiz.Romanos = { romano, compases, nota, grado, clase, LETRAS, PC_LETRA, ESC_MAYOR, ESC_MENOR };
+  raiz.Romanos = { romano, nashville, compases, nota, grado, clase, LETRAS, PC_LETRA, ESC_MAYOR, ESC_MENOR };
 })(typeof window !== 'undefined' ? window : globalThis);

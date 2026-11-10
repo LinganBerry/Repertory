@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import '../romanos.js';
 
-const { romano, compases } = globalThis.Romanos;
+const { romano, nashville, compases } = globalThis.Romanos;
 const r = (prog, tono) => compases(prog).flat().map(a => romano(a, tono)).join(' ');
 
 test('tono mayor: los grados de la escala, con mayúscula o minúscula según el acorde', () => {
@@ -57,4 +57,32 @@ test('compases: separa por | y por espacio; el guion pegado entre acordes separa
   assert.deepEqual(compases('A-7 D'), [['A-7', 'D']]);
   assert.deepEqual(compases('  G   |  | C  '), [['G'], ['C']]);
   assert.deepEqual(compases(''), []);
+});
+
+const n = (prog, tono) => compases(prog).flat().map(a => nashville(a, tono)).join(' ');
+
+test('Nashville: el grado como número, con m para los menores', () => {
+  assert.equal(n('G D Em C', 'G'), '1 5 6m 4');
+  assert.equal(n('C Dm Em F G Am Bdim', 'C'), '1 2m 3m 4 5 6m 7dim');
+  assert.equal(n('Bb Eb F Gm', 'Bb'), '1 4 5 6m');
+});
+
+test('Nashville: prestados con ♭ o ♯ por nombre de nota, y en tono menor se cuenta desde la tónica', () => {
+  assert.equal(n('F', 'G'), '♭7', 'F en G es ♭7');
+  assert.equal(n('Eb Ab Bb', 'C'), '♭3 ♭6 ♭7');
+  assert.equal(n('Am F C G', 'Am'), '1m ♭6 ♭3 ♭7');
+  assert.equal(n('Am Dm E', 'Am'), '1m 4m 5');
+  assert.equal(n('G#', 'C'), '♯5');
+});
+
+test('Nashville: sufijos conservados, séptima del dominante en superíndice y bajo como número', () => {
+  assert.equal(n('Em7 Cmaj7 Dsus4 Gadd9', 'G'), '6m7 4maj7 5sus4 1add9');
+  assert.equal(n('B7 D9 A13', 'G'), '3⁷ 5⁹ 2¹³');
+  assert.equal(n('D/F# C/E', 'G'), '5/7 4/6');
+  assert.equal(n('F#m7b5 B7', 'G'), '7m7b5 3⁷');
+  assert.equal(n('A-7 Amin', 'C'), '6m7 6m', 'guion y min son menor');
+});
+
+test('Nashville: lo que no se puede leer queda vacío (como los romanos)', () => {
+  assert.equal(nashville('N.C.', 'G'), ''); assert.equal(nashville('G', ''), ''); assert.equal(nashville('', 'G'), '');
 });

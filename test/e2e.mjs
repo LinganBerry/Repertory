@@ -971,3 +971,158 @@ test('EDITOR · Copia de seguridad: el archivo lleva la fecha y Ajustes recuerda
   w.HTMLAnchorElement.prototype.click = clic;
   sinErrores(n); n.cerrar();
 });
+
+test('CANCIÓN · Nashville: Letras, Romanos o Números; el acorde sigue en el chip (Escuchar lo lee) y la elección se recuerda', async () => {
+  memoria.clear();
+  sembrar([['Aleluya', 'G', ['Verso', 'G D Em C'], ['Puente', 'C G Am F']], ['Sola', 'Am', ['Coro', 'Am F C G']], ['Vacía', 'G']]);
+  const n = await navegador();
+  const { d, $, w } = n;
+  await esperar(() => d.querySelectorAll('#lista .fila').length === 3, 'las 3 canciones');
+  const fila = t => [...d.querySelectorAll('#lista .fila .abrir')].find(b => b.querySelector('.t').textContent === t);
+  const caja = $('cancion');
+  const abrir = async t => { fila(t).click(); await esperar(() => !caja.hidden && caja.querySelector('.ccuerpo'), 'se abre ' + t); };
+  await abrir('Vacía');
+  assert.equal(caja.querySelector('.n-sel'), null, 'sin acordes no hay selector');
+  caja.querySelector('.cbarra button').click();
+  await esperar(() => caja.hidden, 'cerrada');
+  await abrir('Aleluya');
+  const cuerpo = () => caja.querySelector('.ccuerpo');
+  const pastillas = [...caja.querySelectorAll('.n-sel button')];
+  assert.deepEqual(pastillas.map(b => b.textContent), ['Letras', 'Romanos', 'Números']);
+  assert.match(cuerpo().className, /n-letras/); assert.equal(pastillas[0].getAttribute('aria-pressed'), 'true');
+  const chips = () => [...caja.querySelectorAll('.parte')[0].querySelectorAll('.chip')];
+  assert.deepEqual(chips().map(c => c.querySelector('b').textContent), ['G', 'D', 'Em', 'C']);
+  assert.deepEqual(chips().map(c => c.querySelector('.rom').textContent), ['I', 'V', 'vi', 'IV']);
+  assert.deepEqual(chips().map(c => c.querySelector('.nas').textContent), ['1', '5', '6m', '4']);
+  assert.deepEqual(chips().map(c => c.firstChild.tagName + c.firstChild.textContent), ['BG', 'BD', 'BEm', 'BC'], 'el acorde sigue siendo lo primero del chip');
+  pastillas[2].click();
+  assert.match(cuerpo().className, /n-numeros/); assert.doesNotMatch(cuerpo().className, /n-letras/);
+  assert.equal(pastillas[2].getAttribute('aria-pressed'), 'true'); assert.equal(pastillas[0].getAttribute('aria-pressed'), 'false');
+  assert.deepEqual(chips().map(c => c.firstChild.textContent), ['G', 'D', 'Em', 'C'], 'el cambio es solo de vista: los acordes no se tocan');
+  assert.equal(JSON.parse(w.localStorage.getItem('repertorio-acordes-vista')), 'numeros');
+  pastillas[1].click();
+  assert.match(cuerpo().className, /n-romanos/); assert.equal(JSON.parse(w.localStorage.getItem('repertorio-acordes-vista')), 'romanos');
+  // Otra canción (tono menor) y el segundo bloque: se mantiene la vista elegida y se cuenta desde la tónica
+  caja.querySelector('.cbarra button').click();
+  await esperar(() => caja.hidden, 'cerrada');
+  await abrir('Sola');
+  assert.match(cuerpo().className, /n-romanos/, 'la vista se recuerda');
+  assert.deepEqual(chips().map(c => c.querySelector('.nas').textContent), ['1m', '♭6', '♭3', '♭7']);
+  assert.deepEqual(chips().map(c => c.querySelector('.rom').textContent), ['i', 'VI', 'III', 'VII']);
+  sinErrores(n); n.cerrar();
+});
+
+test('PRACTICAR · Rearmonizar: nivel 5 (ciclo de dominantes y bajo caminando) y "Sumar niveles anteriores"', async () => {
+  memoria.clear();
+  sembrar([['Aleluya', 'C', ['Coro', 'C F | G C']]]);
+  const n = await navegador();
+  const { d, $, w } = n;
+  await esperar(() => d.querySelectorAll('#lista .fila').length === 1, 'la canción');
+  const pr = await abrirPractica(n);
+  pr.querySelector('#pr-rearm-ir').click();
+  await esperar(() => pr.querySelector('.rr-cancion') && !pr.querySelector('.rr-cancion').disabled, 'teoría cargada');
+  assert.equal(pr.querySelectorAll('[data-nivel]').length, 5, 'cinco niveles');
+  pr.querySelector('.rr-cancion').click();
+  await esperar(() => pr.querySelector('#rr-acordes'), 'la canción');
+  pr.querySelector('[data-nivel="5"]').click();
+  await esperar(() => pr.querySelector('[data-nivel="5"][aria-pressed="true"]'), 'nivel 5');
+  assert.match(pr.querySelector('#rr-nivel-texto').textContent, /Ciclos y bajo caminando/);
+  pr.querySelector('[data-ix="0"]').click();
+  await esperar(() => pr.querySelector('.rr-idea'), 'ideas del primer acorde');
+  const reglas = () => [...pr.querySelectorAll('.rr-idea')].map(x => x.getAttribute('data-regla'));
+  assert.deepEqual(reglas(), ['backCycle', 'bassWalk']);
+  const texto = id => pr.querySelector(`.rr-idea[data-regla="${id}"] .rt-prog`).textContent;
+  assert.equal(texto('backCycle'), 'D7 → G7 → C'); assert.equal(texto('bassWalk'), 'C → C/E');
+  assert.match(pr.querySelector('.rr-idea[data-regla="bassWalk"]').textContent, /bajo camina C → E → F/);
+  // Sumar niveles anteriores: salen también las ideas de los niveles 1 a 4, marcadas con su nivel
+  assert.equal(pr.querySelector('#rr-suma').getAttribute('aria-pressed'), 'false'); assert.match(pr.querySelector('#rr-suma-texto').textContent, /Apagado/);
+  pr.querySelector('#rr-suma').click();
+  await esperar(() => pr.querySelector('#rr-suma[aria-pressed="true"]'), 'suma encendida');
+  await esperar(() => pr.querySelectorAll('.rr-idea').length > 2, 'más ideas');
+  assert.ok(reglas().includes('backCycle') && reglas().some(r => !['backCycle', 'bassWalk'].includes(r)), 'ideas de otros niveles');
+  assert.match(pr.querySelector('#rr-ideas').textContent, /· nivel [1-4]/); assert.match(pr.querySelector('#rr-suma-texto').textContent, /niveles 1 a 5/);
+  assert.equal(w.localStorage.getItem('repertorio-rearm-suma'), '1');
+  pr.querySelector('#rr-suma').click();
+  await esperar(() => pr.querySelector('#rr-suma[aria-pressed="false"]'), 'suma apagada');
+  assert.equal(w.localStorage.getItem('repertorio-rearm-suma'), '0');
+  sinErrores(n); n.cerrar();
+});
+
+test('PRACTICAR · Improvisación: base en bucle con notas guía, cambia de acorde, reprograma el bucle y se apaga al salir', async () => {
+  memoria.clear();
+  const n = await navegador('');
+  const { d, $, w } = n;
+  const pr = await abrirPractica(n);
+  const llamadas = []; let paradas = 0;
+  w.RepertorioAudio = { tocar: async p => { llamadas.push(JSON.parse(JSON.stringify(p))); }, detener: () => { paradas++; } };
+  pr.querySelector('#pr-improv-ir').click();
+  await esperar(() => $('im-tocar') && !$('im-tocar').disabled, 'teoría cargada');
+  assert.equal(pr.querySelectorAll('[data-tono]').length, 12); assert.equal(pr.querySelectorAll('[data-base]').length, 5); assert.equal(pr.querySelectorAll('[data-bpm]').length, 3);
+  assert.equal($('im-parar').disabled, true, 'parar está apagado hasta que suena');
+  pr.querySelector('[data-tono="G"]').click();
+  await esperar(() => $('im-acorde').textContent === 'Am7', 'ii–V–I en G empieza en Am7');
+  assert.equal(pr.querySelector('[data-tono="G"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(llamadas.length, 0, 'no suena hasta tocar');
+  $('im-tocar').click();
+  await esperar(() => llamadas.length === 1, 'programa el bloque');
+  assert.equal(llamadas[0].length, 32, '8 vueltas de 4 acordes');
+  assert.deepEqual(llamadas[0][0].midis, [45, 57, 60, 64, 67], 'A2 de bajo y Am7');
+  assert.equal(llamadas[0][1].en, 3000, '80 pulsos: un compás cada 3 s');
+  assert.equal($('im-guia').textContent.replace(/\s+/g, ' '), '3ª: C · 7ª: G');
+  assert.match($('im-sig').textContent, /Siguiente: D7\. La 7ª \(G\) baja medio tono hasta la 3ª \(F♯\)\./);
+  assert.match($('im-escala').textContent, /Escala: G mayor desde A — A B C D E F♯ G/);
+  assert.equal($('im-parar').disabled, false); assert.equal($('im-tocar').textContent, '↻ Reiniciar');
+  const fila = () => [...d.querySelectorAll('#im-fila .chip')].map(c => c.classList.contains('oye'));
+  assert.deepEqual(fila(), [true, false, false, false]);
+  w.Improvisar.avanzar();
+  assert.equal($('im-acorde').textContent, 'D7'); assert.deepEqual(fila(), [false, true, false, false]);
+  assert.match($('im-escala').textContent, /Escala: D Mixolidio/);
+  w.Improvisar.avanzar(); assert.equal($('im-acorde').textContent, 'Gmaj7');
+  w.Improvisar.avanzar(); w.Improvisar.avanzar(); assert.equal($('im-acorde').textContent, 'Am7', 'vuelve al principio');
+  for (let i = 0; i < 27; i++) w.Improvisar.avanzar();   // 31 compases: todavía dentro del bloque
+  assert.equal(llamadas.length, 1);
+  w.Improvisar.avanzar();                                 // el 32: se acabó lo programado → reprograma sin que se note
+  await esperar(() => llamadas.length === 2, 'segunda tanda');
+  assert.equal($('im-acorde').textContent, 'Am7');
+  // Cambiar de tono mientras suena reinicia con el nuevo tono; cambiar de base cambia la fila de acordes
+  pr.querySelector('[data-tono="Eb"]').click();
+  await esperar(() => llamadas.length === 3, 'reinicia en E♭');
+  assert.equal($('im-acorde').textContent, 'Fm7'); assert.equal(pr.querySelector('[data-tono="Eb"]').getAttribute('aria-pressed'), 'true');
+  pr.querySelector('[data-base="blues"]').click();
+  await esperar(() => llamadas.length === 4, 'reinicia con el blues');
+  assert.equal(d.querySelectorAll('#im-fila .chip').length, 12); assert.equal($('im-acorde').textContent, 'E♭7'); assert.equal(llamadas[3].length, 36, '3 vueltas de 12');
+  assert.match($('im-base-texto').textContent, /dominantes/);
+  const antes = paradas;
+  $('im-parar').click();
+  assert.ok(paradas > antes, 'parar apaga el sonido'); assert.equal($('im-parar').disabled, true);
+  // Volver a Practicar con la base sonando: se apaga todo
+  $('im-tocar').click();
+  await esperar(() => llamadas.length === 5, 'suena otra vez');
+  const antes2 = paradas;
+  pr.querySelector('.cbarra button').click();
+  await esperar(() => pr.querySelector('#pr-improv-ir'), 'menú de Practicar');
+  assert.ok(paradas > antes2, 'al salir se detiene el sonido');
+  await new Promise(r => setTimeout(r, 50));
+  w.Improvisar.avanzar();                                 // un reloj que quedara vivo no debe reprogramar nada
+  assert.equal(llamadas.length, 5);
+  sinErrores(n); n.cerrar();
+});
+
+test('PRACTICAR (oído): progresiones de acordes con números romanos, cuatro acordes por pregunta y aviso con el tono', async () => {
+  memoria.clear();
+  const n = await navegador('');
+  await abrirPractica(n);
+  const audio = audioFalso(n);
+  assert.ok(n.d.querySelector('[data-tema="prog-oido"]'), 'el tema aparece en Oído');
+  await empezarTema(n, 'prog-oido', 10, 1);
+  assert.equal(audio.llamadas[0].length, 4, 'un golpe por acorde'); assert.ok(audio.llamadas[0].every(p => p.midis.length === 4), 'bajo y tres notas');
+  assert.deepEqual([...n.d.querySelectorAll('#practica [data-op]')].map(b => b.title), ['I – IV – V – I', 'I – V – vi – IV', 'I – vi – IV – V', 'vi – IV – I – V']);
+  assert.match(n.$('practica').textContent, /¿Qué progresión suena\?/);
+  await contestar(n, false);
+  await esperar(() => /\(en [A-G][♯b]? mayor: /.test(n.$('practica').textContent), 'al fallar dice el tono y los acordes');
+  n.$('pr-sig').click();
+  await sesionCompleta(n, 9, 0);
+  await esperar(() => n.$('pr-resultado'), 'resultado');
+  assert.match(n.$('pr-resultado').textContent, /9 de 10 · 90%/);
+  sinErrores(n); n.cerrar();
+});

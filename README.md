@@ -9,7 +9,7 @@ Repertorio personal de canciones con acordes, tonos y partes, más teoría y pr�
 - **Instalar como app:** Chrome/Android o Chrome/Edge en PC → *Instalar app*.
 - **Sin señal:** se ve la última copia guardada con un aviso arriba. Abre la página con internet al menos una vez en cada dispositivo.
 - **Listas del culto:** arma una lista, ordénala y toca **▶ Empezar**. Se guardan en cada dispositivo.
-- **Canción:** pestañas Acordes y Letra, **▶ Presentar** (pantalla completa con desplazamiento automático), un *Tip de teoría* y las *canciones con la misma progresión* (cada una se abre con un toque).
+- **Canción:** pestañas Acordes y Letra, **▶ Presentar** (pantalla completa con desplazamiento automático), un *Tip de teoría* y las *canciones con la misma progresión* (cada una se abre con un toque). Los acordes se ven en **Letras**, **Romanos** o **Números** (sistema Nashville: 1, 5, 6m, 4; en tono menor se cuenta desde la tónica); la elección se recuerda.
 - **Letra con acordes:** en el editor, acorde entre corchetes antes de la sílaba: `[Am]Cuando salga el [F]sol`. Una línea `[Coro]` es un título. Máximo 12 000 caracteres por canción.
 
 ## Teoría (barra de abajo)
@@ -18,9 +18,9 @@ Escalas y modos (Jónico, Mixolidio, Eólico), diccionario de acordes, **Tonalid
 
 ## Practicar
 
-- **Lectura de notas** (clave de sol y fa), **teclado**, **armaduras y escalas**, **oído** (intervalos y acordes), **lecciones** cortas y **sesión diaria** de 15 minutos. Lo que más fallas sale más.
+- **Lectura de notas** (clave de sol y fa), **teclado**, **armaduras y escalas**, **oído** (intervalos, acordes y **progresiones** con números romanos), **lecciones** cortas y **sesión diaria** de 15 minutos. Lo que más fallas sale más.
 - **Retos** (sin sonido ni internet): acordes en los 12 tonos, progresiones de tus canciones en números romanos, escalas y modos, y **Canción sorpresa** (una canción tuya al azar: tócala de memoria y luego mira los acordes; no se repite hasta que salgan todas).
-- **Herramientas:** *Rearmonizar* (ideas para adornar tus canciones) y *Preparar sin internet*.
+- **Herramientas:** *Rearmonizar* (ideas para adornar tus canciones en 5 niveles: del 1 al 4 llegan hasta el jazz con dominantes secundarias, y el 5 trae ciclos de dominantes y bajo caminando; *Sumar niveles anteriores* junta todo hasta el nivel elegido), *Improvisación* (una base que suena en bucle en el piano, con las notas guía 3ª y 7ª de cada acorde, su escala y cómo la 7ª baja a la 3ª siguiente) y *Preparar sin internet*.
 - **Progreso:** se guarda en el dispositivo; si entras con tu contraseña (dentro de Practicar) se sincroniza con `api/progreso.js` (últimas 500 sesiones, solo agrega).
 
 ## Editor
@@ -71,4 +71,4 @@ Botón **Escuchar** en cada canción: detecta por el micrófono qué acorde toca
 
 ## Archivos
 
-`api/` + `lib/` (servidor) · `app.js` (página) · `editor.js` · `teoria.js` + `vendor/` · `notacion.js`, `retos.js`, `progresiones.js`, `escalas.js`, `sorpresa.js`, `rearmonizar.js`, `lecciones.js`, `practicar.js` (Practicar) · `romanos.js` + `analisis.js` (romanos, tips, relacionadas) · `hoja.js` (letra con acordes) · `listas.js` · `preparar.js` · `sw.js` (sin internet) · `scripts/` · `test/`.
+`api/` + `lib/` (servidor) · `app.js` (página) · `editor.js` · `teoria.js` + `vendor/` · `notacion.js`, `retos.js`, `progresiones.js`, `escalas.js`, `sorpresa.js`, `improvisar.js`, `rearmonizar.js`, `lecciones.js`, `practicar.js` (Practicar) · `romanos.js` + `analisis.js` (romanos, tips, relacionadas) · `hoja.js` (letra con acordes) · `listas.js` · `preparar.js` · `sw.js` (sin internet) · `scripts/` · `test/`.

@@ -55,6 +55,17 @@
       visuales: [{ tipo: 'teclado', marcar: [60, 64, 67] }]
     },
     {
+      id: 'progresiones-oido', titulo: 'Progresiones de acordes', temas: ['prog-oido'],
+      puntos: [
+        'En una progresión no se oyen notas sueltas: se oye cómo se mueve el bajo y qué tan “en casa” o “lejos” suena cada acorde. Los números romanos dicen el grado: I es la tónica, IV la subdominante y V la dominante.',
+        'I–IV–V–I sale de casa (I), se aleja (IV), crea tensión (V) y regresa (I). Es la base de muchísimas canciones.',
+        'I–V–vi–IV, I–vi–IV–V y vi–IV–I–V usan los mismos cuatro acordes en otro orden. Fíjate con cuál empieza y en cuál “descansa” al final.',
+        'Truco: tararea la nota más grave de cada acorde y compárala con la del primero. IV queda 5 semitonos arriba de I, V queda 7 arriba y vi queda 9 arriba.',
+        'Los acordes con ♭ (♭VII, ♭VI, ♭III) o el iv menor suenan “prestados” del tono menor: dan un color más oscuro que los del tono mayor.'
+      ],
+      visuales: [{ tipo: 'teclado', marcar: [60, 65, 67] }]
+    },
+    {
       id: 'armaduras', titulo: 'Armaduras', temas: ['arm-sol', 'arm-fa', 'arm-num'],
       puntos: [
         'La armadura son las alteraciones que se escriben al inicio: valen para todas las notas de esa letra, en toda la pieza.',

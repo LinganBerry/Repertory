@@ -155,6 +155,7 @@
     const prep = window.Preparar && window.Preparar.tarjeta ? window.Preparar.tarjeta() : null;
     const filasHerr = [
       window.Rearmonizar && window.Rearmonizar.abrir ? fila('pr-rearm', 'Rearmonizar', 'Ideas para adornar tus canciones, por niveles.', 'Abrir', 'pr-rearm-ir', pintarRearmonizar) : null,
+      window.Improvisar && window.Improvisar.abrir ? fila('pr-improv', 'Improvisación', 'Una base que suena en bucle y las notas guía de cada acorde.', 'Abrir', 'pr-improv-ir', pintarImprovisar) : null,
       prep
     ].filter(Boolean);
     const grupo = (titulo, id, filas, nota) => filas.length ? el('section', { id }, el('h2', { className: 'pr-grupo' }, titulo),
@@ -181,6 +182,12 @@
     dejarInicio();
     clearTimeout(temporizador); ses = null; mod = 0; pantalla = 'retos'; modRetos = window.Rearmonizar;
     window.Rearmonizar.abrir(caja, pintarInicio);
+  }
+  function pintarImprovisar() {
+    dejarInicio();
+    clearTimeout(temporizador); ses = null; mod = 0; pantalla = 'retos'; modRetos = window.Improvisar;
+    window.RepertorioAudio?.detener();
+    window.Improvisar.abrir(caja, pintarInicio);
   }
   function pintarEscalas() {
     dejarInicio();
@@ -238,7 +245,7 @@
   }
 
   // --- sonido (oído) ---
-  const PREGUNTA_OIDO = { asc: '¿Qué intervalo suena? (sube)', desc: '¿Qué intervalo suena? (baja)', arm: '¿Qué intervalo suena? (a la vez)', acorde: '¿Qué acorde suena?' };
+  const PREGUNTA_OIDO = { asc: '¿Qué intervalo suena? (sube)', desc: '¿Qué intervalo suena? (baja)', arm: '¿Qué intervalo suena? (a la vez)', acorde: '¿Qué acorde suena?', prog: '¿Qué progresión suena? (en números romanos)' };
   let audioTexto = '';
   const marcarAudio = t => { audioTexto = t; const n = $('pr-audio'); if (n) n.textContent = t; };
   async function reproducir() {
@@ -341,7 +348,7 @@
     const dicho = p.tipo === 'oido' ? T.datos.find(d => d.id === resp.id).nombre : (p.tipo === 'armadura' || p.tipo === 'cuantas') ? N.botones(ses.tema, ses.nivel).opciones.find(o => o.id === resp.id).texto : (p.tipo === 'pentagrama' || p.tipo === 'escala') ? N.bonito({ l: resp.l, a: resp.a || 0 }) : N.NOMBRES_PC[((resp.pc % 12) + 12) % 12].replace(/#/g, '♯').replace(/b/g, '♭');
     const era = p.tipo === 'pentagrama' ? N.bonito(p.nota) : p.etiqueta.replace(/#/g, '♯').replace(/b/g, '♭');
     if (!ok) ses.errores.push({ item: p.item, era: p.contexto ? p.contexto + ': ' + era : era, dicho });
-    const detalle = p.tipo === 'oido' ? ' (' + p.notas.map(N.nombreMidi).join(T.modo === 'asc' || T.modo === 'desc' ? ' → ' : ' + ').replace(/#/g, '♯') + ')' : p.detalle ? ' ' + p.detalle : '';
+    const detalle = p.tipo === 'oido' && p.detalle ? ' ' + p.detalle : p.tipo === 'oido' ? ' (' + p.notas.map(N.nombreMidi).join(T.modo === 'asc' || T.modo === 'desc' ? ' → ' : ' + ').replace(/#/g, '♯') + ')' : p.detalle ? ' ' + p.detalle : '';
     pintarPregunta({ ok, texto: 'Era ' + era + detalle + (p.tipo === 'tecla' ? '' : ' · dijiste ' + dicho), tocada: resp.midi });
     if (ok) temporizador = setTimeout(() => siguiente(), CFG.pausa);
   }

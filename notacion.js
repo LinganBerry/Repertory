@@ -67,6 +67,24 @@
     { id: 3, nombre: 'Séptimas', ids: ['maj7', 'dom7', 'm7', 'm7b5'] },
     { id: 4, nombre: 'Todos', ids: ACORDES.map(a => a.id) }
   ];
+  // --- oído: progresiones (acordes de tres notas sobre un tono al azar; se reconocen por su sonido, no por las notas) ---
+  // Cada símbolo: raíz en semitonos desde la tónica, y las notas del acorde. Los ids van en ASCII (b = bemol) porque se guardan en el progreso.
+  const ACORDE_OIDO = {
+    I: { raiz: 0, pasos: [0, 4, 7], r: 'I' }, ii: { raiz: 2, pasos: [2, 5, 9], r: 'ii' }, iii: { raiz: 4, pasos: [4, 7, 11], r: 'iii' }, IV: { raiz: 5, pasos: [5, 9, 12], r: 'IV' },
+    V: { raiz: 7, pasos: [7, 11, 14], r: 'V' }, vi: { raiz: 9, pasos: [9, 12, 16], r: 'vi' }, bVII: { raiz: 10, pasos: [10, 14, 17], r: '♭VII' }, iv: { raiz: 5, pasos: [5, 8, 12], r: 'iv' },
+    i: { raiz: 0, pasos: [0, 3, 7], r: 'i' }, bIII: { raiz: 3, pasos: [3, 7, 10], r: '♭III' }, bVI: { raiz: 8, pasos: [8, 12, 15], r: '♭VI' }
+  };
+  const progOido = (id, menor) => ({ id, nombre: id.split('-').map(t => ACORDE_OIDO[t].r).join(' – '), menor: !!menor });
+  const PROGRESIONES_OIDO = [
+    progOido('I-IV-V-I'), progOido('I-V-vi-IV'), progOido('I-vi-IV-V'), progOido('vi-IV-I-V'),
+    progOido('I-vi-ii-V'), progOido('ii-V-I'), progOido('I-IV-vi-V'),
+    progOido('I-bVII-IV-I'), progOido('I-iv-I'), progOido('i-bVII-bVI-V', true), progOido('i-bVI-bIII-bVII', true)
+  ];
+  const NIVELES_PROG = [
+    { id: 1, nombre: 'Las 4 más comunes', ids: ['I-IV-V-I', 'I-V-vi-IV', 'I-vi-IV-V', 'vi-IV-I-V'] },
+    { id: 2, nombre: '+ ii-V-I y vueltas', ids: ['I-IV-V-I', 'I-V-vi-IV', 'I-vi-IV-V', 'vi-IV-I-V', 'I-vi-ii-V', 'ii-V-I', 'I-IV-vi-V'] },
+    { id: 3, nombre: '+ prestados y menores', ids: PROGRESIONES_OIDO.map(p => p.id) }
+  ];
   // --- armaduras y escalas escritas ---
   // La armadura se cuenta en quintas: f > 0 son sostenidos y f < 0 bemoles (0 = C mayor / A menor). En la "línea de quintas"
   // F C G D A E B, la tónica mayor está en la posición f y la menor relativa 3 quintas más arriba. Se llega hasta 6 alteraciones:
@@ -116,6 +134,7 @@
     'int-desc': { grupo: 'Oído', nombre: 'Intervalos que bajan', tipo: 'oido', modo: 'desc', prefijo: 'id', niveles: NIVELES_INTERVALOS, datos: INTERVALOS },
     'int-arm': { grupo: 'Oído', nombre: 'Intervalos a la vez', tipo: 'oido', modo: 'arm', prefijo: 'ih', niveles: NIVELES_INTERVALOS, datos: INTERVALOS },
     acordes: { grupo: 'Oído', nombre: 'Acordes', tipo: 'oido', modo: 'acorde', prefijo: 'ac', niveles: NIVELES_ACORDES, datos: ACORDES },
+    'prog-oido': { grupo: 'Oído', nombre: 'Progresiones de acordes', tipo: 'oido', modo: 'prog', prefijo: 'ap', niveles: NIVELES_PROG, datos: PROGRESIONES_OIDO },
     'arm-sol': { grupo: 'Armaduras y escalas', nombre: 'Armadura → tonalidad (clave de sol)', tipo: 'armadura', clave: 'sol', prefijo: 'as', niveles: NIVELES_TONALIDAD },
     'arm-fa': { grupo: 'Armaduras y escalas', nombre: 'Armadura → tonalidad (clave de fa)', tipo: 'armadura', clave: 'fa', prefijo: 'af', niveles: NIVELES_TONALIDAD },
     'arm-num': { grupo: 'Armaduras y escalas', nombre: 'Tonalidad → alteraciones', tipo: 'cuantas', prefijo: 'an', niveles: NIVELES_TONALIDAD },
@@ -233,8 +252,15 @@
     }
     if (T.tipo === 'oido') {
       const d = c.dato, n = d.n;
-      const r = T.modo === 'asc' || T.modo === 'arm' ? 48 + Math.floor(rng() * 25) : T.modo === 'desc' ? 60 + Math.floor(rng() * 25) : 48 + Math.floor(rng() * 20);
+      const r = T.modo === 'asc' || T.modo === 'arm' ? 48 + Math.floor(rng() * 25) : T.modo === 'desc' ? 60 + Math.floor(rng() * 25) : T.modo === 'prog' ? 48 + Math.floor(rng() * 12) : 48 + Math.floor(rng() * 20);
       let pasos, notas;
+      if (T.modo === 'prog') {   // un acorde cada 1,1 s, con su fundamental una octava más abajo; la respuesta dice el tono y los acordes
+        const toks = d.id.split('-'); notas = [];
+        pasos = toks.map((tk, i) => { const a = ACORDE_OIDO[tk], ms = [r + a.raiz - 12, ...a.pasos.map(x => r + x)]; notas.push(...ms); return { midis: ms, en: i * 1100, dur: 1.5 }; });
+        const nom = x => SOST[(r + x) % 12].replace('#', '♯');
+        const acordes = toks.map(tk => { const a = ACORDE_OIDO[tk], m = a.pasos[1] - a.pasos[0] === 3; return nom(a.raiz) + (m ? 'm' : ''); }).join(' ');
+        return { tema, nivel, tipo: 'oido', item: c.item, pasos, notas, respuesta: { id: c.id }, etiqueta: d.nombre, corto: c.id, detalle: '(en ' + nom(0) + (d.menor ? ' menor' : ' mayor') + ': ' + acordes + ')' };
+      }
       if (T.modo === 'asc') { pasos = [{ midis: [r], en: 0, dur: 1.3 }, { midis: [r + n], en: 950, dur: 1.6 }]; notas = [r, r + n]; }
       else if (T.modo === 'desc') { pasos = [{ midis: [r], en: 0, dur: 1.3 }, { midis: [r - n], en: 950, dur: 1.6 }]; notas = [r, r - n]; }
       else if (T.modo === 'arm') { pasos = [{ midis: [r, r + n], en: 0, dur: 2.2 }]; notas = [r, r + n]; }
@@ -254,7 +280,7 @@
   // Botones de respuesta que corresponden a (tema, nivel).
   function botones(tema, nivel) {
     const T = TEMAS[tema], N = T.niveles.find(n => n.id === nivel);
-    if (T.tipo === 'oido') return { tipo: 'opciones', opciones: N.ids.map(id => { const d = T.datos.find(x => x.id === id); return { id, texto: T.modo === 'acorde' ? d.nombre : id, titulo: d.nombre }; }) };
+    if (T.tipo === 'oido') return { tipo: 'opciones', opciones: N.ids.map(id => { const d = T.datos.find(x => x.id === id); return { id, texto: T.modo === 'acorde' || T.modo === 'prog' ? d.nombre : id, titulo: d.nombre }; }) };
     if (T.tipo === 'armadura' || T.tipo === 'cuantas') return { tipo: 'opciones', opciones: rango(-N.max, N.max).map(f => (T.tipo === 'armadura' ? { id: String(f), texto: nombreTon(f, N.modo, true), titulo: nombreLargo(f, N.modo) } : { id: String(f), texto: textoAlt(f), titulo: letrasAlt(f) })) };
     if (T.tipo === 'escala') return { tipo: 'letras', letras: LETRAS.slice(), alteraciones: true };
     if (T.tipo === 'pentagrama') return { tipo: 'letras', letras: LETRAS.slice(), alteraciones: !!N.alt };

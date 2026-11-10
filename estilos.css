@@ -375,3 +375,11 @@ body.presentando { overflow: hidden; }
   .cq-s.sel text { fill: var(--bg); }
   .cq-c { fill: var(--ink); text-anchor: middle; font: 700 24px var(--tit); }
   .cq-c2 { fill: var(--ink); text-anchor: middle; font: 700 17px var(--sans); }
+
+  /* Cómo ver los acordes (Letras / Romanos / Números): el acorde se queda en el chip, solo cambia cuál va grande. */
+  .n-sel { margin: .4rem 0 .6rem; }
+  .chip .nas { display: none; font: 400 calc(.8rem * var(--z))/1.1 var(--sans); font-style: normal; color: var(--muted); }
+  .n-romanos .chip .rom, .n-numeros .chip .nas { display: block; order: -1; font: 700 calc(1.3rem * var(--z))/1.2 ui-monospace, Menlo, Consolas, monospace; color: var(--ink); }
+  .n-romanos .chip b, .n-numeros .chip b { order: 1; font: 400 calc(.8rem * var(--z))/1.1 var(--sans); color: var(--muted); }
+  .n-numeros .chip .rom { display: none; }
+  .chip.oye b, .chip.oye .rom, .chip.oye .nas, .n-romanos .chip.oye .rom, .n-numeros .chip.oye .nas, .n-romanos .chip.oye b, .n-numeros .chip.oye b { color: inherit; }
