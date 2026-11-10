@@ -149,7 +149,8 @@
     const filasRetos = [
       window.Retos && window.Retos.abrir ? fila('pr-retos', 'Acordes', 'Mayores y menores, en los 12 tonos.', 'Abrir', 'pr-retos-ir', pintarRetos) : null,
       window.Progresiones && window.Progresiones.abrir ? fila('pr-progs', 'Progresiones', 'De tus canciones, en números romanos.', 'Abrir', 'pr-progs-ir', pintarProgresiones) : null,
-      window.Escalas && window.Escalas.abrir ? fila('pr-escalas', 'Escalas y modos', 'Una escala o un modo en una tónica al azar.', 'Abrir', 'pr-escalas-ir', pintarEscalas) : null
+      window.Escalas && window.Escalas.abrir ? fila('pr-escalas', 'Escalas y modos', 'Una escala o un modo en una tónica al azar.', 'Abrir', 'pr-escalas-ir', pintarEscalas) : null,
+      window.Sorpresa && window.Sorpresa.abrir ? fila('pr-sorpresa', 'Canción sorpresa', 'Una canción tuya al azar: tócala de memoria.', 'Abrir', 'pr-sorpresa-ir', pintarSorpresa) : null
     ].filter(Boolean);
     const prep = window.Preparar && window.Preparar.tarjeta ? window.Preparar.tarjeta() : null;
     const filasHerr = [
@@ -186,6 +187,12 @@
     clearTimeout(temporizador); ses = null; mod = 0; pantalla = 'retos'; modRetos = window.Escalas;
     window.RepertorioAudio?.detener();
     window.Escalas.abrir(caja, pintarInicio);
+  }
+  function pintarSorpresa() {
+    dejarInicio();
+    clearTimeout(temporizador); ses = null; mod = 0; pantalla = 'retos'; modRetos = window.Sorpresa;
+    window.RepertorioAudio?.detener();
+    window.Sorpresa.abrir(caja, pintarInicio);
   }
   function pintarProgresiones() {
     dejarInicio();

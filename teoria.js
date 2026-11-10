@@ -1,4 +1,4 @@
-// Pantalla "Teoría": escalas, modos, diccionario de acordes y tonalidades (armadura, relativos y funciones).
+// Pantalla "Teoría": escalas, modos, diccionario de acordes, tonalidades (armadura, relativos y funciones) y círculo de quintas.
 // La teoría la calcula la librería Tonal (https://github.com/tonaljs/tonal, licencia MIT),
 // incluida tal cual en vendor/tonal.min.js. Aquí solo se dibuja. Nada de esto toca el servidor.
 (() => {
@@ -296,12 +296,56 @@
     return { titulo: est.tonica + ' ' + est.cual, notas: c.scale, raiz: c.scale[0], botones, controles, detalles };
   }
 
+  // --- Círculo de quintas: toca una tonalidad y ves su armadura, sus vecinas (IV a la izquierda, V a la derecha) y sus acordes ---
+  // Anillo de afuera: tonalidades mayores. Anillo de adentro: sus relativas menores (misma armadura). Cada paso a la derecha sube una quinta.
+  const CQ_MAYOR = [['C', 'C'], ['G', 'G'], ['D', 'D'], ['A', 'A'], ['E', 'E'], ['B', 'B'], ['F#', 'F♯'], ['Db', 'D♭'], ['Ab', 'A♭'], ['Eb', 'E♭'], ['Bb', 'B♭'], ['F', 'F']];
+  const CQ_MENOR = [['A', 'Am'], ['E', 'Em'], ['B', 'Bm'], ['F#', 'F♯m'], ['C#', 'C♯m'], ['G#', 'G♯m'], ['D#', 'D♯m'], ['Bb', 'B♭m'], ['F', 'Fm'], ['C', 'Cm'], ['G', 'Gm'], ['D', 'Dm']];
+  const CQ_C = 160, CQ_R = [152, 104, 64];   // centro del dibujo y radios: borde de afuera, entre anillos, centro
+  const cqPunto = (r, grados) => { const a = grados * Math.PI / 180; return [(CQ_C + r * Math.cos(a)).toFixed(1), (CQ_C + r * Math.sin(a)).toFixed(1)]; };
+  function cqSector(i, rFuera, rDentro) {
+    const [x1, y1] = cqPunto(rFuera, i * 30 - 105), [x2, y2] = cqPunto(rFuera, i * 30 - 75);
+    const [x3, y3] = cqPunto(rDentro, i * 30 - 75), [x4, y4] = cqPunto(rDentro, i * 30 - 105);
+    return `M${x1} ${y1}A${rFuera} ${rFuera} 0 0 1 ${x2} ${y2}L${x3} ${y3}A${rDentro} ${rDentro} 0 0 0 ${x4} ${y4}Z`;
+  }
+  // Posición (0 a 11) de la tonalidad elegida en el círculo: se cuenta por la mayor (la relativa mayor si es menor).
+  const cqPosicion = (tonica, menor) => { const c = T.Note.chroma(tonica); return (((menor ? c + 3 : c) % 12) * 7) % 12; };
+  const cqArmadura = n => (n > 0 ? n + '♯' : n < 0 ? Math.abs(n) + '♭' : '0');
+  function circuloSvg(pos, menor) {
+    const svg = sv('svg', { viewBox: '0 0 320 320', class: 'cq', role: 'group', 'aria-label': 'Círculo de quintas. Toca una tonalidad.' });
+    const sectores = (anillo, rFuera, rDentro, rTexto, esMenor, lista) => lista.forEach(([valor, rotulo], i) => {
+      const sel = i === pos && esMenor === menor, vecina = !sel && (i === (pos + 1) % 12 || i === (pos + 11) % 12) && esMenor === menor;
+      const nombre = (esMenor ? rotulo.slice(0, -1) : rotulo).replace('♯', ' sostenido').replace('♭', ' bemol') + (esMenor ? ' menor' : ' mayor');
+      const elegir = () => { est.tonica = valor; est.cual = esMenor ? 'menor' : 'mayor'; dibujar(); };
+      const [tx, ty] = cqPunto(rTexto, i * 30 - 90);
+      const g = sv('g', { class: 'cq-s ' + anillo + (sel ? ' sel' : '') + (vecina ? ' vec' : ''), role: 'button', tabindex: '0', 'aria-pressed': String(sel), 'aria-label': nombre },
+        sv('path', { d: cqSector(i, rFuera, rDentro) }), sv('text', { x: tx, y: ty }, rotulo));
+      g.addEventListener('click', elegir);
+      g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); elegir(); } });
+      svg.append(g);
+    });
+    sectores('cq-M', CQ_R[0], CQ_R[1], 128, false, CQ_MAYOR);
+    sectores('cq-m', CQ_R[1], CQ_R[2], 84, true, CQ_MENOR);
+    const mayor = CQ_MAYOR[pos][0], alt = T.Key.majorKey(mayor).alteration;
+    const nombre = menor ? CQ_MENOR[pos][1] : CQ_MAYOR[pos][1];
+    svg.append(sv('text', { x: CQ_C, y: 150, class: 'cq-c' }, nombre), sv('text', { x: CQ_C, y: 176, class: 'cq-c2' }, cqArmadura(alt)));
+    return svg;
+  }
+  function circulo() {
+    const menor = est.cual === 'menor', pos = cqPosicion(est.tonica, menor);
+    const t = tonalidades();   // mismos datos que la pestaña Tonalidades: armadura, relativa, acordes, dominantes y sonido
+    t.controles = [
+      el('p', { className: 'a' }, 'Toca una tonalidad. Afuera, las mayores; adentro, sus relativas menores (misma armadura). Cada paso a la derecha sube una quinta (V); a la izquierda baja una quinta (IV). F♯ y G♭ son la misma tecla.'),
+      circuloSvg(pos, menor)
+    ];
+    return t;
+  }
+
   // --- pantalla ---
   let gen = 0;
   async function dibujar() {
     parar();
     const mi = ++gen, y = caja.scrollTop;
-    const enfocables = () => [...caja.querySelectorAll('button, select, a')];
+    const enfocables = () => [...caja.querySelectorAll('button, select, a, [tabindex="0"]')];
     const idxFoco = enfocables().indexOf(document.activeElement);
     const barra = el('div', { className: 'cbarra' },
       el('button', { type: 'button', title: 'Volver (Esc)', onclick: () => history.back() }, '← Volver'),
@@ -310,14 +354,14 @@
     try {
       await cargarTonal();
       if (mi !== gen) return;                      // se pidió otro dibujo mientras cargaba: gana el último
-      const r = est.tab === 'escalas' ? escalas() : est.tab === 'acordes' ? acordes() : tonalidades();
+      const r = est.tab === 'escalas' ? escalas() : est.tab === 'acordes' ? acordes() : est.tab === 'circulo' ? circulo() : tonalidades();
       // Arriba (fijo): título, botones de sonido y teclado. Abajo: lo que eliges y los detalles.
       if (r.notas) panel = el('div', { className: 'tpanel' },
         el('div', { className: 'tfila' }, el('h2', {}, r.titulo), ...r.botones, el('button', { type: 'button', 'aria-label': 'Parar', onclick: parar }, '■')),
         teclado(r.notas, r.raiz),
         el('p', { className: 'a estado-piano' }, estadoPiano()));
       cuerpo = [
-        grupo([['escalas', 'Escalas y modos'], ['acordes', 'Acordes'], ['tonalidades', 'Tonalidades']], est.tab, v => { est.tab = v; dibujar(); }),
+        grupo([['escalas', 'Escalas y modos'], ['acordes', 'Acordes'], ['tonalidades', 'Tonalidades'], ['circulo', 'Círculo']], est.tab, v => { est.tab = v; dibujar(); }),
         ...r.controles, ...r.detalles,
         el('p', { className: 'a' }, 'Cálculo: librería Tonal ', el('a', { href: 'https://github.com/tonaljs/tonal', target: '_blank', rel: 'noopener noreferrer' }, 'github.com/tonaljs/tonal'), ' (MIT) y Tone.js ', el('a', { href: 'https://github.com/Tonejs/Tone.js', target: '_blank', rel: 'noopener noreferrer' }, 'github.com/Tonejs/Tone.js'), ' (MIT) para el sonido. Piano: Salamander Grand Piano de Alexander Holm, ', el('a', { href: 'https://creativecommons.org/licenses/by/3.0/', target: '_blank', rel: 'noopener noreferrer' }, 'CC BY 3.0'), '.')
       ];

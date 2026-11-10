@@ -1,76 +1,74 @@
 # Acordes y Tonos
 
-Repertorio personal de canciones con acordes, tonos y partes. **Una sola persona (tú) edita**; cualquiera con el enlace puede mirar.
-Sin cuentas de usuario, sin comunidad, sin registro. El editor se abre tocando 5 veces el título (o con `/?editar`) y pide tu contraseña.
+Repertorio personal de canciones con acordes, tonos y partes, más teoría y práctica de piano. **Solo tú editas**; quien tenga el enlace puede mirar. Sin cuentas ni registro.
 
-## Uso en vivo (teléfono, tablet, laptop, PC)
-- Abre el enlace, escribe en el buscador (o pulsa **/** en PC) y toca la canción. Sin cuentas ni pasos extra.
-- **Atajos en PC/tablet con teclado:** `/` busca · `←` `→` canción anterior/siguiente · `+` `-` tamaño de letra · `Esc` volver. Toca (o `Enter`) una parte para enfocarla.
-- **Instalar como app:** en Android/Chrome o en PC (Chrome/Edge) usa *Instalar app*. Se abre sin barra del navegador.
-- **Sin señal:** se muestra la última copia guardada **y un aviso arriba**; al volver la señal se actualiza sola. Abre la página con internet al menos una vez en cada dispositivo.
-- **Listas del culto** (barra de abajo): crea una lista, agrégale canciones, ordénalas y toca **▶ Empezar**; con ← → o Anterior/Siguiente recorres la lista en ese orden. Se guardan en cada dispositivo. La pantalla no se apaga mientras una canción está abierta. Atrás vuelve a donde estabas.
-- **Retos de acordes** (Practicar → Retos de acordes): sale un acorde mayor o menor en los 12 tonos (con inversiones si quieres). Lo tocas en tu piano, pulsas **Ya lo toqué** y ves las notas en el teclado. Guarda cuánto tardas y qué fallas. **Ayudas:** tiempo por acorde (10 s o 6 s: si se acaba, cuenta como fallo y ves la respuesta), ver solo las notas sin el teclado, y repasar lo que fallo (4 de cada 10 retos salen de tus fallos). No usa sonido ni internet.
-- **Teoría** (barra de abajo): escalas y modos, diccionario de acordes y **Tonalidades** (armadura, relativa, acordes con su función T/SD/D, dominantes secundarios, cadencia I–IV–V–I para oír). El piano y la librería de teoría se descargan la primera vez que abres Teoría y después quedan guardados.
+## Uso
 
-## Practicar (ejercicios para estudiar sin salir de la página)
-- Botón **Practicar** (arriba). Una pregunta por pantalla, sin adornos. Sesiones de 10 o 20 preguntas.
-- **Lectura de notas:** pentagrama en clave de sol y de fa (las del piano); 5 niveles (líneas, espacios, completo, líneas adicionales, alteraciones). **Teclado:** nombrar la tecla marcada y tocar la tecla de una nota. Nombres con letras (C D E…).
-- **Responder:** toca los botones o escribe la letra (A–G); `#` o `+` sube, `-` baja, `0` natural; `Enter` o `Espacio` para seguir; `Esc` para salir (si ya respondiste 3 o más, la sesión se guarda).
-- **Oído (para pianista):** intervalos que suben, que bajan y a la vez (4 niveles, de 3m 3M 5J 8J hasta los 12 intervalos), y acordes (mayor y menor, disminuido y aumentado, séptimas). Suena solo al aparecer la pregunta; `R` o el botón repiten; al fallar vuelve a sonar la respuesta correcta con sus notas. Las teclas `1`–`9` eligen la opción. Usa el mismo piano de Teoría (la primera vez necesita internet para cargarlo).
-- **Lo que más fallas sale más.** Al final ves aciertos, tiempo, tus fallos y "Para repasar".
-- **Progreso:** se guarda en el dispositivo. Si entras con tu contraseña del editor (dentro de Practicar), se sincroniza con tus otros dispositivos mediante `api/progreso.js` (las últimas 500 sesiones; solo agrega, no hay forma de borrar desde la web). Si no entras, queda solo en ese dispositivo y se sube cuando entres.
-- **Fuente del pentagrama:** `vendor/atril-notas.woff2`, un subconjunto de la fuente Bravura (Steinberg, licencia SIL OFL 1.1; ver `vendor/OFL-Bravura.txt`).
+- **Buscar:** escribe en el buscador (en PC, la tecla `/`) y toca la canción.
+- **Teclado (PC/tablet):** `←` `→` canción anterior/siguiente · `+` `-` tamaño de letra · `Esc` volver.
+- **Instalar como app:** Chrome/Android o Chrome/Edge en PC → *Instalar app*.
+- **Sin señal:** se ve la última copia guardada con un aviso arriba. Abre la página con internet al menos una vez en cada dispositivo.
+- **Listas del culto:** arma una lista, ordénala y toca **▶ Empezar**. Se guardan en cada dispositivo.
+- **Canción:** pestañas Acordes y Letra, **▶ Presentar** (pantalla completa con desplazamiento automático), un *Tip de teoría* y las *canciones con la misma progresión* (cada una se abre con un toque).
+- **Letra con acordes:** en el editor, acorde entre corchetes antes de la sílaba: `[Am]Cuando salga el [F]sol`. Una línea `[Coro]` es un título. Máximo 12 000 caracteres por canción.
 
-## Cómo funciona la seguridad
-- La contraseña vive solo en Vercel (`ADMIN_PASSWORD`) y **solo el servidor la comprueba** (`api/entrar.js`).
-- **5 intentos fallidos seguidos desde una IP = bloqueo de 15 minutos.** Además, 20 fallos entre todas las IPs bloquean a todos 15 minutos (se levanta solo). El contador está en el almacén (no en memoria), así que no se reinicia entre ejecuciones de Vercel. Si el almacén falla, el servidor **no** deja pasar a nadie.
-- Con la contraseña correcta recibes un pase firmado de 30 días (`SESSION_SECRET`). La contraseña no se guarda en el teléfono.
-- **El servidor no puede borrar nada.** No existe ninguna ruta ni función de borrado. Solo puede: agregar, editar, mandar a la papelera (una marca `borrada`, restaurable), restaurar, importar (suma y actualiza, nunca quita) y cambiar nombre/intro.
-  Aclaración honesta: el token de Vercel Blob en sí tiene permisos completos sobre su almacén; la restricción la garantiza el código de este proyecto (y las pruebas), no un permiso de la plataforma.
-- Cada día, el primer cambio guarda una copia del estado anterior en `repertorio/historial/AAAA-MM-DD.json`.
+## Teoría (barra de abajo)
+
+Escalas y modos (Jónico, Mixolidio, Eólico), diccionario de acordes, **Tonalidades** y **Círculo de quintas**: toca una tonalidad y ves su armadura, sus vecinas (IV a la izquierda, V a la derecha), su relativa y sus acordes. Cálculo con Tonal, sonido con Tone.js y piano Salamander (se bajan la primera vez que abres Teoría).
+
+## Practicar
+
+- **Lectura de notas** (clave de sol y fa), **teclado**, **armaduras y escalas**, **oído** (intervalos y acordes), **lecciones** cortas y **sesión diaria** de 15 minutos. Lo que más fallas sale más.
+- **Retos** (sin sonido ni internet): acordes en los 12 tonos, progresiones de tus canciones en números romanos, escalas y modos, y **Canción sorpresa** (una canción tuya al azar: tócala de memoria y luego mira los acordes; no se repite hasta que salgan todas).
+- **Herramientas:** *Rearmonizar* (ideas para adornar tus canciones) y *Preparar sin internet*.
+- **Progreso:** se guarda en el dispositivo; si entras con tu contraseña (dentro de Practicar) se sincroniza con `api/progreso.js` (últimas 500 sesiones, solo agrega).
+
+## Editor
+
+Se abre tocando 5 veces el título, o con `/?editar`, y pide tu contraseña. Agregar, editar, papelera, restaurar e importar.
+
+- **Copia de seguridad** (Ajustes → *Descargar copia*): baja `repertorio-copia-AAAA-MM-DD.json` y Ajustes te recuerda cuándo fue la última (avisa si pasa un mes). *Importar copia* suma y actualiza; **nunca quita** canciones.
+- Cada día, el primer cambio guarda el estado anterior en `repertorio/historial/AAAA-MM-DD.json`.
+
+## Seguridad
+
+- La contraseña vive solo en Vercel (`ADMIN_PASSWORD`, mínimo 12 caracteres) y solo el servidor la comprueba (`api/entrar.js`).
+- 5 fallos seguidos desde una IP = bloqueo de 15 minutos; 20 fallos entre todas las IPs bloquean a todos 15 minutos. Si el almacén falla, nadie entra.
+- Con la contraseña correcta recibes un pase firmado de 30 días (`SESSION_SECRET`); la contraseña no se guarda en el teléfono.
+- **El servidor no puede borrar nada:** solo agrega, edita, manda a la papelera (marca `borrada`, restaurable), restaura, importa y cambia nombre/intro. Aclaración: el token de Vercel Blob tiene permisos completos; la restricción la garantizan el código y las pruebas.
 
 ## Variables de entorno (Vercel → Settings → Environment Variables)
+
 | Variable | Qué es |
 |---|---|
-| `ADMIN_PASSWORD` | Tu contraseña. **Mínimo 12 caracteres** (el servidor se niega si es más corta). Una frase de 4 palabras sirve. |
+| `ADMIN_PASSWORD` | Tu contraseña (mínimo 12 caracteres). |
 | `SESSION_SECRET` | Texto aleatorio de 32+ caracteres: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 | `BLOB_READ_WRITE_TOKEN` | La pone Vercel sola al conectar un almacén Blob. |
 
-> **IMPORTANTE:** este proyecto debe usar **su propio almacén Blob nuevo**. El proyecto viejo guarda en la misma ruta (`repertorio/canciones.json`) con otro formato; si compartieran almacén, se pisarían.
-> Usa contraseña y `SESSION_SECRET` **nuevos**, distintos a los del proyecto viejo.
+## Publicar
 
-## Publicar (proyecto aparte, sin tocar el viejo)
-1. GitHub: crea un repositorio nuevo (privado o público: no hay secretos en el código, viven en Vercel) y sube esta carpeta completa, **incluidas `test/` y `scripts/`** (sin `node_modules`).
-2. Vercel: *Add New → Project* → importa ese repo (Framework: *Other*). Crea un almacén **Blob** nuevo (pestaña Storage) y conéctalo a este proyecto. Agrega `ADMIN_PASSWORD` y `SESSION_SECRET`. Deploy.
-3. Abre `https://TU-URL/?editar`, entra, *Ajustes → Importar copia* y elige tu `repertorio-copia.json`.
-4. Verifica: `node scripts/comparar.mjs repertorio-copia.json https://TU-URL 2` debe decir `0 diferencias`.
-5. Opcional: `node scripts/generar-respaldo.mjs repertorio-copia.json` y sube el `canciones.js` resultante.
+1. Sube esta carpeta completa a GitHub, **con `test/` y `scripts/`** (sin `node_modules`).
+2. Vercel: *Add New → Project* → importa el repo (Framework: *Other*). Crea un almacén **Blob** nuevo, conéctalo y agrega `ADMIN_PASSWORD` y `SESSION_SECRET`. Deploy.
+3. Abre `https://TU-URL/?editar`, entra, *Ajustes → Importar copia* y elige tu archivo de copia.
+4. Verifica: `node scripts/comparar.mjs TU-COPIA.json https://TU-URL 2` debe decir `0 diferencias`.
+5. Opcional: `node scripts/generar-respaldo.mjs TU-COPIA.json` y sube el `canciones.js` resultante.
 
-## Pruebas (no necesitan internet ni Vercel)
-- `npm test` → servidor (límite de intentos, pases, agregar/editar/papelera, importación, copia del día, guardados simultáneos, sin rutas de borrado), scripts, contraste de colores AA, modo sin conexión (`sw.js`) y la lógica de Practicar (preguntas, claves, niveles, estadísticas, dibujo del pentagrama).
-- `npm i --no-save jsdom@30 && npm run test:e2e` → 13 pruebas en un navegador simulado: entrar, agregar una canción "desde el teléfono", verla y abrirla "desde la PC" con teclado, Teoría > Tonalidades, el aviso sin conexión y Practicar (sesiones, teclado, oído con audio simulado, progreso sincronizado entre dos dispositivos) y el audio compartido con un Tone simulado.
-- `npm run contraste` → tabla de contraste de todos los pares de colores de `estilos.css`.
-- Límites: usan un almacén falso en memoria (no el Blob real de Vercel), y jsdom no dibuja ni suena (el audio se prueba con un Tone simulado: se verifica qué notas se programan, no cómo suenan). Falta probar en navegadores reales y medir con Lighthouse.
+**Al agregar o quitar archivos de la página**, actualiza la lista `BASE` de `sw.js` y sube el número de `CACHE` (así los teléfonos se actualizan).
+
+## Escuchar tu piano (`escucha/`)
+
+Botón **Escuchar** en cada canción: detecta por el micrófono qué acorde tocas y lo marca en los acordes de esa canción. Todo corre en el dispositivo.
+
+- Motor **PitchPlease** v3.1.0 (MIT, licencia en `escucha/LICENCIAS.txt`), siempre con el modelo de piano (`models/piano.bin`): no hay modelo ligero.
+- Funciona sin internet: `sw.js` guarda estos archivos (lista `ESCUCHA`). Si cambias archivos de `escucha/pitchplease/`, actualiza esa lista y sube `CACHE`.
+- `vercel.json` permite el micrófono solo para esta página y `'wasm-unsafe-eval'` (WebAssembly; no permite `eval` de JavaScript).
+
+## Pruebas
+
+- `npm test`: servidor, scripts, contraste de colores AA, modo sin conexión y lógica de Practicar. No necesita internet ni Vercel.
+- `npm i --no-save jsdom@30 && npm run test:e2e`: la página completa en un navegador simulado (no dibuja ni suena).
+- `npm run contraste`: tabla de contraste de `estilos.css`.
 
 ## Archivos
-`api/canciones.js` (leer y guardar) · `api/entrar.js` (contraseña) · `lib/` (auth, almacén, intentos, limpieza) · `app.js` (página) · `romanos.js` + `analisis.js` (números romanos, tips y canciones relacionadas) · `editor.js` (editor) · `teoria.js` + `vendor/` (teoría y piano) · `notacion.js` + `retos.js` (retos de acordes) · `listas.js` (listas del culto) · `practicar.js` (ejercicios) · `api/progreso.js` + `lib/progreso.js` (progreso sincronizado) · `sw.js` (modo sin internet) · `manifest.webmanifest` + `icono-*.png` (instalar como app) · `scripts/` (comparar, generar respaldo, contraste) · `test/`.
 
-## Escuchar tu piano (carpeta `escucha/`)
-
-Botón **Escuchar** en la pantalla de cada canción: detecta por el micrófono qué acorde tocas, en vivo (~60 ms en pruebas con audio sintético, sin contar el micrófono del teléfono), y lo marca en los acordes de esa canción. Todo corre en el teléfono o la compu; el audio no sale del dispositivo.
-
-- Motor: **PitchPlease** (`escucha/pitchplease/`), ~1,2 MB en total. Dibuja las notas que suenan cada ~12 ms; `escucha/escucha.js` las agrupa por golpe y las nombra (tríadas, séptimas, add9, sus, 9, maj9, m9, 11, 13 y alteradas como 7b9, 7#9, 7#11). Si la canción tiene lista de acordes, elige primero entre esos.
-- Offline: el service worker guarda estos archivos junto con la página (lista `ESCUCHA` en `sw.js`). Al actualizar se borra la caché vieja `escucha-v1` (~90 MB).
-- Usa siempre el modelo de piano (`models/piano.bin`), el más preciso: no hay modelo ligero.
-- Si agregas o quitas archivos en `escucha/pitchplease/`, actualiza la lista `ESCUCHA` en `sw.js` y sube el número de `CACHE`.
-- `vercel.json`: se permitió el micrófono solo para esta página (`microphone=(self)`) y `'wasm-unsafe-eval'` en `script-src`, necesario para WebAssembly (no permite `eval` de JavaScript).
-- Motor: `markusstrasser/pitchplease` v3.1.0 (MIT). Licencia en `escucha/LICENCIAS.txt`.
-
-## Letra con acordes y modo presentación
-
-- En el editor hay un campo **Letra con acordes (opcional)**. Cada acorde va entre corchetes justo antes de la sílaba donde cambia: `[Am]Cuando salga el [F]sol`. Una línea que solo tiene `[Coro]` o `[Verso 1]` es un título de sección. Cualquier corchete mal puesto se muestra como texto y no rompe nada.
-- Si la canción tiene letra, en su pantalla aparecen las pestañas **Acordes** y **Letra** (se recuerda la última que usaste). La hoja pone cada acorde sobre su sílaba (`hoja.js` interpreta el texto; `app.js` lo dibuja).
-- Al final de cada canción hay un **Tip de teoría** (progresión conocida, acorde prestado, dominante secundario, modulación… siempre sacado de sus acordes reales) y las **canciones con la misma progresión** (en números romanos, en cualquier tono): cada una se abre con un toque y «Volver a…» regresa. En Practicar → Progresiones, el nombre de la canción también se abre. Lo calcula `analisis.js` con los números romanos de `romanos.js`.
-- **▶ Presentar** abre la letra a pantalla completa con desplazamiento automático. Empieza en pausa: toca el texto (o Espacio) para seguir o pausar. Botones: velocidad − / +, tamaño A− / A+, y **Ac** para ocultar los acordes. Si mueves la letra con el dedo o la rueda, se queda quieta 2 segundos. Esc la cierra. La velocidad y el tamaño se recuerdan en el dispositivo.
-- Límite: 12 000 caracteres por canción (`LIMITES.letraCancion` en `lib/limpiar.js`, copia en `editor.js`).
-- Los acordes de la hoja también se suman a la lista que usa **Escuchar**.
+`api/` + `lib/` (servidor) · `app.js` (página) · `editor.js` · `teoria.js` + `vendor/` · `notacion.js`, `retos.js`, `progresiones.js`, `escalas.js`, `sorpresa.js`, `rearmonizar.js`, `lecciones.js`, `practicar.js` (Practicar) · `romanos.js` + `analisis.js` (romanos, tips, relacionadas) · `hoja.js` (letra con acordes) · `listas.js` · `preparar.js` · `sw.js` (sin internet) · `scripts/` · `test/`.

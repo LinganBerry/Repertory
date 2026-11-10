@@ -359,3 +359,19 @@ body.presentando { overflow: hidden; }
 /* La canción abierta desde Practicar o Teoría queda por encima de esas capas. */
 #cancion { z-index: 21; }
 .abrir-cancion { margin: .3rem 0 .6rem; }
+
+  /* Círculo de quintas (Teoría → Círculo): sin sombras ni animaciones; el toque se nota con el color. */
+  .cq { display: block; width: 100%; max-width: 22rem; margin: .4rem auto .8rem; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  .cq-s { cursor: pointer; outline: none; }
+  .cq-s path { fill: var(--fila); stroke: var(--line); stroke-width: 1.5; }
+  .cq-s.vec path { fill: var(--fila2); stroke: var(--ink); }
+  .cq-s.sel path { fill: var(--ink); stroke: var(--ink); }
+  .cq-s:active path { fill: var(--line); }
+  .cq-s.sel:active path { fill: var(--ink); }
+  .cq-s:focus-visible path { stroke: var(--accent); stroke-width: 4; }
+  .cq-s text { fill: var(--ink); text-anchor: middle; dominant-baseline: central; pointer-events: none; font-family: var(--sans); font-weight: 700; }
+  .cq-M text { font-size: 19px; }
+  .cq-m text { font-size: 14px; }
+  .cq-s.sel text { fill: var(--bg); }
+  .cq-c { fill: var(--ink); text-anchor: middle; font: 700 24px var(--tit); }
+  .cq-c2 { fill: var(--ink); text-anchor: middle; font: 700 17px var(--sans); }

@@ -832,3 +832,142 @@ test('PRACTICAR · Progresiones: el nombre de la canción abre la canción encim
   assert.ok(w.RepertorioApp.cerroCancionEn > 0);
   sinErrores(n); n.cerrar();
 });
+
+test('TEORÍA · Círculo de quintas: se elige una tonalidad tocando, vecinas marcadas, relativa menor y teclado', async () => {
+  const n = await navegador();
+  const { d, $, boton, tecla } = n;
+  const btn = $('teoria-btn'); btn.focus(); btn.click();
+  const t = $('teoria');
+  await esperar(() => !t.hidden && boton('Círculo', t), 'pestaña Círculo');
+  boton('Círculo', t).click();
+  await esperar(() => t.querySelector('svg.cq'), 'se dibuja el círculo');
+  const sectores = [...t.querySelectorAll('.cq-s')];
+  assert.equal(sectores.length, 24, '12 mayores y 12 menores');
+  assert.equal(t.querySelectorAll('.cq-M').length, 12); assert.equal(t.querySelectorAll('.cq-m').length, 12);
+  assert.ok(sectores.every(g => g.getAttribute('role') === 'button' && g.getAttribute('tabindex') === '0' && g.getAttribute('aria-label')), 'todos son botones con nombre');
+  const sel = () => [...t.querySelectorAll('.cq-s.sel')].map(g => g.getAttribute('aria-label'));
+  const vec = () => [...t.querySelectorAll('.cq-s.vec')].map(g => g.getAttribute('aria-label')).sort();
+  assert.deepEqual(sel(), ['C mayor']); assert.deepEqual(vec(), ['F mayor', 'G mayor']);
+  assert.equal(t.querySelector('.cq-c').textContent, 'C'); assert.equal(t.querySelector('.cq-c2').textContent, '0');
+  assert.match(t.textContent, /Sin alteraciones/);
+
+  // Tocar G mayor (una quinta arriba): 1 sostenido, vecinas C y D, relativa Em
+  t.querySelector('[aria-label="G mayor"]').dispatchEvent(new n.w.Event('click', { bubbles: true }));
+  await esperar(() => sel()[0] === 'G mayor', 'se elige G');
+  assert.deepEqual(vec(), ['C mayor', 'D mayor']);
+  assert.equal(t.querySelector('.cq-c2').textContent, '1♯');
+  assert.match(t.textContent, /Relativa: Em \(menor\)/);
+  assert.ok(boton('▶ I–IV–V–I', t), 'sigue habiendo sonido');
+  assert.ok(t.querySelector('svg.teclado'), 'y el teclado con las notas');
+
+  // Un bemol: F mayor está a la izquierda de C (IV); con teclado (Enter) sobre su sector
+  const f = t.querySelector('[aria-label="F mayor"]');
+  tecla(f, 'Enter');
+  await esperar(() => sel()[0] === 'F mayor', 'Enter elige F');
+  assert.equal(t.querySelector('.cq-c2').textContent, '1♭');
+  assert.deepEqual(vec(), ['B♭ mayor'.replace('♭', ' bemol'), 'C mayor'].sort().map(x => x));
+
+  // Relativa menor (anillo de adentro): F♯m comparte armadura con A mayor (3 sostenidos)
+  t.querySelector('[aria-label="F sostenido menor"]').dispatchEvent(new n.w.Event('click', { bubbles: true }));
+  await esperar(() => sel()[0] === 'F sostenido menor', 'se elige F♯m');
+  assert.equal(t.querySelector('.cq-c2').textContent, '3♯'); assert.equal(t.querySelector('.cq-c').textContent, 'F♯m');
+  assert.deepEqual(vec(), ['C sostenido menor', 'D menor'.replace('D menor', 'B menor')].sort());
+  assert.match(t.textContent, /Relativa: A mayor/);
+
+  // Las otras pestañas siguen conectadas con la misma tonalidad
+  boton('Tonalidades', t).click();
+  await esperar(() => /F# menor/.test(t.querySelector('h2').textContent), 'Tonalidades muestra F# menor');
+  assert.equal(t.querySelector('svg.cq'), null);
+
+  // Extremos del círculo: 6 sostenidos (F♯) y 5 bemoles (D♭); D♯m = 6 sostenidos
+  boton('Círculo', t).click();
+  await esperar(() => t.querySelector('svg.cq'), 'otra vez el círculo');
+  t.querySelector('[aria-label="D sostenido menor"]').dispatchEvent(new n.w.Event('click', { bubbles: true }));
+  await esperar(() => sel()[0] === 'D sostenido menor', 'D♯m');
+  assert.equal(t.querySelector('.cq-c2').textContent, '6♯');
+  t.querySelector('[aria-label="D bemol mayor"]').dispatchEvent(new n.w.Event('click', { bubbles: true }));
+  await esperar(() => sel()[0] === 'D bemol mayor', 'D♭');
+  assert.equal(t.querySelector('.cq-c2').textContent, '5♭');
+  sinErrores(n); n.cerrar();
+});
+
+test('PRACTICAR · Canción sorpresa: sale una canción sin acordes a la vista, no repite hasta agotar y abre la canción', async () => {
+  memoria.clear();
+  sembrar([['Aleluya', 'G', ['Coro', 'G D | Em C']], ['Brillas', 'C', ['Coro', 'C G Am F']], ['Vacía', 'D']]);
+  const n = await navegador();
+  const { d, $, tecla, w } = n;
+  await esperar(() => d.querySelectorAll('#lista .fila').length === 3, 'las 3 canciones');
+  const pr = await abrirPractica(n);
+  pr.querySelector('#pr-sorpresa-ir').click();
+  await esperar(() => $('so-ir') && !$('so-ir').disabled, 'menú de Canción sorpresa');
+  assert.match($('so-cuenta').textContent, /3 canciones/);
+  $('so-ir').click();
+  await esperar(() => $('so-titulo'), 'primera canción');
+  assert.ok($('so-tono').textContent.length > 0);
+  assert.equal($('so-acordes'), null, 'antes de ver, no se muestran los acordes');
+  const vistas = [$('so-titulo').textContent];
+  $('so-ver').click();
+  await esperar(() => $('so-acordes'), 'acordes revelados');
+  assert.ok($('so-abrir') && $('so-abrir').textContent === 'Abrir «' + vistas[0] + '»');
+  for (let i = 0; i < 2; i++) {
+    const antes = $('so-titulo').textContent;
+    $('so-otra').click();
+    await esperar(() => $('so-titulo') && $('so-titulo').textContent !== antes, 'otra canción');
+    vistas.push($('so-titulo').textContent);
+  }
+  assert.equal(new Set(vistas).size, 3, 'las 3 distintas antes de repetir: ' + vistas);
+  assert.match(d.querySelector('#practica .ctitulo').textContent, /Última de la vuelta/);
+  $('so-otra').click();
+  await esperar(() => $('so-vuelta'), 'empieza una vuelta nueva');
+  assert.notEqual($('so-titulo').textContent, vistas[2], 'la última no sale de seguido');
+  $('so-ver').click();
+  await esperar(() => $('so-abrir'), 'revelar');
+  const titulo = $('so-titulo').textContent;
+  $('so-abrir').click();
+  const caja = $('cancion');
+  await esperar(() => !caja.hidden && caja.getAttribute('aria-label') === titulo, 'se abre ' + titulo);
+  tecla(d, 'Escape');
+  await esperar(() => caja.hidden, 'Esc cierra la canción');
+  await new Promise(r => setTimeout(r, 400));
+  assert.equal(pr.hidden, false, 'Practicar sigue abierto'); assert.ok($('so-titulo'), 'y la sorpresa sigue en pantalla');
+  // Atrás desde la canción vuelve al menú de la sorpresa; otra vez atrás, al menú de Practicar
+  w.history.back();
+  await esperar(() => $('so-ir') && !$('so-titulo'), 'atrás vuelve al menú de la sorpresa');
+  w.history.back();
+  await esperar(() => $('pr-sorpresa-ir'), 'y luego al menú de Practicar');
+  sinErrores(n); n.cerrar();
+});
+
+test('EDITOR · Copia de seguridad: el archivo lleva la fecha y Ajustes recuerda cuándo fue la última', async () => {
+  memoria.clear();
+  sembrar([['Aleluya', 'G', ['Coro', 'G D | Em C']]]);
+  const n = await navegador('?editar');
+  const { d, $, escribir, boton, w } = n;
+  const pass = await esperar(() => d.querySelector('.capa input[type=password]'), 'ventana de contraseña');
+  escribir(pass, process.env.ADMIN_PASSWORD); boton('Entrar').click();
+  await esperar(() => !d.querySelector('.capa'), 'entrada');
+  const bajadas = [];
+  w.URL.createObjectURL = blob => { bajadas.push(blob); return 'blob:prueba'; };
+  w.URL.revokeObjectURL = () => {};
+  const clic = w.HTMLAnchorElement.prototype.click;
+  let nombre = '';
+  w.HTMLAnchorElement.prototype.click = function () { nombre = this.download; };
+  boton('Ajustes').click();
+  await esperar(() => $('copia-ultima'), 'Ajustes');
+  assert.match($('copia-ultima').textContent, /Aún no has descargado una copia/);
+  boton('Descargar copia').click();
+  const hoy = new Date().toLocaleDateString('en-CA');
+  assert.equal(nombre, 'repertorio-copia-' + hoy + '.json');
+  assert.equal(bajadas.length, 1);
+  const copia = JSON.parse(await bajadas[0].text());
+  assert.equal(copia.canciones.length, 1); assert.equal(copia.canciones[0].titulo, 'Aleluya');
+  assert.match($('copia-ultima').textContent, /Última copia descargada en este dispositivo: hoy \(\d{4}-\d{2}-\d{2}\)\./);
+  assert.doesNotMatch($('copia-ultima').textContent, /Ya pasó más de un mes/);
+  // Con una copia vieja, avisa
+  w.localStorage.setItem('repertorio-ultima-copia', JSON.stringify('2020-01-01'));
+  d.querySelector('.capa-t button').click();
+  boton('Ajustes').click();
+  await esperar(() => /Ya pasó más de un mes/.test(($('copia-ultima') || { textContent: '' }).textContent), 'aviso de copia vieja');
+  w.HTMLAnchorElement.prototype.click = clic;
+  sinErrores(n); n.cerrar();
+});

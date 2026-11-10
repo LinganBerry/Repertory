@@ -20,7 +20,7 @@
   };
 
   // Sesión: el servidor cambia la contraseña por un pase que vence a los 30 días. La contraseña NO se guarda.
-  const { leerPase: leerSesion, olvidarPase: olvidarSesion, guardarPase: guardarSesion, enviar } = window.RepertorioLocal;
+  const { leerPase: leerSesion, olvidarPase: olvidarSesion, guardarPase: guardarSesion, enviar, leer, guardar } = window.RepertorioLocal;
   let token = leerSesion();
 
   // Partes: una por línea, "Nombre (tono): acordes // pista". Tono y pista son opcionales; | marca el compás.
@@ -259,13 +259,24 @@
     if (i < 0) $('f-titulo').focus();
   }
 
-  function descargarCopia() {
+  // Copia de seguridad: el archivo lleva la fecha en el nombre y este dispositivo recuerda cuándo fue la última, para avisarte si pasa el tiempo.
+  const ULTIMA_COPIA = 'repertorio-ultima-copia';
+  const fechaHoy = () => new Date().toLocaleDateString('en-CA');   // AAAA-MM-DD en tu zona horaria
+  function textoUltimaCopia() {
+    const f = leer(ULTIMA_COPIA, '');
+    if (typeof f !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(f)) return 'Aún no has descargado una copia en este dispositivo.';
+    const dias = Math.max(0, Math.round((new Date(fechaHoy() + 'T12:00:00') - new Date(f + 'T12:00:00')) / 86400000));
+    return 'Última copia descargada en este dispositivo: ' + (dias === 0 ? 'hoy' : dias === 1 ? 'ayer' : 'hace ' + dias + ' días') + ' (' + f + ').' + (dias > 30 ? ' Ya pasó más de un mes: descarga una nueva.' : '');
+  }
+  function descargarCopia(aviso) {
     const d = app.data;
     const copia = { version: 2, nombre: d.nombre || '', intro: d.intro || '', canciones: lista().map(c => ({ id: c.id, ...limpia(c) })) };
     const url = URL.createObjectURL(new Blob([JSON.stringify(copia, null, 2)], { type: 'application/json' }));
-    const enlace = el('a', { href: url, download: 'repertorio-copia.json' });
+    const enlace = el('a', { href: url, download: 'repertorio-copia-' + fechaHoy() + '.json' });
     document.body.append(enlace); enlace.click(); enlace.remove();
     setTimeout(() => URL.revokeObjectURL(url), 30000);   // si se libera al instante, algunos navegadores cancelan la descarga y el archivo llega vacío
+    guardar(ULTIMA_COPIA, fechaHoy());
+    if (aviso) aviso.textContent = textoUltimaCopia();
   }
 
   // Importar una copia (.json de "Descargar copia", de la versión nueva o de la vieja). Solo SUMA y ACTUALIZA: nunca quita canciones.
@@ -328,11 +339,13 @@
         app.render();
         exito();
       } }));
+    const ultima = el('p', { className: 'pista-ayuda', id: 'copia-ultima' }, textoUltimaCopia());
     abrirCapa('Ajustes', [
       el('div', { className: 'grupo' }, el('h3', {}, 'Página'), dato('nombre', 'Nombre'), dato('intro', 'Texto de presentación')),
       el('div', { className: 'grupo' }, el('h3', {}, 'Copia de seguridad'),
-        el('p', {}, el('button', { type: 'button', onclick: descargarCopia }, 'Descargar copia'), ' ',
+        el('p', {}, el('button', { type: 'button', onclick: () => descargarCopia(ultima) }, 'Descargar copia'), ' ',
           el('button', { type: 'button', onclick: () => archivo.click() }, 'Importar copia'), archivo),
+        ultima,
         el('p', { className: 'pista-ayuda' }, 'Importar suma y actualiza canciones; nunca quita ninguna.')),
       el('div', { className: 'grupo' }, el('h3', {}, 'Papelera'),
         el('p', {}, el('button', { type: 'button', onclick: abrirPapelera }, 'Ver papelera'))),
