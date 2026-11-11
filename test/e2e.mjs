@@ -611,7 +611,11 @@ test('PRACTICAR (sesión diaria): mezcla temas, se guarda por tema y termina al 
   await esperar(() => n.$('pr-stats-ir'), 'inicio'); n.$('pr-stats-ir').click();
   await esperar(() => n.$('pr-stats'), 'estadísticas');
   const txt = n.$('practica').textContent;
-  assert.match(n.$('pr-stats').textContent, new RegExp(`^${respondidas} preguntas ·`)); assert.match(txt, /Últimos 7 días/); assert.match(txt, /Por tema/); assert.match(txt, /Puntos débiles/);
+  assert.match(n.$('pr-stats').textContent, new RegExp(`^${respondidas} preguntas ·`)); assert.match(txt, /Últimos 7 días/); assert.match(txt, /Por tema/);
+  // "Puntos débiles" solo sale si algún ejercicio tuvo 3 o más intentos con menos de 80 % de aciertos; con preguntas al azar eso no siempre pasa
+  // (por eso esta prueba fallaba a veces): se comprueba que la pantalla coincide con lo que calcula la lógica, sea cual sea el azar.
+  const hayDebiles = n.w.Notacion.debiles(n.w.Notacion.estadisticas(P.todas()), 8).length > 0;
+  assert.equal(/Puntos débiles/.test(txt), hayDebiles, 'Puntos débiles aparece exactamente cuando hay ejercicios débiles');
   [...n.d.querySelectorAll('#practica button')].find(b => /← Practicar/.test(b.textContent)).click();
   await esperar(() => n.d.querySelector('#practica .pr-tema'), 'vuelve a Practicar');
   sinErrores(n); n.cerrar();
@@ -972,7 +976,7 @@ test('EDITOR · Copia de seguridad: el archivo lleva la fecha y Ajustes recuerda
   sinErrores(n); n.cerrar();
 });
 
-test('CANCIÓN · Nashville: Letras, Romanos o Números; el acorde sigue en el chip (Escuchar lo lee) y la elección se recuerda', async () => {
+test('CANCIÓN · Nashville: Letras, Romanos o Números; el acorde sigue en el chip y la elección se recuerda', async () => {
   memoria.clear();
   sembrar([['Aleluya', 'G', ['Verso', 'G D Em C'], ['Puente', 'C G Am F']], ['Sola', 'Am', ['Coro', 'Am F C G']], ['Vacía', 'G']]);
   const n = await navegador();

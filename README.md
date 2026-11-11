@@ -55,14 +55,6 @@ Se abre tocando 5 veces el título, o con `/?editar`, y pide tu contraseña. Agr
 
 **Al agregar o quitar archivos de la página**, actualiza la lista `BASE` de `sw.js` y sube el número de `CACHE` (así los teléfonos se actualizan).
 
-## Escuchar tu piano (`escucha/`)
-
-Botón **Escuchar** en cada canción: detecta por el micrófono qué acorde tocas y lo marca en los acordes de esa canción. Todo corre en el dispositivo.
-
-- Motor **PitchPlease** v3.1.0 (MIT, licencia en `escucha/LICENCIAS.txt`), siempre con el modelo de piano (`models/piano.bin`): no hay modelo ligero.
-- Funciona sin internet: `sw.js` guarda estos archivos (lista `ESCUCHA`). Si cambias archivos de `escucha/pitchplease/`, actualiza esa lista y sube `CACHE`.
-- `vercel.json` permite el micrófono solo para esta página y `'wasm-unsafe-eval'` (WebAssembly; no permite `eval` de JavaScript).
-
 ## Pruebas
 
 - `npm test`: servidor, scripts, contraste de colores AA, modo sin conexión y lógica de Practicar. No necesita internet ni Vercel.

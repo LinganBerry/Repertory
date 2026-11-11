@@ -347,16 +347,8 @@
     presentando.raf = requestAnimationFrame(paso);
   }
 
-  // Escuchar tu piano: el motor se carga solo al tocar el botón, para no pesar en el resto de la página.
-  let cargandoEscucha = null;
-  function abrirEscucha() {
-    if (!cargandoEscucha) cargandoEscucha = new Promise((ok, no) => { const s = document.createElement('script'); s.src = '/escucha/escucha.js'; s.onload = ok; s.onerror = () => { cargandoEscucha = null; s.remove(); no(); }; document.head.appendChild(s); });
-    cargandoEscucha.then(() => window.Escucha.alternar($('cancion'))).catch(() => { /* sin conexión y sin copia: no pasa nada */ });
-  }
-
   let obsTitulo = null;
   function mostrar() {
-    if (window.Escucha) window.Escucha.parar();
     cerrarPresentar();
     const c = actual, caja = $('cancion');
     const hoja = c.letra && window.Hoja ? window.Hoja.interpretar(c.letra) : [];
@@ -378,7 +370,6 @@
       el('div', { className: 'cbarra' },
         el('button', { type: 'button', title: 'Volver (Esc)', onclick: () => history.back() }, '← Volver'),
         el('span', { className: 'ctitulo' }, c.titulo),
-        el('button', { type: 'button', id: 'escuchar', title: 'Escuchar tu piano', 'aria-label': 'Escuchar tu piano', onclick: abrirEscucha }, 'Escuchar'),
         el('button', { type: 'button', id: 'zmenos', 'aria-label': 'Letra más chica', onclick: () => cambiarZoom(-.15) }, 'A−'),
         el('button', { type: 'button', id: 'zmas', 'aria-label': 'Letra más grande', onclick: () => cambiarZoom(.15) }, 'A+')),
       el('div', { className: 'ccuerpo ' + (verLetra ? 'v-letra' : 'v-acordes') + ' n-' + vistaAcordes },
@@ -447,7 +438,6 @@
     pantallaEncendida();
   }
   function cerrarCancion() {
-    if (window.Escucha) window.Escucha.parar();
     cerrarPresentar();
     actual = null; desde = [];
     $('cancion').hidden = true;

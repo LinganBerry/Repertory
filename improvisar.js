@@ -120,32 +120,36 @@
     document.querySelectorAll('#im-fila .chip').forEach((c, i) => c.classList.toggle('oye', i === pos));
   }
 
-  function pantalla() {
+  function pantalla(arriba) {
     const pl = PLANTILLAS.find(p => p.id === base);
     const grupo = (rotulo, lista, activo, alElegir, attr) => el('div', { className: 'pastillas', rol: 'group', 'aria-label': rotulo },
       ...lista.map(([id, texto]) => el('button', { type: 'button', [attr]: String(id), 'aria-pressed': String(id === activo), onclick: () => { foco = '[' + attr + '="' + id + '"]'; alElegir(id); } }, texto)));
     const cambiar = () => { if (tocando) lanzar(); pantalla(); };
     const previo = acordes && acordes.length ? acordes : (M ? M.construir(tono, base) : null);
-    const y = caja.scrollTop;   // al elegir un tono o una base la pantalla no salta arriba
+    const y = arriba ? 0 : caja.scrollTop;   // al elegir un tono o una base la pantalla no salta arriba; al abrir, sí empieza arriba
+    const encabezado = barra(el('button', { type: 'button', title: 'Volver a Practicar', onclick: () => { parar(); volverFn(); } }, '← Practicar'), 'Improvisación');
+    // Fijo arriba: el acorde que suena, sus notas guía y Tocar / Parar (así se ven sin bajar la pantalla).
+    const panel = previo ? el('div', { className: 'im-panel', 'aria-live': 'polite' },
+      el('p', { className: 'rt-acorde', id: 'im-acorde' }, bonito(previo[tocando ? pos : 0].simbolo)),
+      el('p', { className: 'rt-pos', id: 'im-romano' }, ''),
+      el('p', { className: 'pr-pedido', id: 'im-guia' }, ''),
+      el('div', { className: 'im-botones' },
+        el('button', { type: 'button', className: 'primario', id: 'im-tocar', disabled: !M, onclick: () => { lanzar(); pantalla(); } }, tocando ? '↻ Reiniciar' : '▶ Tocar base'),
+        el('button', { type: 'button', id: 'im-parar', disabled: !tocando, onclick: () => { parar(); pos = 0; pantalla(); } }, '■ Parar'))) : null;
     poner(
-      barra(el('button', { type: 'button', title: 'Volver a Practicar', onclick: () => { parar(); volverFn(); } }, '← Practicar'), 'Improvisación'),
-      el('div', { className: 'ccuerpo pr-sesion', 'data-improvisar': '1' },
-        el('p', {}, 'Elige un tono y una base: suena en bucle y tú improvisas encima. Primero toca solo las notas guía (3ª y 7ª); luego únelas con las notas de la escala.'),
+      encabezado,
+      panel,
+      el('div', { className: 'ccuerpo', 'data-improvisar': '1' },
         !M ? el('p', { id: 'im-cargando' }, cargando ? 'Cargando la teoría…' : 'No se pudo cargar la teoría. Abre Teoría una vez con internet y vuelve aquí.') : null,
+        previo ? el('p', { className: 'a', id: 'im-sig' }, '') : null,
+        previo ? el('p', { className: 'a', id: 'im-escala' }, '') : null,
+        previo ? el('div', { className: 'compas', id: 'im-fila' }, ...previo.map(a => el('span', { className: 'chip' }, el('b', {}, bonito(a.simbolo)), el('i', { className: 'rom' }, a.romano)))) : null,
+        el('p', {}, 'Elige un tono y una base: suena en bucle y tú improvisas encima. Primero toca solo las notas guía (3ª y 7ª); luego únelas con las notas de la escala.'),
         el('h3', {}, 'Tono'), grupo('Tono', TONOS.map(t => [t[0], t[1]]), tono, id => { tono = id; acordes = null; cambiar(); }, 'data-tono'),
         el('h3', {}, 'Base'), grupo('Base', PLANTILLAS.map(p => [p.id, p.nombre]), base, id => { base = id; acordes = null; cambiar(); }, 'data-base'),
         el('p', { className: 'a', id: 'im-base-texto' }, pl.texto),
-        el('h3', {}, 'Velocidad'), grupo('Velocidad', TEMPOS.map(t => [t, t + ' pulsos']), bpm, id => { bpm = Number(id); cambiar(); }, 'data-bpm'),
-        el('div', { className: 'rt-botones' },
-          el('button', { type: 'button', className: 'primario', id: 'im-tocar', disabled: !M, onclick: () => { lanzar(); pantalla(); } }, tocando ? '↻ Reiniciar' : '▶ Tocar base'),
-          el('button', { type: 'button', id: 'im-parar', disabled: !tocando, onclick: () => { parar(); pos = 0; pantalla(); } }, '■ Parar')),
-        previo ? el('div', { className: 'pr-sesion', 'aria-live': 'polite' },
-          el('p', { className: 'rt-acorde', id: 'im-acorde' }, bonito(previo[tocando ? pos : 0].simbolo)),
-          el('p', { className: 'rt-pos', id: 'im-romano' }, ''),
-          el('p', { className: 'pr-pedido', id: 'im-guia' }, ''),
-          el('p', { className: 'a', id: 'im-sig' }, ''),
-          el('p', { className: 'a', id: 'im-escala' }, ''),
-          el('div', { className: 'compas', id: 'im-fila' }, ...previo.map(a => el('span', { className: 'chip' }, el('b', {}, bonito(a.simbolo)), el('i', { className: 'rom' }, a.romano))))) : null));
+        el('h3', {}, 'Velocidad'), grupo('Velocidad', TEMPOS.map(t => [t, t + ' pulsos']), bpm, id => { bpm = Number(id); cambiar(); }, 'data-bpm')));
+    if (panel) panel.style.top = encabezado.offsetHeight + 'px';
     caja.scrollTop = y;
     if (previo) { if (!acordes) acordes = previo; pintarActual(); }
     const f = foco && caja.querySelector(foco); foco = null;
@@ -156,11 +160,12 @@
   // Practicar llama a abrir() al entrar y a atras() con Atrás. Aquí Atrás siempre devuelve false (Practicar vuelve a su menú) pero antes apaga el sonido.
   api.abrir = (cajaPracticar, volver) => {
     caja = cajaPracticar; volverFn = volver; acordes = null; tocando = false;
-    pantalla(); caja.focus({ preventScroll: true });
+    pantalla(true); caja.focus({ preventScroll: true });
     const t = raiz.RepertorioTeoria;
     if (M || !t || !t.cargarTonal) return;
     cargando = true;
-    t.cargarTonal().then(T => { M = motor(T); cargando = false; if (document.getElementById('im-tocar')) pantalla(); }).catch(() => { cargando = false; if (document.getElementById('im-tocar')) pantalla(); });
+    const sigueAbierta = () => caja && caja.isConnected && caja.querySelector('[data-improvisar]');   // por si saliste antes de que cargara
+    t.cargarTonal().then(T => { M = motor(T); cargando = false; if (sigueAbierta()) pantalla(); }).catch(() => { cargando = false; if (sigueAbierta()) pantalla(); });
   };
   api.atras = () => { parar(); return false; };
   api.parar = parar;

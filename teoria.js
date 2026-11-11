@@ -327,7 +327,7 @@
     sectores('cq-m', CQ_R[1], CQ_R[2], 84, true, CQ_MENOR);
     const mayor = CQ_MAYOR[pos][0], alt = T.Key.majorKey(mayor).alteration;
     const nombre = menor ? CQ_MENOR[pos][1] : CQ_MAYOR[pos][1];
-    svg.append(sv('text', { x: CQ_C, y: 150, class: 'cq-c' }, nombre), sv('text', { x: CQ_C, y: 176, class: 'cq-c2' }, cqArmadura(alt)));
+    svg.append(sv('text', { x: CQ_C, y: 140, class: 'cq-c' }, nombre), sv('text', { x: CQ_C, y: 168, class: 'cq-c2' }, cqArmadura(alt)), sv('text', { x: CQ_C, y: 192, class: 'cq-c3' }, 'armadura'));
     return svg;
   }
   function circulo() {
@@ -357,7 +357,7 @@
       const r = est.tab === 'escalas' ? escalas() : est.tab === 'acordes' ? acordes() : est.tab === 'circulo' ? circulo() : tonalidades();
       // Arriba (fijo): título, botones de sonido y teclado. Abajo: lo que eliges y los detalles.
       if (r.notas) panel = el('div', { className: 'tpanel' },
-        el('div', { className: 'tfila' }, el('h2', {}, r.titulo), ...r.botones, el('button', { type: 'button', 'aria-label': 'Parar', onclick: parar }, '■')),
+        el('div', { className: 'tfila' }, el('h2', {}, r.titulo), el('div', { className: 'tbot' }, ...r.botones, el('button', { type: 'button', 'aria-label': 'Parar', onclick: parar }, '■'))),
         teclado(r.notas, r.raiz),
         el('p', { className: 'a estado-piano' }, estadoPiano()));
       cuerpo = [

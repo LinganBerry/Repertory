@@ -104,8 +104,9 @@
   .teclado { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
   .teclado rect { cursor: pointer; }
   .tpanel { position: sticky; z-index: 2; padding: .4rem 1rem .5rem; background: var(--bg); border-bottom: 1px solid var(--line); }
-  .tfila { display: flex; align-items: center; gap: .4rem; }
-  .tfila h2 { flex: 1; min-width: 0; margin: 0; font-size: 1.15rem; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tfila { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .4rem; }   /* si no caben título y botones, el título pasa a su propia línea en vez de cortarse */
+  .tfila h2 { flex: 1 1 6rem; min-width: 0; margin: 0; font-size: 1.15rem; line-height: 1.2; overflow-wrap: anywhere; }
+  .tbot { display: flex; gap: .4rem; flex: none; }   /* los botones de sonido van juntos: si no caben al lado del título, bajan todos a la vez */
   .tfila button { flex: none; padding: .35rem .65rem; font-weight: 700; }
   .tpanel .teclado { margin: .45rem 0 .15rem; }
   .estado-piano { margin: 0; font-size: .8rem; }
@@ -298,16 +299,10 @@ button:active { background: var(--fila); color: var(--ink); border-color: var(--
 /* mensajes vacíos centrados */
 .vacio { text-align: center; }
 
-/* Escuchar tu piano */
+/* Acorde que va sonando (Improvisación): el chip se marca */
 .chip.oye { background: var(--accent); color: var(--bg); border-color: var(--accent); }
 .chip.oye .rom { color: inherit; }
-.escucha { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; padding: .8rem max(1rem, env(safe-area-inset-right, 0px)) calc(.8rem + env(safe-area-inset-bottom, 0px)) max(1rem, env(safe-area-inset-left, 0px)); background: var(--bg); border-top: 2px solid var(--ink); box-shadow: 0 -2px 8px rgba(0, 0, 0, .12); max-width: 44rem; margin: 0 auto; }
-.es-txt { margin: 0 0 .6rem; color: var(--muted); }
-.es-acorde { font: 700 2.4rem/1.1 ui-monospace, Menlo, Consolas, monospace; min-height: 2.6rem; }
-.es-notas { color: var(--muted); font: .95rem ui-monospace, Menlo, Consolas, monospace; min-height: 1.4rem; margin: .1rem 0 .6rem; }
-.es-fila { display: flex; gap: .5rem; justify-content: space-between; }
 @media (max-width: 340px) { .cbarra button { padding-left: .5rem; padding-right: .5rem; } }
-@media print { .escucha { display: none !important; } }
 
 /* Letra con acordes (hoja) y modo presentación */
 .vistas { padding-top: .2rem; }
@@ -364,7 +359,7 @@ body.presentando { overflow: hidden; }
   .cq { display: block; width: 100%; max-width: 22rem; margin: .4rem auto .8rem; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   .cq-s { cursor: pointer; outline: none; }
   .cq-s path { fill: var(--fila); stroke: var(--line); stroke-width: 1.5; }
-  .cq-s.vec path { fill: var(--fila2); stroke: var(--ink); }
+  .cq-s.vec path { fill: var(--fila2); }
   .cq-s.sel path { fill: var(--ink); stroke: var(--ink); }
   .cq-s:active path { fill: var(--line); }
   .cq-s.sel:active path { fill: var(--ink); }
@@ -383,3 +378,13 @@ body.presentando { overflow: hidden; }
   .n-romanos .chip b, .n-numeros .chip b { order: 1; font: 400 calc(.8rem * var(--z))/1.1 var(--sans); color: var(--muted); }
   .n-numeros .chip .rom { display: none; }
   .chip.oye b, .chip.oye .rom, .chip.oye .nas, .n-romanos .chip.oye .rom, .n-numeros .chip.oye .nas, .n-romanos .chip.oye b, .n-numeros .chip.oye b { color: inherit; }
+
+  /* Letras / Romanos / Números solo cambian los chips de la pestaña Acordes: en Letra no se muestran */
+  .v-letra .n-sel { display: none; }
+  .cq-c3 { fill: var(--muted); text-anchor: middle; font: 600 11px var(--sans); }
+  /* Improvisación: lo que suena ahora queda fijo arriba; los controles se desplazan debajo */
+  .im-panel { position: sticky; z-index: 2; padding: .4rem 1rem .6rem; text-align: center; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .im-panel .rt-acorde { margin: 0; font-size: 2.6rem; line-height: 1.1; }
+  .im-panel .rt-pos, .im-panel .pr-pedido { margin: .1rem 0; }
+  .im-botones { display: flex; gap: .5rem; margin-top: .4rem; }
+  .im-botones button { flex: 1; }

@@ -30,7 +30,7 @@
 
   // --- lista de listas ---
   function indice() {
-    const campo = el('input', { type: 'text', maxLength: 60, placeholder: 'Nueva lista (ej. Culto del domingo)', 'aria-label': 'Nombre de la nueva lista', autocomplete: 'off', enterKeyHint: 'done' });
+    const campo = el('input', { type: 'text', maxLength: 60, placeholder: 'Nueva lista (ej. Domingo)', 'aria-label': 'Nombre de la nueva lista', autocomplete: 'off', enterKeyHint: 'done' });
     const crear = () => {
       const nombre = campo.value.trim();
       if (!nombre) { campo.focus(); return; }
