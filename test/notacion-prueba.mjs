@@ -59,10 +59,6 @@ test('preguntas: 300 por tema y nivel, siempre válidas, con respuesta correcta 
         assert.ok(N.botones(id, nv.id).opciones.some(o => o.id === p.respuesta.id), 'la respuesta correcta está entre los botones');
       } else if (p.tipo === 'oido') {
         assert.ok(N.comprobar(p, { id: p.respuesta.id })); assert.ok(!N.comprobar(p, { id: 'otro' }));
-      } else {
-        assert.ok(N.comprobar(p, { pc: p.respuesta.pc })); assert.ok(N.comprobar(p, { pc: p.respuesta.pc + 12 }), 'cualquier octava vale');
-        assert.ok(!N.comprobar(p, { pc: p.respuesta.pc + 1 }));
-        if (p.tipo === 'teclado') assert.equal(p.midi % 12, p.respuesta.pc);
       }
     }
   }
@@ -82,9 +78,6 @@ test('lo que fallas sale más que lo que dominas (pesos)', () => {
 test('botones de respuesta según tema y nivel', () => {
   assert.deepEqual(JSON.parse(JSON.stringify(N.botones('sol', 3))), { tipo: 'letras', letras: ['C', 'D', 'E', 'F', 'G', 'A', 'B'], alteraciones: false });
   assert.equal(N.botones('sol', 5).alteraciones, true);
-  assert.equal(N.botones('tecla', 2).tipo, 'ninguno');
-  assert.equal(N.botones('teclado', 3).pcs.length, 7); assert.equal(N.botones('teclado', 4).pcs.length, 5); assert.equal(N.botones('teclado', 5).pcs.length, 12);
-  assert.deepEqual(JSON.parse(JSON.stringify(N.botones('teclado', 4).pcs.map(x => x.texto))), ['C#/Db', 'D#/Eb', 'F#/Gb', 'G#/Ab', 'A#/Bb']);
 });
 
 test('estadísticas, precisión y racha', () => {
@@ -240,8 +233,8 @@ test('rótulos y servidor: los ejercicios nuevos se muestran bien y el servidor 
 // --- Bloque 5: sesión diaria y resumen ---
 test('sesión diaria: reparte entre temas, prefiere lo débil y lo olvidado, y nunca repite el tema anterior', () => {
   const rng = semilla(21), temas = Object.keys(N.TEMAS), nivelDe = () => 1;
-  // todo dominado y practicado hoy, salvo "fa" (débil) y "tecla" (hace 6 días)
-  const sesiones = temas.map(t => ({ id: 'x' + t, t, l: 1, f: t === 'tecla' ? '2026-10-22' : '2026-10-28', n: 10, a: t === 'fa' ? 3 : 10, ms: 1, q: [] }));
+  // todo dominado y practicado hoy, salvo "fa" (débil) y "int-asc" (hace 6 días)
+  const sesiones = temas.map(t => ({ id: 'x' + t, t, l: 1, f: t === 'int-asc' ? '2026-10-22' : '2026-10-28', n: 10, a: t === 'fa' ? 3 : 10, ms: 1, q: [] }));
   const est = N.estadisticas(sesiones), cuenta = {};
   let previo = null;
   for (let i = 0; i < 6000; i++) {
@@ -252,7 +245,7 @@ test('sesión diaria: reparte entre temas, prefiere lo débil y lo olvidado, y n
   assert.equal(Object.keys(cuenta).length, temas.length, 'salen todos los temas');
   const normal = cuenta.sol;
   assert.ok(cuenta.fa > 2.5 * normal, `débil: fa=${cuenta.fa} sol=${normal}`);
-  assert.ok(cuenta.tecla > 1.4 * normal, `olvidado: tecla=${cuenta.tecla} sol=${normal}`);
+  assert.ok(cuenta['int-asc'] > 1.4 * normal, `olvidado: int-asc=${cuenta['int-asc']} sol=${normal}`);
   // un tema sin historial pesa más que uno dominado; un nivel inexistente cae al 1
   const sin = N.estadisticas([]), c2 = {}; for (let i = 0; i < 3000; i++) { const r = N.elegirTemaDiario(est, sesiones.filter(s => s.t !== 'acordes'), '2026-10-28', () => 99, rng, null); c2[r.tema] = (c2[r.tema] || 0) + 1; assert.equal(r.nivel, 1); }
   assert.ok(c2.acordes > c2.sol);
@@ -306,4 +299,30 @@ test('oído: progresiones con los acordes correctos, en cualquier tono, y el ser
   }
   assert.ok(tonos.size >= 10, 'se usan casi todos los tonos');
   assert.equal(N.rotulo('ap:I-IV-V-I'), 'I-IV-V-I');
+});
+
+test('niveles de líneas adicionales: sol se enfoca en ellas y fa sube hasta tres; cada nota se dibuja con sus líneas', () => {
+  const sol = N.TEMAS.sol.niveles, fa = N.TEMAS.fa.niveles;
+  assert.deepEqual(JSON.parse(JSON.stringify(sol.map(n => n.id))), [1, 2, 3, 4, 5]);
+  assert.deepEqual(JSON.parse(JSON.stringify(fa.map(n => n.id))), [1, 2, 3, 4, 5]);
+  assert.ok(sol.slice(0, 3).every(n => n.pos.every(p => p < 0 || p > 8)), 'sol: los tres primeros niveles son solo notas fuera del pentagrama');
+  assert.deepEqual(JSON.parse(JSON.stringify(sol[0].pos)), [-2, -1, 9, 10]);
+  assert.equal(Math.min(...sol[2].pos), -6); assert.equal(Math.max(...sol[2].pos), 14);
+  assert.deepEqual(JSON.parse(JSON.stringify(fa.slice(0, 3).map(n => n.pos.length))), [5, 4, 9], 'fa conserva líneas, espacios y pentagrama completo');
+  assert.equal(Math.min(...fa[3].pos), -6); assert.equal(Math.max(...fa[3].pos), 14);
+  assert.ok(sol[4].alt && fa[4].alt && !sol[3].alt && !fa[3].alt);
+  const cuenta = svg => (svg.match(/<line /g) || []).length - 5;   // las 5 líneas del pentagrama no cuentan
+  for (const clave of ['sol', 'fa']) for (const pos of [-6, -5, -4, -3, -2, -1, 0, 8, 9, 10, 11, 12, 13, 14]) {
+    const n = N.deIndice(N.CLAVES[clave].base + pos, 0), svg = N.svgPentagrama(clave, n);
+    const esperadas = pos <= -2 ? Math.floor(-pos / 2) : pos >= 10 ? Math.floor((pos - 8) / 2) : 0;
+    assert.equal(cuenta(svg), esperadas, `${clave} pos ${pos}: líneas adicionales`);
+    const y = Number(/<text x="150" y="([\d.-]+)"/.exec(svg)[1]);
+    assert.ok(y >= 10 && y <= 140, `${clave} pos ${pos}: la nota cabe en el dibujo (y=${y})`);
+  }
+  // cada nivel pregunta solo sus posiciones
+  const rng = semilla(5);
+  for (const [tema, ns] of [['sol', sol], ['fa', fa]]) for (const nv of ns) {
+    const permitidas = new Set(nv.pos);
+    for (let i = 0; i < 200; i++) { const p = N.crearPregunta(tema, nv.id, { items: {} }, rng, null); assert.ok(permitidas.has(N.posicion(tema, p.nota)), `${tema}/${nv.id} salió fuera de su rango`); }
+  }
 });

@@ -29,19 +29,22 @@
 
   // --- temas y niveles ---
   const rango = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
-  const NIVELES_PENTAGRAMA = [
+  // Clave de sol: ya la dominas en la academia, así que aquí se trabaja lo que da lectura a primera vista: las líneas adicionales (arriba y abajo).
+  const LINEA_1 = [-2, -1, 9, 10], LINEAS_2 = [...rango(-4, -1), ...rango(9, 12)], LINEAS_3 = [...rango(-6, -1), ...rango(9, 14)], TODO = rango(-6, 14);
+  const NIVELES_SOL = [
+    { id: 1, nombre: 'Una línea adicional', pos: LINEA_1, alt: false },
+    { id: 2, nombre: 'Hasta dos líneas adicionales', pos: LINEAS_2, alt: false },
+    { id: 3, nombre: 'Hasta tres líneas adicionales', pos: LINEAS_3, alt: false },
+    { id: 4, nombre: 'Todo el registro', pos: TODO, alt: false },
+    { id: 5, nombre: 'Con alteraciones', pos: TODO, alt: true }
+  ];
+  // Clave de fa: la que más se trabaja. Se empieza por lo básico y se llega a las líneas adicionales y a todo el registro.
+  const NIVELES_FA = [
     { id: 1, nombre: 'Líneas', pos: [0, 2, 4, 6, 8], alt: false },
     { id: 2, nombre: 'Espacios', pos: [1, 3, 5, 7], alt: false },
     { id: 3, nombre: 'Pentagrama completo', pos: rango(0, 8), alt: false },
-    { id: 4, nombre: 'Líneas adicionales', pos: [...rango(-4, -1), ...rango(9, 12)], alt: false },
-    { id: 5, nombre: 'Con alteraciones', pos: rango(-4, 12), alt: true }
-  ];
-  const NIVELES_TECLADO = [
-    { id: 1, nombre: 'C D E', pcs: [0, 2, 4] },
-    { id: 2, nombre: 'F G A B', pcs: [5, 7, 9, 11] },
-    { id: 3, nombre: 'Las 7 naturales', pcs: NATURALES_PC },
-    { id: 4, nombre: 'Teclas negras', pcs: NEGRAS_PC },
-    { id: 5, nombre: 'Las 12 notas', pcs: rango(0, 11) }
+    { id: 4, nombre: 'Líneas adicionales (hasta tres)', pos: LINEAS_3, alt: false },
+    { id: 5, nombre: 'Todo el registro, con alteraciones', pos: TODO, alt: true }
   ];
   // --- oído: intervalos y acordes (semitonos desde la nota más grave) ---
   const INTERVALOS = [
@@ -126,10 +129,8 @@
   const nombreMidi = m => SOST[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
 
   const TEMAS = {
-    sol: { grupo: 'Pentagrama', nombre: 'Clave de sol', tipo: 'pentagrama', niveles: NIVELES_PENTAGRAMA },
-    fa: { grupo: 'Pentagrama', nombre: 'Clave de fa', tipo: 'pentagrama', niveles: NIVELES_PENTAGRAMA },
-    teclado: { grupo: 'Teclado', nombre: 'Nombrar la tecla marcada', tipo: 'teclado', niveles: NIVELES_TECLADO },
-    tecla: { grupo: 'Teclado', nombre: 'Tocar la tecla de la nota', tipo: 'tecla', niveles: NIVELES_TECLADO },
+    sol: { grupo: 'Pentagrama', nombre: 'Clave de sol', tipo: 'pentagrama', niveles: NIVELES_SOL },
+    fa: { grupo: 'Pentagrama', nombre: 'Clave de fa', tipo: 'pentagrama', niveles: NIVELES_FA },
     'int-asc': { grupo: 'Oído', nombre: 'Intervalos que suben', tipo: 'oido', modo: 'asc', prefijo: 'ia', niveles: NIVELES_INTERVALOS, datos: INTERVALOS },
     'int-desc': { grupo: 'Oído', nombre: 'Intervalos que bajan', tipo: 'oido', modo: 'desc', prefijo: 'id', niveles: NIVELES_INTERVALOS, datos: INTERVALOS },
     'int-arm': { grupo: 'Oído', nombre: 'Intervalos a la vez', tipo: 'oido', modo: 'arm', prefijo: 'ih', niveles: NIVELES_INTERVALOS, datos: INTERVALOS },
@@ -230,10 +231,7 @@
       }
       return out;
     }
-    // teclado: dos octavas C4–B5; la tecla pedida puede estar en cualquiera
-    const out = [];
-    for (const pc of N.pcs) for (const o of [4, 5]) out.push({ item: (tema === 'tecla' ? 'tecla:' : 'tec:') + NOMBRES_PC[pc], pc, midi: 12 * (o + 1) + pc });
-    return out;
+    throw new Error('Tipo de tema desconocido: ' + T.tipo);
   }
   // Un nivel con alteraciones: ~70 % de las notas llevan alteración (no todas los candidatos pesan igual).
   function crearPregunta(tema, nivel, est, rng, evitar) {
@@ -268,14 +266,13 @@
       return { tema, nivel, tipo: 'oido', item: c.item, pasos, notas, respuesta: { id: c.id }, etiqueta: d.nombre, corto: c.id };
     }
     if (T.tipo === 'pentagrama') return { tema, nivel, tipo: 'pentagrama', item: c.item, clave: tema, nota: c.nota, respuesta: { l: c.nota.l, a: c.nota.a }, etiqueta: nombre(c.nota, false) };
-    if (T.tipo === 'teclado') return { tema, nivel, tipo: 'teclado', item: c.item, midi: c.midi, respuesta: { pc: c.pc }, etiqueta: NOMBRES_PC[c.pc] };
-    return { tema, nivel, tipo: 'tecla', item: c.item, respuesta: { pc: c.pc }, etiqueta: NOMBRES_PC[c.pc] };
+    throw new Error('Tipo de tema desconocido: ' + T.tipo);
   }
   function comprobar(preg, resp) {
     if (preg.tipo === 'oido') return resp.id === preg.respuesta.id;
     if (preg.tipo === 'armadura' || preg.tipo === 'cuantas') return resp.id === preg.respuesta.id;
     if (preg.tipo === 'pentagrama' || preg.tipo === 'escala') return resp.l === preg.respuesta.l && (resp.a || 0) === preg.respuesta.a;
-    return ((resp.pc % 12) + 12) % 12 === preg.respuesta.pc;
+    return false;
   }
   // Botones de respuesta que corresponden a (tema, nivel).
   function botones(tema, nivel) {
@@ -284,9 +281,7 @@
     if (T.tipo === 'armadura' || T.tipo === 'cuantas') return { tipo: 'opciones', opciones: rango(-N.max, N.max).map(f => (T.tipo === 'armadura' ? { id: String(f), texto: nombreTon(f, N.modo, true), titulo: nombreLargo(f, N.modo) } : { id: String(f), texto: textoAlt(f), titulo: letrasAlt(f) })) };
     if (T.tipo === 'escala') return { tipo: 'letras', letras: LETRAS.slice(), alteraciones: true };
     if (T.tipo === 'pentagrama') return { tipo: 'letras', letras: LETRAS.slice(), alteraciones: !!N.alt };
-    if (T.tipo === 'tecla') return { tipo: 'ninguno' };
-    const pcs = N.pcs.every(p => !esNegra(p)) ? NATURALES_PC : N.pcs.every(esNegra) ? NEGRAS_PC : rango(0, 11);
-    return { tipo: 'pcs', pcs: pcs.map(p => ({ pc: p, texto: NOMBRES_PC[p] })) };
+    throw new Error('Tipo de tema desconocido: ' + T.tipo);
   }
 
   // --- dibujo (texto SVG; los colores salen de currentColor y de las clases de estilos.css) ---
@@ -330,7 +325,7 @@
     return `<svg xmlns="http://www.w3.org/2000/svg" class="pteclado" viewBox="0 0 ${14 * W} ${H + 2}" role="${op.interactivo ? 'group' : 'img'}" aria-label="${op.interactivo ? 'Teclado de piano' : 'Teclado de piano con una tecla marcada'}">${blancas.join('')}${negras.join('')}</svg>`;
   }
 
-  const api = { LETRAS, PC, CLAVES, TEMAS, NIVELES_PENTAGRAMA, NIVELES_TECLADO, NOMBRES_PC, nota, indice, deIndice, midi, nombre, bonito, esNegra,
+  const api = { LETRAS, PC, CLAVES, TEMAS, NIVELES_SOL, NIVELES_FA, NOMBRES_PC, nota, indice, deIndice, midi, nombre, bonito, esNegra,
     elegirTemaDiario, resumenSemana, debiles, lentos, posicion, notaEnPos, nombreMidi, INTERVALOS, ACORDES, NIVELES_TONALIDAD, POS_ARMADURA, tonica, nombreTon, nombreLargo, altEnArmadura, gradoDeEscala, textoAlt, letrasAlt, rotulo, svgArmadura, estadisticas, precision, racha, peso, candidatos, crearPregunta, comprobar, botones, svgPentagrama, svgTeclado };
   raiz.Notacion = api;
 })(typeof window !== 'undefined' ? window : globalThis);

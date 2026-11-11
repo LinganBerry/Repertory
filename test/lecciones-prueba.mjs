@@ -60,5 +60,4 @@ test('lo que dicen las lecciones coincide con la lógica (nada escrito de memori
   assert.equal(N.posicion('sol', N.nota('G', 0, 4)), 2, 'sol en la 2ª línea'); assert.equal(N.posicion('fa', N.nota('F', 0, 3)), 6, 'fa en la 4ª línea');
   assert.equal(N.posicion('sol', N.nota('C', 0, 4)), -2, 'C central: 1ª línea adicional abajo en sol'); assert.equal(N.posicion('fa', N.nota('C', 0, 4)), 10, 'C central: 1ª línea adicional arriba en fa');
   // teclado: C4 = 60 y F4 = 65 son las marcadas
-  assert.deepEqual([...L.LECCIONES.find(l => l.id === 'teclado').visuales[0].marcar], [60, 65]);
 });

@@ -290,21 +290,13 @@
     const hechas = ses.hechas.length, aciertos = ses.hechas.filter(h => h[1]).length;
     let visual;
     if (p.tipo === 'pentagrama') visual = nodoSvg(N.svgPentagrama(p.clave, p.nota));
-    else if (p.tipo === 'teclado') visual = nodoSvg(N.svgTeclado({ marcar: [p.midi], clases: feedback ? { [p.midi]: feedback.ok ? 'pk-ok' : 'pk-mal' } : {} }));
     else if (p.tipo === 'armadura') visual = nodoSvg(N.svgArmadura(p.clave, p.f));
     else if (p.tipo === 'cuantas' || p.tipo === 'escala') visual = null;
     else if (p.tipo === 'oido') visual = el('div', { className: 'pr-oido' },
       el('p', { className: 'pr-pedido' }, PREGUNTA_OIDO[N.TEMAS[ses.tema].modo]),
       el('button', { type: 'button', className: 'primario pr-oir', id: 'pr-oir', onclick: () => reproducir() }, '🔊 Escuchar otra vez (R)'),
       el('p', { className: 'a', id: 'pr-audio', 'aria-live': 'polite' }, audioTexto));
-    else {
-      const clases = {};
-      if (feedback) for (const o of [4, 5]) clases[12 * (o + 1) + p.respuesta.pc] = 'pk-ok';
-      if (feedback && !feedback.ok && feedback.tocada != null) clases[feedback.tocada] = 'pk-mal';
-      visual = nodoSvg(N.svgTeclado({ interactivo: !feedback, clases }));
-    }
-    const pedido = p.tipo === 'tecla' ? el('p', { className: 'pr-pedido', 'aria-live': 'polite' }, 'Toca la tecla: ', el('b', {}, N.NOMBRES_PC[p.respuesta.pc].replace(/#/g, '♯').replace(/b/g, '♭')))
-      : p.pedido ? el('p', { className: 'pr-pedido', 'aria-live': 'polite' }, p.pedido) : null;
+    const pedido = p.pedido ? el('p', { className: 'pr-pedido', 'aria-live': 'polite' }, p.pedido) : null;
     const area = el('div', { className: 'pr-visual' }, pedido, visual);
     let respuestas = null;
     if (b.tipo === 'letras') {
@@ -315,8 +307,6 @@
     } else if (b.tipo === 'opciones') {
       respuestas = el('div', { className: 'pr-resp' }, el('div', { className: 'pr-letras pr-opciones' }, ...b.opciones.map((o, i) =>
         el('button', { type: 'button', 'data-op': o.id, title: o.titulo, disabled: !!feedback, onclick: () => responder({ id: o.id }) }, i < 9 ? el('small', { className: 'pr-n' }, (i + 1) + ' ') : null, o.texto))));
-    } else if (b.tipo === 'pcs') {
-      respuestas = el('div', { className: 'pr-resp' }, el('div', { className: 'pr-letras' }, ...b.pcs.map(x => el('button', { type: 'button', 'data-pc': x.pc, disabled: !!feedback, onclick: () => responder({ pc: x.pc }) }, x.texto.replace(/#/g, '♯').replace(/b/g, '♭')))));
     }
     const cierre = feedback && el('div', { className: 'pr-feedback ' + (feedback.ok ? 'ok' : 'mal'), rol: 'status' },
       el('p', {}, feedback.ok ? '✓ Correcto' : '✗ ' + feedback.texto),
@@ -326,11 +316,6 @@
       el('div', { className: 'ccuerpo pr-sesion' },
         el('p', { className: 'a' }, T.nombre + ' · nivel ' + niv.id + ' · ' + niv.nombre + ' · ' + pct(hechas ? aciertos / hechas : null)),
         area, respuestas, cierre));
-    if (p.tipo === 'tecla' && !feedback) {
-      const svg = area.querySelector('svg');
-      svg.addEventListener('click', e => { const k = e.target.closest && e.target.closest('[data-midi]'); if (k) responder({ pc: Number(k.getAttribute('data-midi')) % 12, midi: Number(k.getAttribute('data-midi')) }); });
-      svg.addEventListener('keydown', e => { const k = e.target.closest && e.target.closest('[data-midi]'); if (k && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); e.stopPropagation(); responder({ pc: Number(k.getAttribute('data-midi')) % 12, midi: Number(k.getAttribute('data-midi')) }); } });
-    }
     if (feedback && !feedback.ok) $('pr-sig')?.focus();
     if (p.tipo === 'oido' && (!feedback || !feedback.ok)) reproducir();
   }
@@ -349,7 +334,7 @@
     const era = p.tipo === 'pentagrama' ? N.bonito(p.nota) : p.etiqueta.replace(/#/g, '♯').replace(/b/g, '♭');
     if (!ok) ses.errores.push({ item: p.item, era: p.contexto ? p.contexto + ': ' + era : era, dicho });
     const detalle = p.tipo === 'oido' && p.detalle ? ' ' + p.detalle : p.tipo === 'oido' ? ' (' + p.notas.map(N.nombreMidi).join(T.modo === 'asc' || T.modo === 'desc' ? ' → ' : ' + ').replace(/#/g, '♯') + ')' : p.detalle ? ' ' + p.detalle : '';
-    pintarPregunta({ ok, texto: 'Era ' + era + detalle + (p.tipo === 'tecla' ? '' : ' · dijiste ' + dicho), tocada: resp.midi });
+    pintarPregunta({ ok, texto: 'Era ' + era + detalle + ' · dijiste ' + dicho });
     if (ok) temporizador = setTimeout(() => siguiente(), CFG.pausa);
   }
 

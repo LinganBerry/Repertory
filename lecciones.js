@@ -24,16 +24,6 @@
       visuales: [{ tipo: 'pentagrama', clave: 'fa', nota: ['F', 0, 3] }, { tipo: 'pentagrama', clave: 'fa', nota: ['C', 0, 4] }]
     },
     {
-      id: 'teclado', titulo: 'El teclado', temas: ['teclado', 'tecla'],
-      puntos: [
-        'Las teclas negras van en grupos de 2 y de 3.',
-        'C es la blanca justo a la izquierda del grupo de 2 negras. F es la blanca a la izquierda del grupo de 3.',
-        'Una tecla negra se llama ♯ de la blanca de su izquierda y ♭ de la blanca de su derecha.',
-        'Entre E y F, y entre B y C, no hay tecla negra: la distancia ya es de un semitono.'
-      ],
-      visuales: [{ tipo: 'teclado', marcar: [60, 65] }]
-    },
-    {
       id: 'intervalos', titulo: 'Intervalos', temas: ['int-asc', 'int-desc', 'int-arm'],
       puntos: [
         'Un intervalo es la distancia entre dos notas. Se mide en semitonos (una tecla a la siguiente, negras incluidas).',

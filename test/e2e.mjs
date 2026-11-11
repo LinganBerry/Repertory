@@ -288,11 +288,6 @@ async function contestar(n, bien, { teclado = false } = {}) {
   } else if (p.tipo === 'oido' || p.tipo === 'armadura' || p.tipo === 'cuantas') {
     const otro = n.w.Notacion.botones(ses.tema, ses.nivel).opciones.find(o => o.id !== p.respuesta.id).id;
     n.d.querySelector(`[data-op="${bien ? p.respuesta.id : otro}"]`).click();
-  } else if (p.tipo === 'teclado') {
-    n.d.querySelector(`[data-pc="${bien ? p.respuesta.pc : (p.respuesta.pc + 1) % 12}"]`)?.click() || n.w.RepertorioPractica.responder({ pc: (p.respuesta.pc + 1) % 12 });
-  } else {
-    const m = 12 * 5 + (bien ? p.respuesta.pc : (p.respuesta.pc + 1) % 12);
-    n.d.querySelector(`#practica rect[data-midi="${m}"]`).dispatchEvent(new n.w.MouseEvent('click', { bubbles: true }));
   }
   await esperar(() => n.w.RepertorioPractica.estadoSesion()?.i > i || !n.w.RepertorioPractica.estadoSesion(), 'que se registre la respuesta');
 }
@@ -412,32 +407,6 @@ test('PRACTICAR: teclado del ordenador (letras, # y -), alteraciones y salir con
   sinErrores(n); n.cerrar();
 });
 
-test('PRACTICAR: teclado de piano (nombrar la tecla y tocar la tecla)', async () => {
-  memoria.clear();
-  const n = await navegador('');
-  await abrirPractica(n);
-  [...n.d.querySelectorAll('[data-tema="teclado"] button')].find(b => /Empezar · 10/.test(b.textContent)).click();
-  await esperar(() => n.w.RepertorioPractica.estadoSesion()?.preg, 'pregunta de teclado');
-  assert.equal(n.d.querySelectorAll('#practica rect.pk-on').length, 1, 'hay una tecla marcada');
-  await contestar(n, false);
-  assert.ok(n.d.querySelector('#practica .pr-feedback.mal'), 'se muestra el fallo'); assert.match(n.d.querySelector('.pr-feedback').textContent, /Era /);
-  n.d.querySelector('#pr-sig').click();
-  await esperar(() => n.w.RepertorioPractica.estadoSesion().fase === 'pregunta', 'siguiente');
-  await contestar(n, true);
-  n.cerrar();
-  const m = await navegador('');
-  await abrirPractica(m);
-  [...m.d.querySelectorAll('[data-tema="tecla"] button')].find(b => /Empezar · 10/.test(b.textContent)).click();
-  await esperar(() => m.w.RepertorioPractica.estadoSesion()?.preg, 'pregunta de tocar tecla');
-  assert.equal(m.d.querySelectorAll('#practica rect[data-midi][tabindex="0"]').length, 24, 'las 24 teclas se alcanzan con el teclado');
-  await contestar(m, false);
-  assert.ok(m.d.querySelector('#practica rect.pk-mal') && m.d.querySelector('#practica rect.pk-ok'), 'se marca la tocada (roja) y la correcta (verde)');
-  m.d.querySelector('#pr-sig').click();
-  await esperar(() => m.w.RepertorioPractica.estadoSesion().fase === 'pregunta', 'siguiente');
-  await contestar(m, true);
-  sinErrores(m); m.cerrar();
-});
-
 const audioFalso = (n, { falla = false } = {}) => {
   const a = { llamadas: [], async tocar(p) { if (falla) throw new Error('sin sonido'); this.llamadas.push(p); }, detener() {}, esPiano: () => true };
   n.w.RepertorioAudio = a; return a;
@@ -447,6 +416,7 @@ const empezarTema = async (n, tema, total = 10, nivel = 0) => {
   [...n.d.querySelectorAll(`[data-tema="${tema}"] button`)].find(b => new RegExp('Empezar · ' + total).test(b.textContent)).click();
   await esperar(() => n.w.RepertorioPractica.estadoSesion()?.preg, 'primera pregunta de ' + tema);
 };
+
 
 test('PRACTICAR (oído): intervalos que suben: suena al empezar, se repite con R, y al fallar suena de nuevo y muestra las notas', async () => {
   memoria.clear();
@@ -632,7 +602,7 @@ test('PRACTICAR: Atrás desde una sesión, una lección o las estadísticas vuel
   const caja = await abrirPractica(n);
   const alMenu = () => esperar(() => n.$('pr-diaria') && !n.$('practica').hidden, 'el menú de Practicar');
   caja.scrollTop = 240;
-  [...caja.querySelectorAll('[data-tema="teclado"] button')].find(b => /Empezar · 10/.test(b.textContent)).click();
+  [...caja.querySelectorAll('[data-tema="fa"] button')].find(b => /Empezar · 10/.test(b.textContent)).click();
   await esperar(() => n.w.RepertorioPractica.estadoSesion()?.preg, 'sesión');
   n.w.history.back(); await alMenu();
   assert.equal(n.w.RepertorioPractica.estadoSesion(), null, 'la sesión terminó');
@@ -732,7 +702,7 @@ test('RETOS DE ACORDES: tiempo por acorde (al acabarse cuenta como fallo y muest
 // Estas pruebas reemplazan los datos del almacén falso: van al final para no alterar a las demás.
 const sembrar = lista => memoria.set('repertorio/canciones.json', { texto: JSON.stringify({ version: 2, nombre: 'Acordes y Tonos', intro: '', canciones: lista.map(([t, tono, ...partes], i) => ({ id: 'id' + i + 'x' + t.length, titulo: t, artista: 'Artista ' + i, tono, partes: partes.map(([nombre, prog]) => ({ nombre, tono: '', prog, letra: '', pista: '' })) })) }), etag: '"e0"' });
 
-test('CANCIÓN: tip de teoría y canciones con la misma progresión, clickeables, con "Volver a" y sin callejón sin salida', async () => {
+test('CANCIÓN: canciones con la misma progresión, clickeables, con "Volver a" y sin callejón sin salida', async () => {
   memoria.clear();
   sembrar([
     ['Aleluya', 'G', ['Verso', 'G D Em C'], ['Puente', 'C G Am F']],
@@ -748,11 +718,6 @@ test('CANCIÓN: tip de teoría y canciones con la misma progresión, clickeables
   const caja = $('cancion');
   fila('Aleluya').click();
   await esperar(() => !caja.hidden, 'abrir Aleluya');
-
-  const tip = caja.querySelector('.tip');
-  assert.ok(tip, 'hay tip de teoría');
-  assert.equal(tip.querySelector('.tip-t').textContent, 'Los cuatro acordes del pop');
-  assert.match(tip.querySelector('.tip-ej').textContent, /G – D – Em – C.*I – V – vi – IV.*Verso/);
 
   const rel = caja.querySelector('.rel');
   assert.ok(rel, 'hay canciones con la misma progresión');
@@ -784,10 +749,10 @@ test('CANCIÓN: tip de teoría y canciones con la misma progresión, clickeables
   tecla(d, 'Escape');
 
   fila('Distinta').click(); await esperar(() => !caja.hidden, 'abrir Distinta');
-  assert.ok(caja.querySelector('.tip'), 'tiene tip'); assert.equal(caja.querySelector('.rel'), null, 'sin canciones iguales no se muestra la sección vacía');
+  assert.equal(caja.querySelector('.rel'), null, 'sin canciones iguales no se muestra la sección vacía');
   tecla(d, 'Escape');
   fila('Vacía').click(); await esperar(() => !caja.hidden, 'abrir Vacía');
-  assert.equal(caja.querySelector('.tip'), null); assert.equal(caja.querySelector('.rel'), null);
+  assert.equal(caja.querySelector('.rel'), null);
   sinErrores(n); n.cerrar();
 });
 
@@ -827,7 +792,6 @@ test('PRACTICAR · Progresiones: el nombre de la canción abre la canción encim
   $('pg-abrir').click();
   const caja = $('cancion');
   await esperar(() => !caja.hidden && caja.getAttribute('aria-label') === titulo, 'se abre ' + titulo);
-  assert.ok(caja.querySelector('.tip'), 'y trae su tip de teoría');
   tecla(d, 'Escape');
   await esperar(() => caja.hidden, 'Esc cierra la canción');
   await new Promise(r => setTimeout(r, 400));

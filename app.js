@@ -234,14 +234,6 @@
     mostrar();
     $('cancion').scrollTop = 0;
   }
-  const bloqueTip = c => {
-    const t = window.Analisis && window.Analisis.tip(c);
-    return t && el('section', { className: 'tip noimp', 'aria-label': 'Tip de teoría' },
-      el('h3', {}, 'Tip de teoría'),
-      el('p', { className: 'tip-t' }, t.titulo),
-      el('p', {}, t.texto),
-      t.ejemplo && el('p', { className: 'tip-ej' }, el('b', {}, t.ejemplo.acordes), el('i', { className: 'rom' }, t.ejemplo.romanos), el('span', { className: 'a' }, t.ejemplo.parte)));
-  };
   const VISIBLES_REL = 4;
   const bloqueRelacionadas = c => {
     const rel = window.Analisis ? window.Analisis.relacionadas(c, data.canciones) : [];
@@ -388,7 +380,7 @@
           ...VISTAS_ACORDES.map(([id, texto]) => el('button', { type: 'button', 'data-n': id, 'aria-pressed': String(id === vistaAcordes), onclick: () => cambiarAcordes(id) }, texto))),
         partes.length > 0 && !yaVisto() && el('p', { className: 'a noimp pista-enfoque' }, 'Toca una parte para enfocarla.'),
         ...(partes.length ? partes.map((p, k) => parte(p, k)) : [el('p', { className: 'vacio' }, 'Aún no hay partes ni acordes para esta canción.')]),
-        bloqueTip(c), bloqueRelacionadas(c),
+        bloqueRelacionadas(c),
         el('p', { className: 'noimp' }, el('button', { type: 'button', onclick: () => print() }, 'Imprimir'))),
       el('div', { className: 'cpie noimp' },
         el('button', { type: 'button', title: 'Anterior (←)', disabled: pos <= 0, onclick: () => irA(-1) }, '‹ Anterior'),

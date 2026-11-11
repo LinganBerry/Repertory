@@ -9,7 +9,7 @@ Repertorio personal de canciones con acordes, tonos y partes, más teoría y pr�
 - **Instalar como app:** Chrome/Android o Chrome/Edge en PC → *Instalar app*.
 - **Sin señal:** se ve la última copia guardada con un aviso arriba. Abre la página con internet al menos una vez en cada dispositivo.
 - **Listas del culto:** arma una lista, ordénala y toca **▶ Empezar**. Se guardan en cada dispositivo.
-- **Canción:** pestañas Acordes y Letra, **▶ Presentar** (pantalla completa con desplazamiento automático), un *Tip de teoría* y las *canciones con la misma progresión* (cada una se abre con un toque). Los acordes se ven en **Letras**, **Romanos** o **Números** (sistema Nashville: 1, 5, 6m, 4; en tono menor se cuenta desde la tónica); la elección se recuerda.
+- **Canción:** pestañas Acordes y Letra, **▶ Presentar** (pantalla completa con desplazamiento automático), y las *canciones con la misma progresión* (cada una se abre con un toque). Los acordes se ven en **Letras**, **Romanos** o **Números** (sistema Nashville: 1, 5, 6m, 4; en tono menor se cuenta desde la tónica); la elección se recuerda.
 - **Letra con acordes:** en el editor, acorde entre corchetes antes de la sílaba: `[Am]Cuando salga el [F]sol`. Una línea `[Coro]` es un título. Máximo 12 000 caracteres por canción.
 
 ## Teoría (barra de abajo)
@@ -63,4 +63,4 @@ Se abre tocando 5 veces el título, o con `/?editar`, y pide tu contraseña. Agr
 
 ## Archivos
 
-`api/` + `lib/` (servidor) · `app.js` (página) · `editor.js` · `teoria.js` + `vendor/` · `notacion.js`, `retos.js`, `progresiones.js`, `escalas.js`, `sorpresa.js`, `improvisar.js`, `rearmonizar.js`, `lecciones.js`, `practicar.js` (Practicar) · `romanos.js` + `analisis.js` (romanos, tips, relacionadas) · `hoja.js` (letra con acordes) · `listas.js` · `preparar.js` · `sw.js` (sin internet) · `scripts/` · `test/`.
+`api/` + `lib/` (servidor) · `app.js` (página) · `editor.js` · `teoria.js` + `vendor/` · `notacion.js`, `retos.js`, `progresiones.js`, `escalas.js`, `sorpresa.js`, `improvisar.js`, `rearmonizar.js`, `lecciones.js`, `practicar.js` (Practicar) · `romanos.js` + `analisis.js` (romanos y canciones relacionadas) · `hoja.js` (letra con acordes) · `listas.js` · `preparar.js` · `sw.js` (sin internet) · `scripts/` · `test/`.
