@@ -1,7 +1,0 @@
-Licencias del motor de escucha (carpeta escucha/)
-
-== PitchPlease (markusstrasser/pitchplease), version 3.1.0 ==
-Licencia declarada: MIT (campo "license" de su package.json y sección License de su README).
-El repositorio no incluye un archivo LICENSE con el texto completo.
-Archivos usados, copiados sin cambios, en escucha/pitchplease/: pitchplease.js, engine/ (incluye los núcleos WebAssembly)
-y models/piano.bin y models/fast.bin. Sus núcleos de cálculo vienen del proyecto "pitchtest" según su engine/vendor.json.
