@@ -18,9 +18,16 @@
     return n;
   };
 
-  const TONICAS = ['C', 'C#', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+  // Una tónica por tono, con el nombre que se usa en la práctica (Db, Eb, F#, Ab, Bb), igual que en los retos.
+  const TONICAS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+  // Botón de la tónica elegida: si viene de otro lado con otro nombre (G# del círculo), se marca la del mismo tono.
+  const tonicaMarcada = () => TONICAS.find(t => T.Note.chroma(t) === T.Note.chroma(est.tonica)) || est.tonica;
+  // Las otras escalas que de verdad se usan al piano: las pentatónicas y el blues (pop, gospel), y la menor armónica y melódica (clásico y jazz).
+  const OTRAS = [['major pentatonic', 'Pentatónica mayor'], ['minor pentatonic', 'Pentatónica menor'], ['blues', 'Blues'], ['harmonic minor', 'Menor armónica'], ['melodic minor', 'Menor melódica']];
+  // Suma de alteraciones: un doble sostenido o doble bemol pesa mucho más, así que se evita.
+  const pesoAlt = notas => notas.reduce((s, n) => { const a = /^[A-G]([#b]*)/.exec(n)[1].length; return s + (a > 1 ? 100 : a); }, 0);
+  const bonitoNombre = n => n.replace('b', '♭').replace('#', '♯');
   const MODOS = [['ionian', 'Jónico', 'mayor'], ['mixolydian', 'Mixolidio'], ['aeolian', 'Eólico', 'menor natural']];
-  const NOMBRES_MODO = new Set([...MODOS.map(m => m[0]), 'major', 'minor']);
   const TIPOS = [['', 'Mayor'], ['m', 'Menor'], ['dim', 'Disminuido'], ['aug', 'Aumentado'], ['sus2', 'Sus2'], ['sus4', 'Sus4'],
     ['maj7', 'Mayor 7'], ['7', 'Dominante 7'], ['m7', 'Menor 7'], ['m7b5', 'Semidisminuido'], ['dim7', 'Disminuido 7'], ['mMaj7', 'Menor con 7ª mayor'],
     ['6', 'Sexta'], ['m6', 'Menor 6'], ['add9', 'Add9'], ['9', 'Novena'], ['maj9', 'Mayor 9'], ['m9', 'Menor 9']];
@@ -170,23 +177,28 @@
 
   // --- Escalas y modos ---
   function escalas() {
-    const { Scale, ScaleType, Mode, Chord } = T;
+    const { Scale, Mode, Chord } = T;
+    const otraES = OTRAS.find(o => o[0] === est.otra);
+    if (!otraES) est.otra = '';
     const nombre = est.otra || est.modo;
-    const sc = Scale.get(`${est.tonica} ${nombre}`);
+    // Si el otro nombre del mismo tono deja la escala con menos alteraciones (G♯ eólico en vez de A♭ eólico), se usa ese.
+    let tonica = est.tonica, sc = Scale.get(`${tonica} ${nombre}`);
+    const otro = T.Note.enharmonic(est.tonica), sc2 = otro && otro !== est.tonica ? Scale.get(`${otro} ${nombre}`) : null;
+    const cambio = !!sc2 && !sc2.empty && !sc.empty && pesoAlt(sc2.notes) < pesoAlt(sc.notes);
+    if (cambio) { tonica = otro; sc = sc2; }
     const modoES = MODOS.find(m => m[0] === est.modo);
-    const titulo = est.otra ? `${est.tonica} ${est.otra}` : `${est.tonica} ${modoES[1].toLowerCase()}`;
+    const titulo = est.otra ? `${tonica} ${otraES[1].toLowerCase()}` : `${tonica} ${modoES[1].toLowerCase()}`;
     const controles = [
       el('p', { className: 'a' }, 'Tónica'),
-      grupo(TONICAS.map(t => [t, t]), est.tonica, v => { est.tonica = v; dibujar(); }),
+      grupo(TONICAS.map(t => [t, t]), tonicaMarcada(), v => { est.tonica = v; dibujar(); }),
       el('p', { className: 'a' }, 'Modo'),
       grupo(MODOS.map(m => [m[0], m[1]]), est.otra ? '' : est.modo, v => { est.modo = v; est.otra = ''; dibujar(); }),
-      el('p', { className: 'a' }, 'Otras escalas (nombre en inglés, tal como las trae la librería)'),
-      selector('Otras escalas',
-        [['', '— elegir —'], ...ScaleType.all().filter(s => !NOMBRES_MODO.has(s.name)).map(s => [s.name, s.name])],
-        est.otra, v => { est.otra = v; dibujar(); })
+      el('p', { className: 'a' }, 'Otras escalas'),
+      grupo(OTRAS, est.otra, v => { est.otra = v; dibujar(); })
     ];
     if (sc.empty) return { controles, detalles: [el('p', { className: 'vacio' }, 'No se pudo calcular esa escala.')] };
     const grados = sc.intervals.map(grado), detalles = [];
+    if (cambio) detalles.push(nota('Se escribe ' + bonitoNombre(tonica) + ' y no ' + bonitoNombre(est.tonica) + ' porque así la escala lleva menos alteraciones.'));
     if (!est.otra && modoES[2]) detalles.push(nota('Es la escala ' + modoES[2] + '.'));
     detalles.push(fichas(sc.notes, grados), nota('Fórmula: ' + grados.join(' ')));
     if (sc.intervals.length === 7) {
@@ -194,8 +206,8 @@
       detalles.push(nota(dif.length ? 'Diferencia con la mayor: ' + dif.join(' · ') : 'Es igual a la escala mayor.'));
     }
     if (!est.otra) {
-      const tri = Mode.triads(est.modo, est.tonica).map(limpiarSimbolo);
-      const sep = Mode.seventhChords(est.modo, est.tonica).map(limpiarSimbolo);
+      const tri = Mode.triads(est.modo, tonica).map(limpiarSimbolo);
+      const sep = Mode.seventhChords(est.modo, tonica).map(limpiarSimbolo);
       const rom = tri.map((s, i) => {
         const q = Chord.get(s).quality, base = ROM[i], p = partir(sc.intervals[i]);
         const menor = q === 'Minor' || q === 'Diminished';
@@ -218,7 +230,7 @@
     const curado = TIPOS.find(t => t[0] === est.tipo);
     const controles = [
       el('p', { className: 'a' }, 'Tónica'),
-      grupo(TONICAS.map(t => [t, t]), est.tonica, v => { est.tonica = v; dibujar(); }),
+      grupo(TONICAS.map(t => [t, t]), tonicaMarcada(), v => { est.tonica = v; dibujar(); }),
       el('p', { className: 'a' }, 'Tipo'),
       grupo(TIPOS.map(t => [t[0], t[1]]), est.tipo, v => { est.tipo = v; dibujar(); }),
       el('p', { className: 'a' }, `Más acordes (${todos.length} tipos de la librería)`),
@@ -261,7 +273,7 @@
     const { Key, Chord, Note } = T, menor = est.cual === 'menor';
     const controles = [
       el('p', { className: 'a' }, 'Tónica'),
-      grupo(TONICAS.map(t => [t, t]), est.tonica, v => { est.tonica = v; dibujar(); }),
+      grupo(TONICAS.map(t => [t, t]), tonicaMarcada(), v => { est.tonica = v; dibujar(); }),
       el('p', { className: 'a' }, 'Tonalidad'),
       grupo([['mayor', 'Mayor'], ['menor', 'Menor']], est.cual, v => { est.cual = v; dibujar(); })
     ];
@@ -369,7 +381,7 @@
       cuerpo = [
         grupo([['escalas', 'Escalas y modos'], ['acordes', 'Acordes'], ['circulo', 'Círculo']], est.tab, v => { est.tab = v; dibujar(); }),
         ...r.controles, ...r.detalles,
-        el('p', { className: 'a' }, 'Cálculo: librería Tonal ', el('a', { href: 'https://github.com/tonaljs/tonal', target: '_blank', rel: 'noopener noreferrer' }, 'github.com/tonaljs/tonal'), ' (MIT) y Tone.js ', el('a', { href: 'https://github.com/Tonejs/Tone.js', target: '_blank', rel: 'noopener noreferrer' }, 'github.com/Tonejs/Tone.js'), ' (MIT) para el sonido. Piano: Salamander Grand Piano de Alexander Holm, ', el('a', { href: 'https://creativecommons.org/licenses/by/3.0/', target: '_blank', rel: 'noopener noreferrer' }, 'CC BY 3.0'), '.')
+        el('p', { className: 'a' }, 'Piano: Salamander Grand Piano de Alexander Holm, ', el('a', { href: 'https://creativecommons.org/licenses/by/3.0/', target: '_blank', rel: 'noopener noreferrer' }, 'CC BY 3.0'), '.')
       ];
     } catch (e) {
       cuerpo = [el('p', { className: 'vacio' }, 'No se pudo cargar la teoría. Abre la página con internet una vez y vuelve a intentar.')];
