@@ -167,19 +167,21 @@ test('TEORÍA: abrir, calcular tonalidades (armadura, relativa, acordes) y cerra
   const { d, $, boton, tecla } = n;
   const btn = $('teoria-btn'); btn.focus(); btn.click();
   const t = $('teoria');
-  await esperar(() => !t.hidden && boton('Tonalidades', t), 'pantalla de Teoría con pestañas');
+  await esperar(() => !t.hidden && boton('Círculo', t), 'pantalla de Teoría con pestañas');
   assert.equal(t.getAttribute('role'), 'dialog'); assert.equal(d.activeElement, t);
-  boton('Tonalidades', t).click();
+  assert.equal(boton('Tonalidades', t), undefined, 'ya no hay una pestaña Tonalidades repetida');
+  boton('Círculo', t).click();
+  const toca = nombre => t.querySelector(`[aria-label="${nombre}"]`).dispatchEvent(new n.w.Event('click', { bubbles: true }));
   await esperar(() => /Sin alteraciones/.test(t.textContent), 'C mayor: sin alteraciones');
-  boton('A', t).click();
+  toca('A mayor');
   await esperar(() => /3 sostenidos: F♯ C♯ G♯/.test(t.textContent), 'A mayor: 3 sostenidos');
   assert.match(t.textContent, /Relativa: F#m \(menor\)/);
   assert.equal(t.querySelectorAll('.parte .chips .chip').length >= 7, true);
-  boton('Menor', t).click();
+  toca('A menor');
   await esperar(() => /A menor/.test(t.querySelector('h2').textContent), 'A menor');
   assert.match(t.textContent, /Relativa: C mayor/); assert.match(t.textContent, /0 alteraciones|Sin alteraciones/);
   assert.match(t.textContent, /Armónica.*G#/); assert.ok(boton('▶ i–iv–V–i', t));
-  boton('F#', t).click();
+  toca('F sostenido menor');
   await esperar(() => /F# menor/.test(t.querySelector('h2').textContent), 'F# menor');
   assert.match(t.textContent, /3 sostenidos: F♯ C♯ G♯/, 'F#m comparte armadura con A mayor');
   tecla(d, 'Escape');
@@ -801,7 +803,7 @@ test('PRACTICAR · Progresiones: el nombre de la canción abre la canción encim
   sinErrores(n); n.cerrar();
 });
 
-test('TEORÍA · Círculo de quintas: se elige una tonalidad tocando, vecinas marcadas, relativa menor y teclado', async () => {
+test('TEORÍA · Círculo de quintas: se elige una tonalidad tocando, sus 6 acordes marcados con número romano, relativa menor y teclado', async () => {
   const n = await navegador();
   const { d, $, boton, tecla } = n;
   const btn = $('teoria-btn'); btn.focus(); btn.click();
@@ -815,14 +817,17 @@ test('TEORÍA · Círculo de quintas: se elige una tonalidad tocando, vecinas ma
   assert.ok(sectores.every(g => g.getAttribute('role') === 'button' && g.getAttribute('tabindex') === '0' && g.getAttribute('aria-label')), 'todos son botones con nombre');
   const sel = () => [...t.querySelectorAll('.cq-s.sel')].map(g => g.getAttribute('aria-label'));
   const vec = () => [...t.querySelectorAll('.cq-s.vec')].map(g => g.getAttribute('aria-label')).sort();
-  assert.deepEqual(sel(), ['C mayor']); assert.deepEqual(vec(), ['F mayor', 'G mayor']);
+  assert.deepEqual(sel(), ['C mayor']); assert.deepEqual(vec(), ['A menor', 'D menor', 'E menor', 'F mayor', 'G mayor']);
+  const romanos = () => Object.fromEntries([...t.querySelectorAll('.cq-s')].filter(g => g.querySelector('.cq-r')).map(g => [g.getAttribute('aria-label'), g.querySelector('.cq-r').textContent]));
+  assert.deepEqual(romanos(), { 'F mayor': 'IV', 'C mayor': 'I', 'G mayor': 'V', 'D menor': 'ii', 'A menor': 'vi', 'E menor': 'iii' }, 'los 6 acordes de C mayor, con su número romano');
+  assert.equal(t.querySelectorAll('.cq-r').length, 6, 'solo los 6 acordes llevan número');
   assert.equal(t.querySelector('.cq-c').textContent, 'C'); assert.equal(t.querySelector('.cq-c2').textContent, '0');
   assert.match(t.textContent, /Sin alteraciones/);
 
   // Tocar G mayor (una quinta arriba): 1 sostenido, vecinas C y D, relativa Em
   t.querySelector('[aria-label="G mayor"]').dispatchEvent(new n.w.Event('click', { bubbles: true }));
   await esperar(() => sel()[0] === 'G mayor', 'se elige G');
-  assert.deepEqual(vec(), ['C mayor', 'D mayor']);
+  assert.deepEqual(vec(), ['A menor', 'B menor', 'C mayor', 'D mayor', 'E menor']);   // G mayor: IV V arriba; ii vi iii abajo
   assert.equal(t.querySelector('.cq-c2').textContent, '1♯');
   assert.match(t.textContent, /Relativa: Em \(menor\)/);
   assert.ok(boton('▶ I–IV–V–I', t), 'sigue habiendo sonido');
@@ -833,19 +838,19 @@ test('TEORÍA · Círculo de quintas: se elige una tonalidad tocando, vecinas ma
   tecla(f, 'Enter');
   await esperar(() => sel()[0] === 'F mayor', 'Enter elige F');
   assert.equal(t.querySelector('.cq-c2').textContent, '1♭');
-  assert.deepEqual(vec(), ['B♭ mayor'.replace('♭', ' bemol'), 'C mayor'].sort().map(x => x));
+  assert.deepEqual(vec(), ['A menor', 'B bemol mayor', 'C mayor', 'D menor', 'G menor']);
 
   // Relativa menor (anillo de adentro): F♯m comparte armadura con A mayor (3 sostenidos)
   t.querySelector('[aria-label="F sostenido menor"]').dispatchEvent(new n.w.Event('click', { bubbles: true }));
   await esperar(() => sel()[0] === 'F sostenido menor', 'se elige F♯m');
   assert.equal(t.querySelector('.cq-c2').textContent, '3♯'); assert.equal(t.querySelector('.cq-c').textContent, 'F♯m');
-  assert.deepEqual(vec(), ['C sostenido menor', 'D menor'.replace('D menor', 'B menor')].sort());
+  assert.deepEqual(vec(), ['A mayor', 'B menor', 'C sostenido menor', 'D mayor', 'E mayor']);
+  assert.deepEqual(romanos(), { 'D mayor': 'VI', 'A mayor': 'III', 'E mayor': 'VII', 'B menor': 'iv', 'F sostenido menor': 'i', 'C sostenido menor': 'v' }, 'en menor: i iv v abajo; III VI VII arriba');
   assert.match(t.textContent, /Relativa: A mayor/);
 
-  // Las otras pestañas siguen conectadas con la misma tonalidad
-  boton('Tonalidades', t).click();
-  await esperar(() => /F# menor/.test(t.querySelector('h2').textContent), 'Tonalidades muestra F# menor');
-  assert.equal(t.querySelector('svg.cq'), null);
+  // Otra pestaña y de vuelta: el círculo conserva la tonalidad
+  boton('Acordes', t).click();
+  await esperar(() => !t.querySelector('svg.cq'), 'sale del círculo');
 
   // Extremos del círculo: 6 sostenidos (F♯) y 5 bemoles (D♭); D♯m = 6 sostenidos
   boton('Círculo', t).click();
