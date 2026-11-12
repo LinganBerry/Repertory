@@ -193,9 +193,9 @@ test('escalas: cada escala mayor y menor natural tiene los semitonos correctos y
 
 test('niveles de armadura: botones en el orden de la línea de quintas y preguntas con sus datos', () => {
   const b = (t, nv) => JSON.parse(JSON.stringify(N.botones(t, nv)));
-  assert.deepEqual(b('arm-sol', 1).opciones.map(o => o.texto), ['B♭', 'F', 'C', 'G', 'D']);
-  assert.equal(b('arm-sol', 3).opciones.length, 13); assert.equal(b('arm-fa', 4).opciones.length, 9);
-  assert.deepEqual(b('arm-fa', 5).opciones.map(o => o.texto).slice(0, 3), ['E♭m', 'B♭m', 'Fm']);
+  assert.deepEqual(b('arm', 1).opciones.map(o => o.texto), ['B♭', 'F', 'C', 'G', 'D']);
+  assert.equal(b('arm', 3).opciones.length, 13); assert.equal(b('arm', 4).opciones.length, 9);
+  assert.deepEqual(b('arm', 5).opciones.map(o => o.texto).slice(0, 3), ['E♭m', 'B♭m', 'Fm']);
   assert.deepEqual(b('arm-num', 2).opciones.map(o => o.texto), ['4♭', '3♭', '2♭', '1♭', '0', '1♯', '2♯', '3♯', '4♯']);
   assert.deepEqual(b('escala', 1), { tipo: 'letras', letras: ['C', 'D', 'E', 'F', 'G', 'A', 'B'], alteraciones: true });
   const p = N.crearPregunta('escala', 3, { items: {} }, semilla(3), null);
@@ -224,7 +224,7 @@ test('rótulos y servidor: los ejercicios nuevos se muestran bien y el servidor 
   assert.equal(N.rotulo('as:Bb'), 'Armadura B♭'); assert.equal(N.rotulo('af:F#m'), 'Armadura F♯m'); assert.equal(N.rotulo('an:Eb'), 'Alteraciones de E♭');
   assert.equal(N.rotulo('eg:Bb.6'), 'B♭ · grado 6'); assert.equal(N.rotulo('sol:E4'), 'E4'); assert.equal(N.rotulo('ia:3m'), '3m');
   const rng = semilla(9);
-  for (const tema of ['arm-sol', 'arm-fa', 'arm-num', 'escala']) for (const nv of N.TEMAS[tema].niveles) {
+  for (const tema of ['arm', 'arm-num', 'escala']) for (const nv of N.TEMAS[tema].niveles) {
     const q = Array.from({ length: 40 }, () => [N.crearPregunta(tema, nv.id, { items: {} }, rng, null).item, 1, 900]);
     assert.ok(limpiarSesion({ id: 'abcdef123456', t: tema, l: nv.id, f: '2026-10-28', n: 40, a: 40, ms: 36000, q }), `${tema}/${nv.id}: el servidor rechazaría la sesión`);
   }

@@ -497,7 +497,7 @@ test('PRACTICAR (armaduras y escalas): dibuja la armadura, acepta respuestas, ex
   memoria.clear();
   const n = await navegador('');
   await abrirPractica(n);
-  await empezarTema(n, 'arm-sol', 10, 2);
+  await empezarTema(n, 'arm', 10, 2);
   assert.equal(n.d.querySelectorAll('#practica svg.pentagrama').length, 1, 'se dibuja la armadura');
   assert.equal(n.d.querySelectorAll('#practica [data-op]').length, 9, 'nivel 2: 9 tonalidades mayores');
   assert.match(n.d.querySelector('.pr-pedido').textContent, /tonalidad mayor/);
@@ -505,7 +505,7 @@ test('PRACTICAR (armaduras y escalas): dibuja la armadura, acepta respuestas, ex
   assert.match(n.d.querySelector('.pr-feedback').textContent, /Era .*\(.*\).*dijiste/s);
   n.$('pr-sig').click();
   await esperar(() => n.w.RepertorioPractica.estadoSesion().fase === 'pregunta', 'siguiente');
-  const opciones = n.w.Notacion.botones('arm-sol', 2).opciones, p = pregunta(n);
+  const opciones = n.w.Notacion.botones('arm', 2).opciones, p = pregunta(n);
   n.tecla(n.d, String(opciones.findIndex(o => o.id === p.respuesta.id) + 1));
   await esperar(() => n.w.RepertorioPractica.estadoSesion().hechas.length === 2, 'respuesta con el número');
   assert.equal(n.w.RepertorioPractica.estadoSesion().hechas[1][1], 1);
