@@ -136,8 +136,7 @@
     'int-arm': { grupo: 'Oído', nombre: 'Intervalos a la vez', tipo: 'oido', modo: 'arm', prefijo: 'ih', niveles: NIVELES_INTERVALOS, datos: INTERVALOS },
     acordes: { grupo: 'Oído', nombre: 'Acordes', tipo: 'oido', modo: 'acorde', prefijo: 'ac', niveles: NIVELES_ACORDES, datos: ACORDES },
     'prog-oido': { grupo: 'Oído', nombre: 'Progresiones de acordes', tipo: 'oido', modo: 'prog', prefijo: 'ap', niveles: NIVELES_PROG, datos: PROGRESIONES_OIDO },
-    'arm-sol': { grupo: 'Armaduras y escalas', nombre: 'Armadura → tonalidad (clave de sol)', tipo: 'armadura', clave: 'sol', prefijo: 'as', niveles: NIVELES_TONALIDAD },
-    'arm-fa': { grupo: 'Armaduras y escalas', nombre: 'Armadura → tonalidad (clave de fa)', tipo: 'armadura', clave: 'fa', prefijo: 'af', niveles: NIVELES_TONALIDAD },
+    arm: { grupo: 'Armaduras y escalas', nombre: 'Armadura → tonalidad', tipo: 'armadura', niveles: NIVELES_TONALIDAD },
     'arm-num': { grupo: 'Armaduras y escalas', nombre: 'Tonalidad → alteraciones', tipo: 'cuantas', prefijo: 'an', niveles: NIVELES_TONALIDAD },
     escala: { grupo: 'Armaduras y escalas', nombre: 'Nota de una escala', tipo: 'escala', prefijo: 'eg', niveles: NIVELES_TONALIDAD }
   };
@@ -221,7 +220,9 @@
     const N = T.niveles.find(n => n.id === nivel);
     if (!N) throw new Error('Nivel desconocido: ' + nivel);
     if (T.tipo === 'oido') return N.ids.map(id => ({ item: T.prefijo + ':' + id, id, dato: T.datos.find(d => d.id === id) }));
-    if (T.tipo === 'armadura' || T.tipo === 'cuantas') return rango(-N.max, N.max).map(f => ({ item: T.prefijo + ':' + nombreTon(f, N.modo), f }));
+    // La armadura sale en las dos claves mezcladas. Se conservan los prefijos 'as' (sol) y 'af' (fa) para no perder el progreso ya guardado.
+    if (T.tipo === 'armadura') return ['sol', 'fa'].flatMap(clave => rango(-N.max, N.max).map(f => ({ item: (clave === 'sol' ? 'as' : 'af') + ':' + nombreTon(f, N.modo), f, clave })));
+    if (T.tipo === 'cuantas') return rango(-N.max, N.max).map(f => ({ item: T.prefijo + ':' + nombreTon(f, N.modo), f }));
     if (T.tipo === 'escala') return rango(-N.max, N.max).flatMap(f => GRADOS.map(g => ({ item: T.prefijo + ':' + nombreTon(f, N.modo) + '.' + g, f, g })));
     if (T.tipo === 'pentagrama') {
       const out = [];
@@ -243,7 +244,7 @@
     const c = elegir(cands, est, rng, evitar);
     if (T.tipo === 'armadura' || T.tipo === 'cuantas' || T.tipo === 'escala') {
       const NV = T.niveles.find(n => n.id === nivel), modo = NV.modo, f = c.f, largo = nombreLargo(f, modo);
-      if (T.tipo === 'armadura') return { tema, nivel, tipo: 'armadura', item: c.item, clave: T.clave, f, pedido: modo === 'M' ? '¿Qué tonalidad mayor es?' : '¿Qué tonalidad menor es?', respuesta: { id: String(f) }, etiqueta: nombreTon(f, modo, true), detalle: '(' + textoAlt(f) + (f ? ': ' + letrasAlt(f) : '') + ')' };
+      if (T.tipo === 'armadura') return { tema, nivel, tipo: 'armadura', item: c.item, clave: c.clave, f, pedido: modo === 'M' ? '¿Qué tonalidad mayor es?' : '¿Qué tonalidad menor es?', respuesta: { id: String(f) }, etiqueta: nombreTon(f, modo, true), detalle: '(' + textoAlt(f) + (f ? ': ' + letrasAlt(f) : '') + ')' };
       if (T.tipo === 'cuantas') return { tema, nivel, tipo: 'cuantas', item: c.item, f, pedido: '¿Cuántas alteraciones lleva ' + largo + '?', respuesta: { id: String(f) }, etiqueta: textoAlt(f), detalle: '(' + letrasAlt(f) + ')', contexto: nombreTon(f, modo, true) };
       const g = gradoDeEscala(f, modo, c.g), escala = [1, 2, 3, 4, 5, 6, 7].map(x => bonito(gradoDeEscala(f, modo, x))).join(' ');
       return { tema, nivel, tipo: 'escala', item: c.item, f, grado: c.g, pedido: '¿Qué nota es el ' + c.g + 'º grado de ' + largo + (modo === 'm' ? ' natural' : '') + '?', respuesta: { l: g.l, a: g.a }, etiqueta: bonito(g), detalle: '(' + escala + ')', contexto: nombreTon(f, modo, true) + ' · ' + c.g + 'º' };

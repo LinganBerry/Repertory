@@ -56,7 +56,7 @@
       visuales: [{ tipo: 'teclado', marcar: [60, 65, 67] }]
     },
     {
-      id: 'armaduras', titulo: 'Armaduras', temas: ['arm-sol', 'arm-fa', 'arm-num'],
+      id: 'armaduras', titulo: 'Armaduras', temas: ['arm', 'arm-num'],
       puntos: [
         'La armadura son las alteraciones que se escriben al inicio: valen para todas las notas de esa letra, en toda la pieza.',
         'Orden de los sostenidos: F C G D A E B. Los bemoles van al revés: B E A D G C F.',
