@@ -296,8 +296,11 @@
     return { titulo: est.tonica + ' ' + est.cual, notas: c.scale, raiz: c.scale[0], botones, controles, detalles };
   }
 
-  // --- Círculo de quintas: toca una tonalidad y ves su armadura, sus vecinas (IV a la izquierda, V a la derecha) y sus acordes ---
+  // --- Círculo de quintas: toca una tonalidad y ves su armadura, sus 6 acordes (con número romano) y todo lo de la tonalidad ---
   // Anillo de afuera: tonalidades mayores. Anillo de adentro: sus relativas menores (misma armadura). Cada paso a la derecha sube una quinta.
+  // Los 6 acordes de una tonalidad quedan juntos: la tónica y sus dos vecinas, en los dos anillos (el séptimo, el disminuido, no entra).
+  // ROM[tonalidad elegida][anillo] = números romanos de [vecina izquierda, centro, vecina derecha].
+  const CQ_ROM = { M: { M: ['IV', 'I', 'V'], m: ['ii', 'vi', 'iii'] }, m: { M: ['VI', 'III', 'VII'], m: ['iv', 'i', 'v'] } };
   const CQ_MAYOR = [['C', 'C'], ['G', 'G'], ['D', 'D'], ['A', 'A'], ['E', 'E'], ['B', 'B'], ['F#', 'F♯'], ['Db', 'D♭'], ['Ab', 'A♭'], ['Eb', 'E♭'], ['Bb', 'B♭'], ['F', 'F']];
   const CQ_MENOR = [['A', 'Am'], ['E', 'Em'], ['B', 'Bm'], ['F#', 'F♯m'], ['C#', 'C♯m'], ['G#', 'G♯m'], ['D#', 'D♯m'], ['Bb', 'B♭m'], ['F', 'Fm'], ['C', 'Cm'], ['G', 'Gm'], ['D', 'Dm']];
   const CQ_C = 160, CQ_R = [152, 104, 64];   // centro del dibujo y radios: borde de afuera, entre anillos, centro
@@ -313,12 +316,15 @@
   function circuloSvg(pos, menor) {
     const svg = sv('svg', { viewBox: '0 0 320 320', class: 'cq', role: 'group', 'aria-label': 'Círculo de quintas. Toca una tonalidad.' });
     const sectores = (anillo, rFuera, rDentro, rTexto, esMenor, lista) => lista.forEach(([valor, rotulo], i) => {
-      const sel = i === pos && esMenor === menor, vecina = !sel && (i === (pos + 1) % 12 || i === (pos + 11) % 12) && esMenor === menor;
+      const sel = i === pos && esMenor === menor, d = (i - pos + 12) % 12;
+      const fila = CQ_ROM[menor ? 'm' : 'M'][esMenor ? 'm' : 'M'], rom = d === 11 ? fila[0] : d === 0 ? fila[1] : d === 1 ? fila[2] : null;
+      const vecina = !!rom && !sel;
       const nombre = (esMenor ? rotulo.slice(0, -1) : rotulo).replace('♯', ' sostenido').replace('♭', ' bemol') + (esMenor ? ' menor' : ' mayor');
       const elegir = () => { est.tonica = valor; est.cual = esMenor ? 'menor' : 'mayor'; dibujar(); };
       const [tx, ty] = cqPunto(rTexto, i * 30 - 90);
       const g = sv('g', { class: 'cq-s ' + anillo + (sel ? ' sel' : '') + (vecina ? ' vec' : ''), role: 'button', tabindex: '0', 'aria-pressed': String(sel), 'aria-label': nombre },
-        sv('path', { d: cqSector(i, rFuera, rDentro) }), sv('text', { x: tx, y: ty }, rotulo));
+        sv('path', { d: cqSector(i, rFuera, rDentro) }), sv('text', { x: tx, y: rom ? Number(ty) - (esMenor ? 5 : 6) : ty }, rotulo));
+      if (rom) g.append(sv('text', { x: tx, y: Number(ty) + (esMenor ? 10 : 12), class: 'cq-r' }, rom));   // número romano, debajo del nombre
       g.addEventListener('click', elegir);
       g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); elegir(); } });
       svg.append(g);
@@ -334,7 +340,7 @@
     const menor = est.cual === 'menor', pos = cqPosicion(est.tonica, menor);
     const t = tonalidades();   // mismos datos que la pestaña Tonalidades: armadura, relativa, acordes, dominantes y sonido
     t.controles = [
-      el('p', { className: 'a' }, 'Toca una tonalidad. Afuera, las mayores; adentro, sus relativas menores (misma armadura). Cada paso a la derecha sube una quinta (V); a la izquierda baja una quinta (IV). F♯ y G♭ son la misma tecla.'),
+      el('p', { className: 'a' }, 'Toca una tonalidad: afuera las mayores, adentro sus relativas menores (misma armadura). Sus 6 acordes quedan juntos, con su número romano; el disminuido (' + (menor ? 'ii°' : 'vii°') + ') no entra. A la derecha sube una quinta (V) y a la izquierda baja una (IV). F♯ y G♭ son la misma tecla.'),
       circuloSvg(pos, menor)
     ];
     return t;
@@ -354,14 +360,14 @@
     try {
       await cargarTonal();
       if (mi !== gen) return;                      // se pidió otro dibujo mientras cargaba: gana el último
-      const r = est.tab === 'escalas' ? escalas() : est.tab === 'acordes' ? acordes() : est.tab === 'circulo' ? circulo() : tonalidades();
+      const r = est.tab === 'escalas' ? escalas() : est.tab === 'acordes' ? acordes() : circulo();
       // Arriba (fijo): título, botones de sonido y teclado. Abajo: lo que eliges y los detalles.
       if (r.notas) panel = el('div', { className: 'tpanel' },
         el('div', { className: 'tfila' }, el('h2', {}, r.titulo), el('div', { className: 'tbot' }, ...r.botones, el('button', { type: 'button', 'aria-label': 'Parar', onclick: parar }, '■'))),
         teclado(r.notas, r.raiz),
         el('p', { className: 'a estado-piano' }, estadoPiano()));
       cuerpo = [
-        grupo([['escalas', 'Escalas y modos'], ['acordes', 'Acordes'], ['tonalidades', 'Tonalidades'], ['circulo', 'Círculo']], est.tab, v => { est.tab = v; dibujar(); }),
+        grupo([['escalas', 'Escalas y modos'], ['acordes', 'Acordes'], ['circulo', 'Círculo']], est.tab, v => { est.tab = v; dibujar(); }),
         ...r.controles, ...r.detalles,
         el('p', { className: 'a' }, 'Cálculo: librería Tonal ', el('a', { href: 'https://github.com/tonaljs/tonal', target: '_blank', rel: 'noopener noreferrer' }, 'github.com/tonaljs/tonal'), ' (MIT) y Tone.js ', el('a', { href: 'https://github.com/Tonejs/Tone.js', target: '_blank', rel: 'noopener noreferrer' }, 'github.com/Tonejs/Tone.js'), ' (MIT) para el sonido. Piano: Salamander Grand Piano de Alexander Holm, ', el('a', { href: 'https://creativecommons.org/licenses/by/3.0/', target: '_blank', rel: 'noopener noreferrer' }, 'CC BY 3.0'), '.')
       ];

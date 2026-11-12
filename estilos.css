@@ -363,6 +363,8 @@ body.presentando { overflow: hidden; }
   .cq-M text { font-size: 19px; }
   .cq-m text { font-size: 14px; }
   .cq-s.sel text { fill: var(--bg); }
+  .cq-s .cq-r { font-size: 11px; font-weight: 600; }
+  .cq-m .cq-r { font-size: 10px; }
   .cq-c { fill: var(--ink); text-anchor: middle; font: 700 24px var(--tit); }
   .cq-c2 { fill: var(--ink); text-anchor: middle; font: 700 17px var(--sans); }
 

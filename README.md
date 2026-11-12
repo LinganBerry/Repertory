@@ -14,7 +14,7 @@ Repertorio personal de canciones con acordes, tonos y partes, más teoría y pr�
 
 ## Teoría (barra de abajo)
 
-Escalas y modos (Jónico, Mixolidio, Eólico), diccionario de acordes, **Tonalidades** y **Círculo de quintas**: toca una tonalidad y ves su armadura, sus vecinas (IV a la izquierda, V a la derecha), su relativa y sus acordes. Cálculo con Tonal, sonido con Tone.js y piano Salamander (se bajan la primera vez que abres Teoría).
+Escalas y modos (Jónico, Mixolidio, Eólico), diccionario de acordes y **Círculo de quintas**: toca una tonalidad y ves su armadura, sus 6 acordes juntos en el círculo con su número romano (IV a la izquierda, V a la derecha), su relativa y todo lo de la tonalidad. Cálculo con Tonal, sonido con Tone.js y piano Salamander (se bajan la primera vez que abres Teoría).
 
 ## Practicar
 
