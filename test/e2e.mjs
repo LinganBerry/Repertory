@@ -864,6 +864,47 @@ test('TEORÍA · Círculo de quintas: se elige una tonalidad tocando, sus 6 acor
   sinErrores(n); n.cerrar();
 });
 
+test('TEORÍA · Escalas: 12 tónicas (una por tono), nombre más limpio, 5 otras escalas útiles y solo el crédito del piano', async () => {
+  const n = await navegador();
+  const { $, boton } = n;
+  const btn = $('teoria-btn'); btn.focus(); btn.click();
+  const t = $('teoria');
+  await esperar(() => !t.hidden && boton('Eólico', t), 'pestaña Escalas');
+  for (const x of ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']) assert.ok(boton(x, t), 'tónica ' + x);
+  for (const x of ['C#', 'Gb', 'D#', 'G#', 'A#']) assert.equal(boton(x, t), undefined, 'sin nombres repetidos: ' + x);
+
+  // Ab eólico llevaría 7 bemoles: se escribe G♯ eólico (5 sostenidos) y se avisa
+  boton('Ab', t).click();
+  boton('Eólico', t).click();
+  await esperar(() => /G# eólico/.test(t.querySelector('h2').textContent), 'G# eólico');
+  assert.match(t.textContent, /Se escribe G♯ y no A♭/);
+  boton('Jónico', t).click();
+  await esperar(() => /Ab jónico/.test(t.querySelector('h2').textContent), 'Ab jónico se queda como Ab');
+  assert.doesNotMatch(t.textContent, /Se escribe/);
+
+  // Otras escalas: solo las 5 que se usan, en español, sin lista de 90 nombres en inglés
+  assert.equal(t.querySelector('select[aria-label="Otras escalas"]'), null);
+  for (const x of ['Pentatónica mayor', 'Pentatónica menor', 'Blues', 'Menor armónica', 'Menor melódica']) assert.ok(boton(x, t), x);
+  boton('Pentatónica menor', t).click();
+  await esperar(() => /pentatónica menor/.test(t.querySelector('h2').textContent), 'pentatónica menor');
+  boton('Blues', t).click();
+  await esperar(() => /blues/.test(t.querySelector('h2').textContent), 'blues');
+
+  // Una tónica que viene del círculo con otro nombre (G♯) marca su botón (Ab)
+  boton('Círculo', t).click();
+  await esperar(() => t.querySelector('svg.cq'), 'círculo');
+  t.querySelector('[aria-label="G sostenido menor"]').dispatchEvent(new n.w.Event('click', { bubbles: true }));
+  await esperar(() => t.querySelector('.cq-s.sel[aria-label="G sostenido menor"]'), 'G♯m');
+  boton('Escalas y modos', t).click();
+  await esperar(() => boton('Eólico', t), 'vuelve a Escalas');
+  assert.equal(boton('Ab', t).getAttribute('aria-pressed'), 'true', 'el botón del mismo tono queda marcado');
+
+  // Crédito: solo lo que exige la licencia del piano
+  assert.match(t.textContent, /Salamander Grand Piano de Alexander Holm/); assert.match(t.textContent, /CC BY 3\.0/);
+  assert.doesNotMatch(t.textContent, /librería Tonal|Tone\.js/);
+  sinErrores(n); n.cerrar();
+});
+
 test('PRACTICAR · Canción sorpresa: sale una canción sin acordes a la vista, no repite hasta agotar y abre la canción', async () => {
   memoria.clear();
   sembrar([['Aleluya', 'G', ['Coro', 'G D | Em C']], ['Brillas', 'C', ['Coro', 'C G Am F']], ['Vacía', 'D']]);
