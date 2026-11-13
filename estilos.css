@@ -222,6 +222,19 @@
   #listas input[type=search] { width: 100%; min-height: 48px; margin: .3rem 0; }
   @media print { #nav, #listas { display: none !important; } }
   /* --- retos de acordes --- */
+  /* Reconocer acordes (pensado primero para teléfono: 4 columnas de botones grandes, todo en una pantalla) */
+  .rc-pent { max-width: 17rem; margin: .2rem auto .4rem; }
+  .rc-q { margin: .2rem 0; text-align: center; }
+  .rc-raices { display: grid; grid-template-columns: repeat(4, 1fr); gap: .4rem; max-width: 26rem; margin: .4rem auto; }
+  .rc-raices button { min-height: 48px; padding: .2rem; font: 700 1.05rem var(--sans); }
+  .rc-raices .rc-negra { background: var(--fila); font-size: .95rem; }
+  .rc-cal { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem; max-width: 26rem; margin: .4rem auto; }
+  .rc-cal button { min-height: 52px; font: 700 1.15rem var(--sans); }
+  .rc-raices button[aria-pressed="true"], .rc-cal button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .rc-res { text-align: center; }
+  .rc-veredicto { margin: 0; font: 700 1.6rem/1.2 var(--sans); }
+  .rc-era { margin: .3rem 0; font: 700 1.2rem/1.3 var(--sans); }
+  .rc-pista { margin: .5rem 0 0; padding-top: .5rem; border-top: 1px solid var(--line); text-align: left; }
   .rt-acorde { margin: .4rem 0; font: 700 3.4rem/1.1 ui-monospace, Menlo, Consolas, monospace; text-align: center; }
   .rt-prog { margin: .6rem 0; font: 700 1.6rem/1.5 ui-monospace, Menlo, Consolas, monospace; text-align: center; overflow-wrap: anywhere; }
   .pr-filas { padding: 0; }

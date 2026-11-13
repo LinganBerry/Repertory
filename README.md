@@ -19,7 +19,7 @@ Escalas y modos (Jónico, Mixolidio, Eólico), diccionario de acordes y **Círcu
 ## Practicar
 
 - **Lectura de notas** (clave de sol y fa), **teclado**, **armaduras y escalas**, **oído** (intervalos, acordes y **progresiones** con números romanos), **lecciones** cortas y **sesión diaria** de 15 minutos. Lo que más fallas sale más.
-- **Retos** (sin sonido ni internet): acordes en los 12 tonos, progresiones de tus canciones en números romanos, escalas y modos, y **Canción sorpresa** (una canción tuya al azar: tócala de memoria y luego mira los acordes; no se repite hasta que salgan todas).
+- **Retos** (sin sonido ni internet): acordes en los 12 tonos (tocarlos, o **reconocerlos** escritos en el pentagrama con inversiones: dices la raíz y si es mayor o menor), progresiones de tus canciones en números romanos, escalas y modos, y **Canción sorpresa** (una canción tuya al azar: tócala de memoria y luego mira los acordes; no se repite hasta que salgan todas).
 - **Herramientas:** *Rearmonizar* (ideas para adornar tus canciones en 5 niveles: del 1 al 4 llegan hasta el jazz con dominantes secundarias, y el 5 trae ciclos de dominantes y bajo caminando; *Sumar niveles anteriores* junta todo hasta el nivel elegido), *Improvisación* (una base que suena en bucle en el piano, con las notas guía 3ª y 7ª de cada acorde, su escala y cómo la 7ª baja a la 3ª siguiente) y *Preparar sin internet*.
 - **Progreso:** se guarda en el dispositivo; si entras con tu contraseña (dentro de Practicar) se sincroniza con `api/progreso.js` (últimas 500 sesiones, solo agrega).
 
@@ -63,4 +63,4 @@ Se abre tocando 5 veces el título, o con `/?editar`, y pide tu contraseña. Agr
 
 ## Archivos
 
-`api/` + `lib/` (servidor) · `app.js` (página) · `editor.js` · `teoria.js` + `vendor/` · `notacion.js`, `retos.js`, `progresiones.js`, `escalas.js`, `sorpresa.js`, `improvisar.js`, `rearmonizar.js`, `lecciones.js`, `practicar.js` (Practicar) · `romanos.js` + `analisis.js` (romanos y canciones relacionadas) · `hoja.js` (letra con acordes) · `listas.js` · `preparar.js` · `sw.js` (sin internet) · `scripts/` · `test/`.
+`api/` + `lib/` (servidor) · `app.js` (página) · `editor.js` · `teoria.js` + `vendor/` · `notacion.js`, `retos.js`, `reconocer.js`, `progresiones.js`, `escalas.js`, `sorpresa.js`, `improvisar.js`, `rearmonizar.js`, `lecciones.js`, `practicar.js` (Practicar) · `romanos.js` + `analisis.js` (romanos y canciones relacionadas) · `hoja.js` (letra con acordes) · `listas.js` · `preparar.js` · `sw.js` (sin internet) · `scripts/` · `test/`.
