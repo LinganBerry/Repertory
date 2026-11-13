@@ -550,5 +550,7 @@
     seg.style.setProperty('--s', '34%');
     $('franja').append(seg);
   }
+  // Barra de abajo: Canciones es la pantalla principal; tocarla lleva al principio de la lista.
+  $('nav-canciones').addEventListener('click', () => window.scrollTo(0, 0));
   cargar();
 })();
