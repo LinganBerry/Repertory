@@ -6,7 +6,7 @@
   // Las 12 tónicas; si hay dos nombres (C#/Db) se elige el que dé la escala más limpia (sin dobles sostenidos ni dobles bemoles).
   const TONICAS = [['C'], ['C#', 'Db'], ['D'], ['D#', 'Eb'], ['E'], ['F'], ['F#', 'Gb'], ['G'], ['G#', 'Ab'], ['A'], ['A#', 'Bb'], ['B']];
   const MAYOR = [0, 2, 4, 5, 7, 9, 11];
-  const OTRAS = [['harmonic minor', 'Menor armónica'], ['melodic minor', 'Menor melódica'], ['major pentatonic', 'Pentatónica mayor'], ['minor pentatonic', 'Pentatónica menor']];
+  const OTRAS = [['harmonic minor', 'Menor armónica'], ['melodic minor', 'Menor melódica'], ['major pentatonic', 'Pentatónica mayor'], ['minor pentatonic', 'Pentatónica menor'], ['blues', 'Blues']];
   const ITEM = /^[a-z]+( [a-z]+)?$/;
   const EXTRA = { ionian: 'mayor', aeolian: 'menor natural' };
 

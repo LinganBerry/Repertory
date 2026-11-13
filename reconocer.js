@@ -1,4 +1,4 @@
-// Reconocer acordes: sale un acorde escrito en el pentagrama (a veces con inversión) y dices cuál es: la raíz y si es mayor o menor.
+// Reconocer acordes: sale un acorde marcado en el piano (y/o escrito en el pentagrama), a veces con inversión, y dices cuál es: la raíz y si es mayor o menor.
 // Es lo contrario de los Retos de acordes (ahí te dan el nombre y lo tocas). Usa los acordes y las estadísticas de retos.js.
 // La lógica (qué se dibuja, cómo se comprueba, la pista) no usa el DOM y se prueba en test/. La pantalla se abre desde Practicar.
 (function (raiz) {
@@ -58,7 +58,7 @@
   const { leer, guardar } = window.RepertorioLocal;
   const seg = ms => (ms / 1000).toFixed(1) + ' s';
 
-  const PREF0 = { calidad: 'ambos', inversiones: true, clave: 'ambas', repasar: true };
+  const PREF0 = { calidad: 'ambos', inversiones: true, vista: 'piano', clave: 'ambas', repasar: true };
   let caja = null, volverFn = null, vista = 'menu', ses = null, pref = { ...PREF0 }, est = R.vacias();
   const barra = (izq, centro) => el('div', { className: 'cbarra' }, izq, el('span', { className: 'ctitulo' }, centro));
   const atrasBtn = (texto, titulo = 'Salir') => el('button', { type: 'button', title: titulo, onclick: () => history.back() }, texto);
@@ -74,12 +74,14 @@
     poner(
       barra(el('button', { type: 'button', title: 'Volver a Practicar', onclick: () => { vista = 'fuera'; volverFn(); } }, '← Practicar'), 'Reconocer acordes'),
       el('div', { className: 'ccuerpo', 'data-reconocer': '1' },
-        el('p', {}, 'Sale un acorde escrito. Di cuál es: su raíz y si es mayor o menor. Con inversiones cuesta más ver la raíz. No usa sonido ni internet.'),
+        el('p', {}, 'Sale un acorde marcado en el piano. Di cuál es: su raíz y si es mayor o menor. Con inversiones cuesta más ver la raíz. No usa sonido ni internet.'),
         el('div', { className: 'parte' }, el('h3', {}, 'Acordes'),
           el('div', { className: 'tg', rol: 'group', 'aria-label': 'Acordes' }, opcion('calidad', 'M', 'Mayores'), opcion('calidad', 'm', 'Menores'), opcion('calidad', 'ambos', 'Ambos'))),
         el('div', { className: 'parte' }, el('h3', {}, 'Posición'),
           el('div', { className: 'tg', rol: 'group', 'aria-label': 'Posición' }, opcion('inversiones', false, 'Fundamental'), opcion('inversiones', true, 'Con inversiones'))),
-        el('div', { className: 'parte' }, el('h3', {}, 'Clave'),
+        el('div', { className: 'parte' }, el('h3', {}, 'Verlo en'),
+          el('div', { className: 'tg', rol: 'group', 'aria-label': 'Verlo en' }, opcion('vista', 'piano', 'Piano'), opcion('vista', 'pent', 'Pentagrama'), opcion('vista', 'ambos', 'Los dos'))),
+        pref.vista === 'piano' ? null : el('div', { className: 'parte' }, el('h3', {}, 'Clave'),
           el('div', { className: 'tg', rol: 'group', 'aria-label': 'Clave' }, opcion('clave', 'sol', 'Sol'), opcion('clave', 'fa', 'Fa'), opcion('clave', 'ambas', 'Las dos'))),
         el('div', { className: 'parte' }, el('h3', {}, 'Repasar lo que fallo'),
           el('div', { className: 'tg', rol: 'group', 'aria-label': 'Repasar lo que fallo' }, opcion('repasar', true, 'Sí'), opcion('repasar', false, 'No'))),
@@ -115,7 +117,10 @@
 
   function pintar() {
     const r = ses.reto, rev = ses.fase === 'revisado', ultimo = ses.i >= ses.total;
-    const pent = el('div', { className: 'pr-visual rc-pent' }, nodoSvg(N.svgAcorde(r.clave, r.escritas)));
+    // En el piano se ve siempre que se eligió (y al revelar, aunque solo se haya visto el pentagrama, para poder tocarlo)
+    const verPiano = pref.vista !== 'pent' || rev, verPent = pref.vista !== 'piano';
+    const visual = [verPent ? el('div', { className: 'pr-visual rc-pent' }, nodoSvg(N.svgAcorde(r.clave, r.escritas))) : null,
+      verPiano ? el('div', { className: 'pr-visual' }, nodoSvg(N.svgTeclado({ marcar: r.midis }))) : null];
     let cuerpo;
     if (!rev) {
       const raices = el('div', { className: 'rc-raices', rol: 'group', 'aria-label': 'Raíz del acorde' }, ...RAICES_PC.map(([pc, t]) =>
@@ -138,7 +143,7 @@
         el('div', { className: 'rt-botones' }, el('button', { type: 'button', className: 'primario', id: 'rc-sig', onclick: avanzar }, ultimo ? 'Ver resultado' : 'Siguiente'))];
     }
     poner(barra(atrasBtn('← Salir', 'Salir (Esc)'), `${ses.i} / ${ses.total}`),
-      el('div', { className: 'ccuerpo pr-sesion', 'data-reconocer': '1' }, pent, ...cuerpo));
+      el('div', { className: 'ccuerpo pr-sesion', 'data-reconocer': '1' }, ...visual, ...cuerpo));
     const primero = caja.querySelector(rev ? '#rc-sig' : '.rc-raices button'); if (primero) primero.focus({ preventScroll: true });
   }
   // Marca la raíz o la calidad elegida sin volver a dibujar la pantalla (así no se pierde el foco ni el lugar del dedo).
@@ -174,6 +179,7 @@
     pref = { ...PREF0, ...(typeof g === 'object' ? g : {}) };
     if (!['M', 'm', 'ambos'].includes(pref.calidad)) pref.calidad = 'ambos';
     if (!['sol', 'fa', 'ambas'].includes(pref.clave)) pref.clave = 'ambas';
+    if (!['piano', 'pent', 'ambos'].includes(pref.vista)) pref.vista = 'piano';
     for (const k of ['inversiones', 'repasar']) pref[k] = typeof pref[k] === 'boolean' ? pref[k] : PREF0[k];
     est = R.limpiar(leer(EST));
     menu(); caja.focus({ preventScroll: true });

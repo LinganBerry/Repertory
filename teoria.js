@@ -31,6 +31,8 @@
   const TIPOS = [['', 'Mayor'], ['m', 'Menor'], ['dim', 'Disminuido'], ['aug', 'Aumentado'], ['sus2', 'Sus2'], ['sus4', 'Sus4'],
     ['maj7', 'Mayor 7'], ['7', 'Dominante 7'], ['m7', 'Menor 7'], ['m7b5', 'Semidisminuido'], ['dim7', 'Disminuido 7'], ['mMaj7', 'Menor con 7ª mayor'],
     ['6', 'Sexta'], ['m6', 'Menor 6'], ['add9', 'Add9'], ['9', 'Novena'], ['maj9', 'Mayor 9'], ['m9', 'Menor 9']];
+  // Los pocos acordes extra que se usan de verdad (gospel, pop, jazz); los demás tipos de la librería sobraban.
+  const MAS_ACORDES = ['7sus4', '69', '11', 'm11', '13', 'maj13', '7b9', '7#9', '7#11', '7#5'];
   const ROM = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
   const CALIDAD = { P: 'justa', M: 'mayor', m: 'menor', d: 'disminuida', A: 'aumentada', dd: 'doble disminuida', AA: 'doble aumentada' };
 
@@ -221,11 +223,9 @@
   }
 
   // --- Diccionario de acordes ---
-  const simbolo = ct => (ct.aliases.includes('') ? '' : ct.aliases[0]);
   function acordes() {
     const { Chord, ChordType } = T;
-    const todos = ChordType.all().filter(c => c.aliases.length)
-      .map(c => ({ alias: simbolo(c), c })).sort((a, b) => a.alias.length - b.alias.length || a.alias.localeCompare(b.alias));
+    const todos = MAS_ACORDES.map(alias => ({ alias, c: ChordType.get(alias) }));
     const ch = Chord.getChord(est.tipo, est.tonica);
     const curado = TIPOS.find(t => t[0] === est.tipo);
     const controles = [
@@ -233,7 +233,7 @@
       grupo(TONICAS.map(t => [t, t]), tonicaMarcada(), v => { est.tonica = v; dibujar(); }),
       el('p', { className: 'a' }, 'Tipo'),
       grupo(TIPOS.map(t => [t[0], t[1]]), est.tipo, v => { est.tipo = v; dibujar(); }),
-      el('p', { className: 'a' }, `Más acordes (${todos.length} tipos de la librería)`),
+      el('p', { className: 'a' }, 'Más acordes'),
       selector('Más acordes', todos.map(({ alias, c }) => [alias, est.tonica + alias + (c.name ? ' — ' + c.name : '')]), est.tipo, v => { est.tipo = v; dibujar(); })
     ];
     if (ch.empty) return { controles, detalles: [el('p', { className: 'vacio' }, 'No se pudo calcular ese acorde.')] };
