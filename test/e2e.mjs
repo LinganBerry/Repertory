@@ -383,8 +383,8 @@ test('PRACTICAR: teclado del ordenador (letras, # y -), alteraciones y salir con
   memoria.clear();
   const n = await navegador('');
   await abrirPractica(n);
-  [...n.d.querySelectorAll('[data-tema="sol"] .tg button')].find(b => /^5 /.test(b.textContent)).click();
-  await esperar(() => n.d.querySelector('[data-tema="sol"] [aria-pressed="true"]')?.textContent.startsWith('5'), 'nivel 5 elegido');
+  [...n.d.querySelectorAll('[data-tema="sol"] .tg button')].find(b => /^2 /.test(b.textContent)).click();
+  await esperar(() => n.d.querySelector('[data-tema="sol"] [aria-pressed="true"]')?.textContent.startsWith('2'), 'nivel 2 (con alteraciones) elegido');
   [...n.d.querySelectorAll('[data-tema="sol"] button')].find(b => /Empezar · 20/.test(b.textContent)).click();
   await esperar(() => n.w.RepertorioPractica.estadoSesion()?.preg, 'pregunta con alteraciones');
   assert.ok(n.d.querySelector('[data-mod]'), 'aparecen los botones de alteración');
@@ -428,7 +428,7 @@ test('PRACTICAR (oído): intervalos que suben: suena al empezar, se repite con R
   await empezarTema(n, 'int-asc', 10);
   assert.equal(audio.llamadas.length, 1, 'suena sola al aparecer la pregunta');
   assert.equal(audio.llamadas[0].length, 2, 'dos notas, una después de la otra');
-  assert.equal(n.d.querySelectorAll('#practica [data-op]').length, 4); assert.ok(n.$('pr-oir')); assert.equal(n.d.querySelector('#practica svg'), null, 'sin dibujos que den la respuesta');
+  assert.equal(n.d.querySelectorAll('#practica [data-op]').length, 7); assert.ok(n.$('pr-oir')); assert.equal(n.d.querySelector('#practica svg'), null, 'sin dibujos que den la respuesta');
   n.tecla(n.d, 'r'); assert.equal(audio.llamadas.length, 2, 'R repite');
   n.$('pr-oir').click(); assert.equal(audio.llamadas.length, 3, 'el botón repite');
   await contestar(n, false);
@@ -875,9 +875,10 @@ test('RECONOCER ACORDES: ver el acorde, elegir raíz y calidad, comprobar, pista
   assert.match(n.$('rc-progreso').textContent, /Aún no has hecho este ejercicio/);
   const op = (c, v) => n.d.querySelector(`[data-op="${c}:${v}"]`);
   assert.equal(op('inversiones', true).getAttribute('aria-pressed'), 'true', 'con inversiones desde el principio');
-  assert.equal(op('clave', 'ambas').getAttribute('aria-pressed'), 'true');
-  op('calidad', 'm').click(); op('inversiones', false).click(); op('clave', 'sol').click();
-  assert.deepEqual(JSON.parse(n.w.localStorage.getItem('repertorio-reconocer-pref')), { calidad: 'm', inversiones: false, clave: 'sol', repasar: true });
+  assert.equal(op('vista', 'piano').getAttribute('aria-pressed'), 'true', 'se ve en el piano desde el principio');
+  assert.equal(n.d.querySelector('[data-op="clave:sol"]'), null, 'la clave solo se pregunta si hay pentagrama');
+  op('vista', 'ambos').click(); op('calidad', 'm').click(); op('inversiones', false).click(); op('clave', 'sol').click();
+  assert.deepEqual(JSON.parse(n.w.localStorage.getItem('repertorio-reconocer-pref')), { calidad: 'm', inversiones: false, vista: 'ambos', clave: 'sol', repasar: true });
 
   // Siempre el mismo acorde (C# menor, fundamental, clave de sol) para saber qué contestar
   n.w.Math.random = () => 0.09;
@@ -890,6 +891,7 @@ test('RECONOCER ACORDES: ver el acorde, elegir raíz y calidad, comprobar, pista
     assert.ok(svg, 'se dibuja el pentagrama');
     assert.equal([...svg.querySelectorAll('text')].filter(t => t.textContent === '\uE0A2').length, 3, 'tres notas');
     assert.ok(svg.textContent.includes('\uE050'), 'clave de sol');
+    assert.deepEqual([...n.d.querySelectorAll('svg.pteclado .pk-on')].map(k => k.dataset.midi).sort(), ['61', '64', '68'], 'C♯ – E – G♯ marcadas en el piano');
     assert.equal(n.$('rc-era'), null, 'el nombre no se ve antes de comprobar');
     assert.equal(n.$('rc-comprobar').disabled, true, 'no se puede comprobar sin elegir');
     assert.equal(n.d.querySelectorAll('.rc-raices button').length, 12);
@@ -918,12 +920,13 @@ test('RECONOCER ACORDES: ver el acorde, elegir raíz y calidad, comprobar, pista
   n.w.history.back();                                          // Atrás desde el resultado: menú, con el progreso
   await esperar(() => n.$('rc-empezar-10') && /10 acordes · 40% bien/.test(n.$('rc-progreso').textContent), 'menú con el progreso');
 
-  // Con inversión y clave de fa: F# menor, 1ª inversión (A – C# – F#)
+  // Solo piano, con inversión: F# menor, 1ª inversión (A – C# – F#)
   n.w.Math.random = () => 0.5;
-  op('inversiones', true).click(); op('clave', 'fa').click();
+  op('inversiones', true).click(); op('vista', 'piano').click();
   n.$('rc-empezar-10').click();
   await esperar(() => n.$('rc-comprobar'), 'acorde con inversión');
-  assert.ok(n.d.querySelector('svg.pentagrama').textContent.includes('\uE062'), 'clave de fa');
+  assert.equal(n.d.querySelector('svg.pentagrama'), null, 'solo piano: sin pentagrama');
+  assert.deepEqual([...n.d.querySelectorAll('svg.pteclado .pk-on')].map(k => k.dataset.midi).sort(), ['69', '73', '78'], 'A – C♯ – F♯ marcadas');
   toca(0, 'M'); n.$('rc-comprobar').click();
   assert.equal(n.$('rc-era').textContent, 'Era F♯ menor · 1ª inversión');
   assert.equal(n.d.querySelector('.rc-res .rt-notas').textContent, 'A – C♯ – F♯');
@@ -935,6 +938,48 @@ test('RECONOCER ACORDES: ver el acorde, elegir raíz y calidad, comprobar, pista
   n.w.history.back();
   await esperar(() => n.$('practica').hidden, 'sale de Practicar');
   assert.equal(n.$('app').inert, false);
+  sinErrores(n); n.cerrar();
+});
+
+test('LECTURA A PRIMERA VISTA: frase en el pentagrama, ver cuáles son (con piano en sol), otra frase y Atrás', async () => {
+  memoria.clear();
+  const n = await navegador('');
+  const caja = await abrirPractica(n);
+  n.$('pr-lectura-ir').click();
+  await esperar(() => n.$('lc-empezar'), 'menú de lectura');
+  const op = (c, v) => n.d.querySelector(`[data-op="${c}:${v}"]`);
+  assert.equal(op('clave', 'ambas').getAttribute('aria-pressed'), 'true'); assert.equal(op('movimiento', 'grados').getAttribute('aria-pressed'), 'true');
+  op('clave', 'sol').click(); op('movimiento', 'saltos').click();
+  assert.deepEqual(JSON.parse(n.w.localStorage.getItem('repertorio-lectura-pref')), { clave: 'sol', movimiento: 'saltos' });
+  n.w.Math.random = () => 0.5;
+  n.$('lc-empezar').click();
+  await esperar(() => n.$('lc-boton'), 'primera frase');
+  assert.match(n.d.querySelector('.cbarra').textContent, /Frase 1/);
+  const heads = () => [...n.d.querySelectorAll('svg.pentagrama text')].filter(t => t.textContent === '\uE0A2').length;
+  assert.equal(heads(), 4); assert.ok(n.d.querySelector('svg.pentagrama').textContent.includes('\uE050'), 'clave de sol');
+  assert.equal(n.$('lc-notas'), null, 'los nombres no se ven antes'); assert.equal(n.$('lc-boton').textContent, 'Ver cuáles son');
+  n.$('lc-boton').click();
+  assert.equal(n.$('lc-notas').textContent.split(' – ').length, 4);
+  const marcadas = [...n.d.querySelectorAll('svg.pteclado .pk-on')];
+  assert.ok(marcadas.length >= 2 && marcadas.length <= 4, 'las notas marcadas en el piano');
+  assert.equal(n.$('lc-boton').textContent, 'Otra frase');
+  n.$('lc-boton').click();
+  assert.match(n.d.querySelector('.cbarra').textContent, /Frase 2/); assert.equal(n.$('lc-notas'), null);
+
+  n.w.history.back();                                          // Atrás en una frase: menú
+  await esperar(() => n.$('lc-empezar'), 'menú otra vez');
+  op('clave', 'fa').click();
+  n.$('lc-empezar').click();
+  await esperar(() => n.$('lc-boton'), 'frase en clave de fa');
+  assert.ok(n.d.querySelector('svg.pentagrama').textContent.includes('\uE062'), 'clave de fa');
+  n.$('lc-boton').click();
+  assert.equal(n.d.querySelector('svg.pteclado'), null, 'en fa las notas quedan fuera del teclado dibujado');
+  n.w.history.back();
+  await esperar(() => n.$('lc-empezar'), 'menú');
+  n.w.history.back();                                          // Atrás desde el menú: menú de Practicar
+  await esperar(() => n.$('pr-diaria') && n.$('pr-lectura-ir'), 'menú de Practicar');
+  n.w.history.back();
+  await esperar(() => n.$('practica').hidden, 'sale de Practicar');
   sinErrores(n); n.cerrar();
 });
 

@@ -40,10 +40,10 @@ test('grados: cada escala se compara con la mayor (♭ y ♯ bien puestos)', () 
   assert.equal(g('minor pentatonic'), '1 ♭3 4 5 ♭7');
 });
 
-test('lista: los 3 modos, las otras 4 escalas, o todas (sin repetir la mayor ni la menor natural)', () => {
+test('lista: los 3 modos, las otras 5 escalas, o todas (sin repetir la mayor ni la menor natural)', () => {
   assert.deepEqual(J(E.lista(MODOS, 'modos')).map(x => x.id), MODOS.map(m => m[0]));
   assert.deepEqual(J(E.lista(MODOS, 'otras')).map(x => x.id), J(E.OTRAS).map(o => o[0]));
-  assert.equal(E.lista(MODOS, 'todas').length, 7);
+  assert.equal(E.lista(MODOS, 'todas').length, 8);
 });
 
 test('crearReto: respeta el tipo, escribe bien el título y las notas, y no repite la anterior', () => {
@@ -57,8 +57,8 @@ test('crearReto: respeta el tipo, escribe bien el título y las notas, y no repi
   for (let i = 0; i < 40; i++) {
     const r = J(E.crearReto(datos, { tipo: 'otras' }, azar));
     assert.ok(E.OTRAS.some(o => o[0] === r.item));
-    assert.equal(r.notas.length, r.item.includes('pentatonic') ? 6 : 8);
-    assert.equal(r.cambia, r.item.includes('pentatonic') ? null : r.cambia, 'las pentatónicas no se comparan con la mayor 1 a 1');
+    assert.equal(r.notas.length, r.item.includes('pentatonic') ? 6 : r.item === 'blues' ? 7 : 8);
+    assert.equal(r.cambia, r.item.includes('pentatonic') || r.item === 'blues' ? null : r.cambia, 'las pentatónicas y el blues no se comparan con la mayor 1 a 1');
   }
   let previo = null;
   for (let i = 0; i < 60; i++) { const r = E.crearReto(datos, { tipo: 'todas' }, azar, previo); assert.notEqual(r.item, previo); previo = r.item; }
