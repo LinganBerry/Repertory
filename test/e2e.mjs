@@ -864,6 +864,80 @@ test('TEORÍA · Círculo de quintas: se elige una tonalidad tocando, sus 6 acor
   sinErrores(n); n.cerrar();
 });
 
+test('RECONOCER ACORDES: ver el acorde, elegir raíz y calidad, comprobar, pista solo al fallar, estadísticas y Atrás por niveles', async () => {
+  memoria.clear();
+  const n = await navegador('');
+  const caja = await abrirPractica(n);
+  n.w.Retos.CFG.guardia = 0;                                   // sin espera anti doble toque en las pruebas
+  n.$('pr-reconocer-ir').click();
+  await esperar(() => n.$('rc-empezar-10'), 'menú de reconocer acordes');
+  assert.equal(caja.scrollTop, 0);
+  assert.match(n.$('rc-progreso').textContent, /Aún no has hecho este ejercicio/);
+  const op = (c, v) => n.d.querySelector(`[data-op="${c}:${v}"]`);
+  assert.equal(op('inversiones', true).getAttribute('aria-pressed'), 'true', 'con inversiones desde el principio');
+  assert.equal(op('clave', 'ambas').getAttribute('aria-pressed'), 'true');
+  op('calidad', 'm').click(); op('inversiones', false).click(); op('clave', 'sol').click();
+  assert.deepEqual(JSON.parse(n.w.localStorage.getItem('repertorio-reconocer-pref')), { calidad: 'm', inversiones: false, clave: 'sol', repasar: true });
+
+  // Siempre el mismo acorde (C# menor, fundamental, clave de sol) para saber qué contestar
+  n.w.Math.random = () => 0.09;
+  n.$('rc-empezar-10').click();
+  await esperar(() => n.$('rc-comprobar'), 'primer acorde');
+  const toca = (pc, cal) => { if (pc != null) n.d.querySelector(`[data-pc="${pc}"]`).click(); if (cal) n.d.querySelector(`[data-cal="${cal}"]`).click(); };
+  for (let i = 1; i <= 10; i++) {
+    assert.match(n.d.querySelector('.cbarra').textContent, new RegExp(`${i} / 10`));
+    const svg = n.d.querySelector('svg.pentagrama');
+    assert.ok(svg, 'se dibuja el pentagrama');
+    assert.equal([...svg.querySelectorAll('text')].filter(t => t.textContent === '\uE0A2').length, 3, 'tres notas');
+    assert.ok(svg.textContent.includes('\uE050'), 'clave de sol');
+    assert.equal(n.$('rc-era'), null, 'el nombre no se ve antes de comprobar');
+    assert.equal(n.$('rc-comprobar').disabled, true, 'no se puede comprobar sin elegir');
+    assert.equal(n.d.querySelectorAll('.rc-raices button').length, 12);
+    const tipo = i % 3;                                         // 1: bien · 2: raíz equivocada · 0: raíz bien y calidad equivocada
+    if (i === 1) {
+      toca(1); assert.equal(n.$('rc-comprobar').disabled, true, 'falta la calidad');
+      assert.equal(n.d.querySelector('[data-pc="1"]').getAttribute('aria-pressed'), 'true');
+      toca(null, 'm'); assert.equal(n.$('rc-comprobar').disabled, false); assert.equal(n.$('rc-ayuda').hidden, true);
+    } else if (tipo === 1) toca(1, 'm'); else if (tipo === 2) toca(5, 'M'); else toca(1, 'M');
+    n.$('rc-comprobar').click();
+    assert.ok(n.$('rc-res'), 'se ve la respuesta');
+    assert.equal(n.$('rc-era').textContent, 'Era C♯ menor · posición fundamental');
+    assert.equal(n.d.querySelector('.rc-res .rt-notas').textContent, 'C♯ – E – G♯');
+    if (tipo === 1) { assert.equal(n.$('rc-veredicto').textContent, 'Bien'); assert.equal(n.$('rc-pista'), null, 'sin pista si aciertas'); }
+    else if (tipo === 2) { assert.equal(n.$('rc-veredicto').textContent, 'No era ese'); assert.equal(n.$('rc-dijo').textContent, 'Dijiste F mayor.'); assert.match(n.$('rc-pista').textContent, /nota de abajo/); }
+    else { assert.equal(n.$('rc-veredicto').textContent, 'No era ese'); assert.match(n.$('rc-pista').textContent, /Ordénalo en terceras/); }
+    assert.equal(n.$('rc-sig').textContent, i === 10 ? 'Ver resultado' : 'Siguiente');
+    n.$('rc-sig').click();
+  }
+  await esperar(() => n.$('rc-resultado'), 'resultado');
+  assert.match(n.$('rc-resultado').textContent, /^4 de 10 bien · 40%/);
+  const est = JSON.parse(n.w.localStorage.getItem('repertorio-reconocer-v1'));
+  assert.equal(est.items['C#|m|0'].v, 10); assert.equal(est.items['C#|m|0'].a, 4);
+  assert.equal(n.w.localStorage.getItem('repertorio-retos-v1'), null, 'no mezcla sus estadísticas con las de tocar acordes');
+
+  n.w.history.back();                                          // Atrás desde el resultado: menú, con el progreso
+  await esperar(() => n.$('rc-empezar-10') && /10 acordes · 40% bien/.test(n.$('rc-progreso').textContent), 'menú con el progreso');
+
+  // Con inversión y clave de fa: F# menor, 1ª inversión (A – C# – F#)
+  n.w.Math.random = () => 0.5;
+  op('inversiones', true).click(); op('clave', 'fa').click();
+  n.$('rc-empezar-10').click();
+  await esperar(() => n.$('rc-comprobar'), 'acorde con inversión');
+  assert.ok(n.d.querySelector('svg.pentagrama').textContent.includes('\uE062'), 'clave de fa');
+  toca(0, 'M'); n.$('rc-comprobar').click();
+  assert.equal(n.$('rc-era').textContent, 'Era F♯ menor · 1ª inversión');
+  assert.equal(n.d.querySelector('.rc-res .rt-notas').textContent, 'A – C♯ – F♯');
+  assert.match(n.$('rc-pista').textContent, /cuarta.*arriba/);
+  n.w.history.back();                                          // Atrás en medio de un acorde: menú
+  await esperar(() => n.$('rc-empezar-10'), 'menú otra vez');
+  n.w.history.back();                                          // Atrás desde el menú: menú de Practicar
+  await esperar(() => n.$('pr-diaria') && n.$('pr-reconocer-ir'), 'menú de Practicar');
+  n.w.history.back();
+  await esperar(() => n.$('practica').hidden, 'sale de Practicar');
+  assert.equal(n.$('app').inert, false);
+  sinErrores(n); n.cerrar();
+});
+
 test('TEORÍA · Escalas: 12 tónicas (una por tono), nombre más limpio, 5 otras escalas útiles y solo el crédito del piano', async () => {
   const n = await navegador();
   const { $, boton } = n;

@@ -326,3 +326,36 @@ test('niveles de líneas adicionales: sol se enfoca en ellas y fa sube hasta tre
     for (let i = 0; i < 200; i++) { const p = N.crearPregunta(tema, nv.id, { items: {} }, rng, null); assert.ok(permitidas.has(N.posicion(tema, p.nota)), `${tema}/${nv.id} salió fuera de su rango`); }
   }
 });
+
+test('svgAcorde: dibuja las tres notas, las líneas adicionales y las alteraciones sin que se pisen', () => {
+  const cuenta = (svg, glifo) => svg.split(glifo).length - 1, lineas = svg => cuenta(svg, '<line ');
+  // Do mayor en clave de sol, con el Do grave sobre su línea adicional: 5 líneas + 1 adicional
+  const c = N.svgAcorde('sol', [n('C', 0, 4), n('E', 0, 4), n('G', 0, 4)]);
+  assert.equal(cuenta(c, '\uE0A2'), 3, 'tres cabezas de nota'); assert.equal(lineas(c), 6); assert.ok(c.includes('\uE050') && c.includes('3 notas'));
+  assert.equal(cuenta(c, '\uE262') + cuenta(c, '\uE260'), 0, 'sin alteraciones');
+  // Fa sostenido mayor: tres sostenidos, cada uno en su columna (las notas están a menos de una sexta)
+  const f = N.svgAcorde('sol', [n('F', 1, 4), n('A', 1, 4), n('C', 1, 5)]);
+  assert.equal(cuenta(f, '\uE262'), 3);
+  const xs = [...f.matchAll(/<text x="([\d.]+)"[^>]*>\uE262</g)].map(m => Number(m[1]));
+  assert.equal(new Set(xs).size, 3, 'tres columnas distintas: ' + xs);
+  assert.ok(xs.every(x => x < 150 - 20), 'todas a la izquierda de las notas');
+  // Si.bemol menor: bemoles escalonados; en clave de fa y con una nota arriba que pide línea adicional
+  const b = N.svgAcorde('fa', [n('B', -1, 2), n('D', -1, 3), n('F', 0, 3)]);
+  assert.equal(cuenta(b, '\uE260'), 2); assert.ok(b.includes('\uE062'));
+  // Todas las tríadas posibles de Retos caben en el pentagrama (viewBox 260 x 150) en las dos claves
+  const ctx2 = { console }; ctx2.window = ctx2; vm.createContext(ctx2);
+  return readFile(new URL('../retos.js', import.meta.url), 'utf8').then(codigo => {
+    vm.runInContext(codigo, ctx2);
+    const R = ctx2.Retos, ys = [];
+    for (const cal of ['M', 'm']) for (const r of R.RAICES[cal]) for (const inv of [0, 1, 2]) {
+      const pos = R.posicion(R.acorde(r, cal), inv);
+      for (const clave of ['sol', 'fa']) {
+        const notas = pos.notas.map((nom, i) => { const a = (nom.slice(1).match(/#/g) || []).length - (nom.slice(1).match(/b/g) || []).length; return n(nom[0], a, Math.floor((pos.midis[i] - (clave === 'fa' ? 12 : 0) - a) / 12) - 1); });
+        const svg = N.svgAcorde(clave, notas);
+        for (const m of svg.matchAll(/y="(-?[\d.]+)"/g)) ys.push(Number(m[1]));
+        assert.equal(cuenta(svg, '\uE0A2'), 3, `${r}${cal} ${inv} ${clave}`);
+      }
+    }
+    assert.ok(Math.min(...ys) > 10 && Math.max(...ys) < 150, `las notas caben: ${Math.min(...ys)}..${Math.max(...ys)}`);
+  });
+});
