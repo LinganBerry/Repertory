@@ -104,6 +104,7 @@
     const T = window.RepertorioTimer, r = T.resumen(T.estado());
     return r.registros ? `Bloques con micro-pausas. Hoy: ${T.minutos(r.hoy)} min.` : 'Bloques con micro-pausas. Te propone solfeo y oído, 5 min cada uno.';
   }
+  let temasAbiertos = false;
   function pintarInicio() {
     const yVuelta = pantalla === 'inicio' ? caja.scrollTop : yInicio;
     clearTimeout(temporizador); ses = null; mod = 0; pantalla = 'inicio'; window.RepertorioAudio?.detener();
@@ -155,7 +156,6 @@
       window.Retos && window.Retos.abrir ? fila('pr-retos', 'Acordes', 'Mayores y menores, en los 12 tonos.', 'Abrir', 'pr-retos-ir', pintarRetos) : null,
       window.Reconocer && window.Reconocer.abrir ? fila('pr-reconocer', 'Reconocer acordes', 'Ves el acorde en el piano (con inversiones) y dices cuál es.', 'Abrir', 'pr-reconocer-ir', pintarReconocer) : null,
       window.Lectura && window.Lectura.abrir ? fila('pr-lectura', 'Lectura a primera vista', 'Frases cortas para leer y tocar en tu piano.', 'Abrir', 'pr-lectura-ir', pintarLectura) : null,
-      window.RepertorioTimer ? fila('pr-timer', 'TimerPiano', textoTimer(), 'Abrir', 'pr-timer-ir', () => window.RepertorioTimer.abrir()) : null,
       window.Progresiones && window.Progresiones.abrir ? fila('pr-progs', 'Progresiones', 'De tus canciones, en números romanos.', 'Abrir', 'pr-progs-ir', pintarProgresiones) : null,
       window.Escalas && window.Escalas.abrir ? fila('pr-escalas', 'Escalas y modos', 'Una escala o un modo en una tónica al azar.', 'Abrir', 'pr-escalas-ir', pintarEscalas) : null,
       window.Sorpresa && window.Sorpresa.abrir ? fila('pr-sorpresa', 'Canción sorpresa', 'Una canción tuya al azar: tócala de memoria.', 'Abrir', 'pr-sorpresa-ir', pintarSorpresa) : null
@@ -164,8 +164,12 @@
     const filasHerr = [
       window.Rearmonizar && window.Rearmonizar.abrir ? fila('pr-rearm', 'Rearmonizar', 'Ideas para adornar tus canciones, por niveles.', 'Abrir', 'pr-rearm-ir', pintarRearmonizar) : null,
       window.Improvisar && window.Improvisar.abrir ? fila('pr-improv', 'Improvisación', 'Una base que suena en bucle y las notas guía de cada acorde.', 'Abrir', 'pr-improv-ir', pintarImprovisar) : null,
+      window.RepertorioTimer ? fila('pr-timer', 'TimerPiano', textoTimer(), 'Abrir', 'pr-timer-ir', () => window.RepertorioTimer.abrir()) : null,
       prep
     ].filter(Boolean);
+    // Los temas sueltos (lectura, oído, armaduras) van plegados: la sesión diaria ya los mezcla. Se recuerda si los dejaste abiertos.
+    const temas = el('details', { className: 'pr-temas', id: 'pr-g-temas', open: temasAbiertos }, el('summary', {}, 'Ejercicios por tema'), ...tarjetas);
+    temas.addEventListener('toggle', () => { temasAbiertos = temas.open; });
     const grupo = (titulo, id, filas, nota) => filas.length ? el('section', { id }, el('h2', { className: 'pr-grupo' }, titulo),
       nota ? el('p', { className: 'a' }, nota) : null, el('div', { className: 'parte pr-filas' }, ...filas)) : null;
     const diaria = el('div', { className: 'parte', id: 'pr-diaria' }, el('h3', {}, 'Sesión diaria'),
@@ -174,8 +178,8 @@
         el('button', { type: 'button', id: 'pr-stats-ir', onclick: () => pintarEstadisticas() }, '📊 Estadísticas')));
     caja.replaceChildren(barra(el('button', { type: 'button', title: 'Volver (Esc)', onclick: () => history.back() }, '← Volver'), 'Practicar'),
       el('div', { className: 'ccuerpo' }, el('section', { id: 'pr-hoy' }, el('h2', { className: 'pr-grupo' }, 'Hoy'), estado, diaria, repaso),
-        grupo('Retos', 'pr-g-retos', filasRetos, 'Tócalos en tu piano y compruébalos. Sin sonido ni internet.'), grupo('Herramientas', 'pr-g-herr', filasHerr), ...tarjetas,
-        el('p', { className: 'a' }, 'Atajos: letras A–G para responder · # o + sube, - baja · Enter o Espacio para seguir · Esc para salir.')));
+        grupo('Retos', 'pr-g-retos', filasRetos, 'Tócalos en tu piano y compruébalos. Sin sonido ni internet.'), grupo('Herramientas', 'pr-g-herr', filasHerr),
+        temas));
     caja.scrollTop = yVuelta;
   }
 
