@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --import ./test/registrar.mjs test/probar.mjs && node test/comparar-prueba.mjs && node test/sw-prueba.mjs && node test/notacion-prueba.mjs && node test/lecciones-prueba.mjs && node test/retos-prueba.mjs && node test/reconocer-prueba.mjs && node test/lectura-prueba.mjs && node test/progresiones-prueba.mjs && node test/preparar-prueba.mjs && node test/escalas-prueba.mjs && node test/sorpresa-prueba.mjs && node test/improvisar-prueba.mjs && node test/rearmonizar-prueba.mjs && node test/hoja-prueba.mjs && node test/local-prueba.mjs && node test/romanos-prueba.mjs && node test/analisis-prueba.mjs",
+    "test": "node --import ./test/registrar.mjs test/probar.mjs && node test/comparar-prueba.mjs && node test/sw-prueba.mjs && node test/notacion-prueba.mjs && node test/lecciones-prueba.mjs && node test/retos-prueba.mjs && node test/reconocer-prueba.mjs && node test/lectura-prueba.mjs && node test/timer-prueba.mjs && node test/progresiones-prueba.mjs && node test/preparar-prueba.mjs && node test/escalas-prueba.mjs && node test/sorpresa-prueba.mjs && node test/improvisar-prueba.mjs && node test/rearmonizar-prueba.mjs && node test/hoja-prueba.mjs && node test/local-prueba.mjs && node test/romanos-prueba.mjs && node test/analisis-prueba.mjs",
     "test:e2e": "node --import ./test/registrar.mjs test/e2e.mjs",
     "contraste": "node scripts/contraste.mjs"
   },

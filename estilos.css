@@ -210,6 +210,8 @@
   @keyframes entra { from { transform: translateX(28px); opacity: 0; } to { transform: none; opacity: 1; } }
   #cancion:not([hidden]), #teoria:not([hidden]), #practica:not([hidden]) { animation: entra .22s ease-out; }
   @media print { #nav { display: none !important; } }
+  /* aviso de TimerPiano al llegar con una sesión (encima de la barra de abajo, pensado primero para teléfono) */
+  .aviso-timer { position: fixed; left: .75rem; right: .75rem; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 30; max-width: 28rem; margin: 0 auto; padding: .7rem .9rem; border-radius: 12px; background: var(--ink); color: var(--bg); font: 600 .95rem/1.3 var(--sans); box-shadow: 0 6px 24px rgba(0,0,0,.25); }
   /* --- retos de acordes --- */
   .rt-acorde { margin: .4rem 0; font: 700 3.4rem/1.1 ui-monospace, Menlo, Consolas, monospace; text-align: center; }
   .rt-prog { margin: .6rem 0; font: 700 1.6rem/1.5 ui-monospace, Menlo, Consolas, monospace; text-align: center; overflow-wrap: anywhere; }

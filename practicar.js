@@ -99,6 +99,11 @@
   const mmss = ms => { const s = Math.round(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
   const barra = (izq, centro) => el('div', { className: 'cbarra' }, izq, el('span', { className: 'ctitulo' }, centro));
 
+  // Fila de TimerPiano: lo practicado hoy allí (si ya llegó alguna sesión) o lo que se sugiere al abrirlo.
+  function textoTimer() {
+    const T = window.RepertorioTimer, r = T.resumen(T.estado());
+    return r.registros ? `Bloques con micro-pausas. Hoy: ${T.minutos(r.hoy)} min.` : 'Bloques con micro-pausas. Te propone solfeo y oído, 5 min cada uno.';
+  }
   function pintarInicio() {
     const yVuelta = pantalla === 'inicio' ? caja.scrollTop : yInicio;
     clearTimeout(temporizador); ses = null; mod = 0; pantalla = 'inicio'; window.RepertorioAudio?.detener();
@@ -150,6 +155,7 @@
       window.Retos && window.Retos.abrir ? fila('pr-retos', 'Acordes', 'Mayores y menores, en los 12 tonos.', 'Abrir', 'pr-retos-ir', pintarRetos) : null,
       window.Reconocer && window.Reconocer.abrir ? fila('pr-reconocer', 'Reconocer acordes', 'Ves el acorde en el piano (con inversiones) y dices cuál es.', 'Abrir', 'pr-reconocer-ir', pintarReconocer) : null,
       window.Lectura && window.Lectura.abrir ? fila('pr-lectura', 'Lectura a primera vista', 'Frases cortas para leer y tocar en tu piano.', 'Abrir', 'pr-lectura-ir', pintarLectura) : null,
+      window.RepertorioTimer ? fila('pr-timer', 'TimerPiano', textoTimer(), 'Abrir', 'pr-timer-ir', () => window.RepertorioTimer.abrir()) : null,
       window.Progresiones && window.Progresiones.abrir ? fila('pr-progs', 'Progresiones', 'De tus canciones, en números romanos.', 'Abrir', 'pr-progs-ir', pintarProgresiones) : null,
       window.Escalas && window.Escalas.abrir ? fila('pr-escalas', 'Escalas y modos', 'Una escala o un modo en una tónica al azar.', 'Abrir', 'pr-escalas-ir', pintarEscalas) : null,
       window.Sorpresa && window.Sorpresa.abrir ? fila('pr-sorpresa', 'Canción sorpresa', 'Una canción tuya al azar: tócala de memoria.', 'Abrir', 'pr-sorpresa-ir', pintarSorpresa) : null
@@ -221,6 +227,14 @@
     window.RepertorioAudio?.detener();
     window.Progresiones.abrir(caja, pintarInicio);
   }
+  // Tarjeta con el tiempo practicado que llegó desde TimerPiano (solo si ya llegó alguna sesión).
+  function tiempoTimer() {
+    const T = window.RepertorioTimer, r = T && T.resumen(T.estado());
+    if (!r || !r.registros) return null;
+    return el('div', { className: 'parte', id: 'pr-timer-stats' }, el('h3', {}, 'Tiempo de práctica (TimerPiano)'),
+      el('p', { className: 'pr-datos' }, el('b', {}, 'Hoy: '), T.minutos(r.hoy) + ' min · ', el('b', {}, '7 días: '), T.minutos(r.semana) + ' min · ', el('b', {}, 'Racha: '), r.racha + (r.racha === 1 ? ' día' : ' días')),
+      el('div', { className: 'chips' }, ...T.AREAS.filter(a => r.areas[a] > 0).map(a => el('span', { className: 'chip' }, el('b', {}, T.NOMBRES[a]), el('i', { className: 'rom' }, T.minutos(r.areas[a]) + ' min')))));
+  }
   function pintarEstadisticas() {
     dejarInicio();
     clearTimeout(temporizador); ses = null; pantalla = 'estadisticas'; window.RepertorioAudio?.detener();
@@ -233,6 +247,7 @@
       el('div', { className: 'ccuerpo' },
         el('h2', { id: 'pr-stats', tabIndex: -1 }, total ? `${total} preguntas · ${pct(aciertos / total)}` : 'Aún no hay práctica'),
         !total && el('p', {}, 'Haz una sesión y aquí verás tu progreso.'),
+        tiempoTimer(),
         total ? el('div', { className: 'parte' }, el('h3', {}, 'Últimos 7 días'), el('div', { className: 'chips' }, ...semana.map(d => el('span', { className: 'chip' }, el('b', {}, dia(d.f)), el('i', { className: 'rom' }, d.n ? d.n + ' · ' + pct(d.a / d.n) : '—'))))) : null,
         filas.length ? el('div', { className: 'parte' }, el('h3', {}, 'Por tema'), el('ul', { className: 'pr-puntos' }, ...filas.map(x => el('li', {}, `${N.TEMAS[x.tema].nombre} · nivel ${x.nivel}: ${pct(N.precision(est, x.tema, x.nivel))} reciente · ${x.t.n} preguntas`)))) : null,
         deb.length ? el('div', { className: 'parte' }, el('h3', {}, 'Puntos débiles'), el('div', { className: 'chips' }, ...deb.map(d => el('span', { className: 'chip' }, el('b', {}, d.rotulo), el('i', { className: 'rom' }, pct(d.acierto) + ' · ' + d.intentos + ' int.'))))) : null,
