@@ -917,6 +917,68 @@ test('LECTURA A PRIMERA VISTA: frase en el pentagrama, ver cuáles son (con pian
   sinErrores(n); n.cerrar();
 });
 
+test('TIMERPIANO: llega con una sesión, avisa, no se repite, se ve en Estadísticas y la fila abre TimerPiano con el plan', async () => {
+  memoria.clear();
+  const h = new Date(), f = `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}-${String(h.getDate()).padStart(2, '0')}`;
+  const hash = `#timer=abc123def456.${f}.300-120-0-60`;
+  let n = await navegador(hash);
+  await esperar(() => n.$('aviso-timer'), 'aviso de TimerPiano');
+  assert.equal(n.$('aviso-timer').textContent, 'TimerPiano: se sumaron 8 min a tu práctica.');
+  assert.equal(n.w.location.hash, '', 'la dirección queda limpia (recargar no lo repite)');
+  assert.equal(JSON.parse(n.w.localStorage.getItem('repertorio-timer-v1')).ses.length, 1);
+  n.$('aviso-timer').click(); assert.equal(n.$('aviso-timer'), null, 'un toque cierra el aviso');
+
+  n.w.location.hash = hash;                                    // el mismo enlace otra vez (con la página abierta): no se suma de nuevo
+  await esperar(() => n.$('aviso-timer'), 'aviso repetido');
+  assert.equal(n.$('aviso-timer').textContent, 'Esa práctica de TimerPiano ya estaba guardada.');
+  assert.equal(JSON.parse(n.w.localStorage.getItem('repertorio-timer-v1')).ses.length, 1);
+  n.$('aviso-timer').click();
+  n.w.location.hash = '#timer=roto';                           // enlace dañado: avisa y no guarda nada
+  await esperar(() => n.$('aviso-timer'), 'aviso de enlace roto');
+  assert.match(n.$('aviso-timer').textContent, /No pude leer/); assert.equal(n.w.location.hash, '');
+  assert.equal(JSON.parse(n.w.localStorage.getItem('repertorio-timer-v1')).ses.length, 1);
+  n.$('aviso-timer').click();
+
+  await abrirPractica(n);
+  assert.match(n.$('pr-timer').textContent, /TimerPiano/); assert.match(n.$('pr-timer').textContent, /Hoy: 8 min/);
+  let destino = null; n.w.RepertorioTimer.abrir = () => { destino = n.w.RepertorioTimer.enlace(); };
+  n.$('pr-timer-ir').click();
+  assert.equal(destino, 'https://zaenlly1.vercel.app/#plan=solfeo-5,oido-5');
+  n.$('pr-stats-ir').click();
+  await esperar(() => n.$('pr-timer-stats'), 'tarjeta de TimerPiano en Estadísticas');
+  const tarjeta = n.$('pr-timer-stats').textContent;
+  assert.match(tarjeta, /Hoy: 8 min · 7 días: 8 min · Racha: 1 día/);
+  assert.match(tarjeta, /Solfeo5 min/); assert.match(tarjeta, /Hanon2 min/); assert.match(tarjeta, /John Thompson1 min/); assert.doesNotMatch(tarjeta, /Canción a oído/);
+  sinErrores(n); n.cerrar();
+
+  memoria.clear();                                             // sin sesiones de TimerPiano: la fila sugiere y no hay tarjeta
+  n = await navegador('');
+  await abrirPractica(n);
+  assert.match(n.$('pr-timer').textContent, /solfeo y oído, 5 min cada uno/);
+  n.$('pr-stats-ir').click(); await esperar(() => n.$('pr-stats'), 'estadísticas vacías');
+  assert.equal(n.$('pr-timer-stats'), null);
+  sinErrores(n); n.cerrar();
+});
+
+test('PRACTICAR · menú ordenado: Hoy, Retos y Herramientas arriba; los temas sueltos plegados (y se recuerda si los abres); sin línea de atajos', async () => {
+  memoria.clear();
+  const n = await navegador('');
+  await abrirPractica(n);
+  const grupos = [...n.d.querySelectorAll('#practica h2.pr-grupo')].map(h => h.textContent);
+  assert.deepEqual(grupos.slice(0, 3), ['Hoy', 'Retos', 'Herramientas']);
+  assert.ok(n.$('pr-g-herr').contains(n.$('pr-timer')), 'TimerPiano está en Herramientas'); assert.equal(n.$('pr-g-retos').contains(n.$('pr-timer')), false);
+  for (const id of ['pr-retos', 'pr-reconocer', 'pr-lectura', 'pr-escalas']) assert.ok(n.$('pr-g-retos').contains(n.$(id)), id + ' en Retos');
+  const temas = n.$('pr-g-temas');
+  assert.equal(temas.tagName, 'DETAILS'); assert.equal(temas.open, false, 'plegado al entrar'); assert.equal(temas.querySelector('summary').textContent, 'Ejercicios por tema');
+  assert.ok(temas.querySelector('[data-tema="sol"]') && temas.querySelector('[data-tema="int-asc"]'), 'los temas siguen ahí dentro');
+  assert.doesNotMatch(n.$('practica').textContent, /Atajos:/);
+  temas.open = true; temas.dispatchEvent(new n.w.Event('toggle'));
+  n.$('pr-stats-ir').click(); await esperar(() => n.$('pr-stats'), 'estadísticas');
+  n.boton('← Practicar', n.$('practica')).click(); await esperar(() => n.$('pr-g-temas'), 'vuelve al menú');
+  assert.equal(n.$('pr-g-temas').open, true, 'sigue abierto si lo habías abierto');
+  sinErrores(n); n.cerrar();
+});
+
 test('TEORÍA · Escalas: 12 tónicas (una por tono), nombre más limpio, 5 otras escalas útiles y solo el crédito del piano', async () => {
   const n = await navegador();
   const { $, boton } = n;
